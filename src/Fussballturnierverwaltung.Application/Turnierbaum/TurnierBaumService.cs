@@ -12,7 +12,6 @@ public class TurnierBaumService(
     ITurnierBaumRepository baumRepository,
     ITurnierInstanzRepository instanzRepository,
     ISpielRepository spielRepository,
-    PlatzhalterAufloesung aufloesung,
     KoQuellverknuepfung quellverknuepfung,
     ILogger<TurnierBaumService> logger)
 {
@@ -120,25 +119,6 @@ public class TurnierBaumService(
 
         await baumRepository.VerknuepfungenAktualisierenAsync(baum, alleKnoten, ct);
         return baum;
-    }
-
-    /// <summary>
-    /// Schreibt die Sieger abgeschlossener Spiele in die korrespondierenden
-    /// Spiele der nächsten Runde (Heim-/Auswärts-Slot gemäß Bracket-Struktur).
-    /// </summary>
-    public async Task<int> SiegerFortsteiernAsync(int turnierInstanzId, CancellationToken ct = default)
-    {
-        var baum = await baumRepository.FindenNachInstanzAsync(turnierInstanzId, ct);
-        if (baum is null)
-            throw new InvalidOperationException("Kein Turnierbaum vorhanden. Bitte zuerst generieren.");
-
-        // Issue #241: nutzt jetzt denselben ID-basierten Auflösungspfad, der ohnehin automatisch nach
-        // jedem Ergebniseintrag läuft (SpielErgebnisService.PlatzhalterAutomatischAufloesenAsync) — statt
-        // Spiel-Felder direkt zu schreiben und PlatzhalterKorrigierenAsync/den Text-Erhalt zu umgehen.
-        int fortgeschrieben = await aufloesung.AlleRundenAufloesenAsync(turnierInstanzId, ct);
-
-        logger.LogInformation("Sieger fortgeschrieben: {Anzahl} Spiel(e) aktualisiert.", fortgeschrieben);
-        return fortgeschrieben;
     }
 
     /// <summary>Löscht den Turnierbaum einer Turnierinstanz (inkl. aller Knoten).</summary>

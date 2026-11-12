@@ -33,7 +33,7 @@ public class TurnierBaumServiceTests
         var dienste = new SpielplanDienste(ctx);
         var instanzRepo = new TurnierInstanzRepository(ctx);
         var baumService = new TurnierBaumService(
-            baumRepo, instanzRepo, spielRepo, dienste.Aufloesung, dienste.Quellverknuepfung,
+            baumRepo, instanzRepo, spielRepo, dienste.Quellverknuepfung,
             NullLogger<TurnierBaumService>.Instance);
         return (baumService, dienste.Spielplan);
     }
@@ -173,7 +173,7 @@ public class TurnierBaumServiceTests
     }
 
     [Fact]
-    public async Task SiegerFortsteiernAsync_PropagiertSiegerAutomatischUeberIdVerknuepfung()
+    public async Task NachDemGenerieren_LoestDieAufloesungDenSiegerUeberDieIdVerknuepfungAuf()
     {
         await using var ctx = NeuerContext();
         AchtelfinaleUndViertelfinaleAnlegen(ctx, out _, out int vfRundeId);
@@ -198,7 +198,9 @@ public class TurnierBaumServiceTests
         });
         ctx.SaveChanges();
 
-        int fortgeschrieben = await baumService.SiegerFortsteiernAsync(1);
+        // Die Auflösung läuft in der App nach jedem Ergebnis (SpielErgebnisService); die ID-Verknüpfung, die sie
+        // braucht, hat GenerierenAsync aus den Platzhaltertexten nachgezogen.
+        int fortgeschrieben = await new SpielplanDienste(ctx).Aufloesung.AlleRundenAufloesenAsync(1);
 
         fortgeschrieben.Should().BeGreaterThan(0);
         ctx.Spiele.First(s => s.Id == 101).HeimMannschaftId.Should().Be(1, "Sieger AF 1 = Team 1");

@@ -51,8 +51,7 @@ public class BracketLeser(
             .OrderBy(g => g.Key)
             .Select(g =>
             {
-                // Innerhalb der Runde: linke Kinder vor rechten (Bracket-Reihenfolge wiederherstellen)
-                var geordnet = OrdinierteKnoten(g.ToList());
+                var geordnet = g.ToList();
                 var rueckspiele = geordnet
                     .Where(k => k.SpielId.HasValue && rueckspielJeHinspielId.ContainsKey(k.SpielId.Value))
                     .ToDictionary(k => k.SpielId!.Value, k => rueckspielJeHinspielId[k.SpielId!.Value]);
@@ -70,32 +69,6 @@ public class BracketLeser(
             .ToList();
 
         return rundenGruppen;
-    }
-
-    // ── Hilfsmethoden ─────────────────────────────────────────────────────
-
-    /// <summary>
-    /// Stellt die Bracket-Reihenfolge der Knoten wieder her (linke Kinder vor rechten,
-    /// gemäß der Eltern-Ebene).
-    /// </summary>
-    private static List<TurnierBaumKnoten> OrdinierteKnoten(List<TurnierBaumKnoten> knoten)
-    {
-        // Knoten ohne Eltern: erste Runde, bereits in Einfügereihenfolge
-        var ohneEltern = knoten.Where(k => k.ElternKnotenId is null).ToList();
-        if (ohneEltern.Count == knoten.Count) return knoten;
-
-        // Rekonstruiere Reihenfolge via Eltern-Kind-Beziehung
-        var ergebnis = new List<TurnierBaumKnoten>();
-
-        // Sortiere nach (ElternKnotenId, ob linkes Kind)
-        foreach (var kn in knoten)
-        {
-            // Suche die Eltern-Info aus den Knoten der eigenen Liste
-            // (Eltern sind in einer anderen Ebene und nicht hier enthalten)
-            ergebnis.Add(kn);
-        }
-
-        return ergebnis; // Fallback: unverändert
     }
 }
 
