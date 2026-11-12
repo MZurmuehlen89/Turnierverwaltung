@@ -60,6 +60,10 @@ jobs:
           sqllocaldb start MSSQLLocalDB
           sqllocaldb info MSSQLLocalDB
 
+      # Hält fest, welche Abfrage auf eine Speicherzuteilung wartet; ausgewertet im Schritt Datenbank-Wartezeiten (#631)
+      - name: Speicherzuteilungen aufzeichnen
+        run: ./build/Datenbank-Wartezeiten.ps1 -AufzeichnungStarten
+
       - name: Framework-Tests
         run: >
           dotnet test --project tests/GuiTest.Framework.Tests
