@@ -191,15 +191,21 @@ public class GesamtbaumLayoutTests
         e.Beschriftungen.Single(x => x.Name == "Finale").Zeile.Should().Be(2);
     }
 
-    [Fact]
-    public void SpielUmPlatzDrei_StehtUnterDemFinale()
+    /// <summary>Die rundenweise Ansicht liefert Platz 3 seit #567 zwischen Halbfinale und Finale — die
+    /// Gesamtübersicht bleibt davon unberührt (AK6).</summary>
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void SpielUmPlatzDrei_StehtUnterDemFinale(bool platzDreiVorDemFinale)
     {
         var b = VollerBaum(2); // HF 2, F 1
         var p3 = Knoten();
-        var runden = new[]
-        {
-            Runde(1, "Halbfinale", b[0]), Runde(3, "Finale", b[1]), Runde(2, "Spiel um Platz 3", [p3], platzDrei: true)
-        };
+        var halbfinale = Runde(1, "Halbfinale", b[0]);
+        var finalRunde = Runde(3, "Finale", b[1]);
+        var platzDreiRunde = Runde(2, "Spiel um Platz 3", [p3], platzDrei: true);
+        var runden = platzDreiVorDemFinale
+            ? new[] { halbfinale, platzDreiRunde, finalRunde }
+            : new[] { halbfinale, finalRunde, platzDreiRunde };
 
         var e = GesamtbaumLayout.Berechnen(runden);
 

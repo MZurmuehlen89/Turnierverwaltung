@@ -27,35 +27,38 @@ public static class RundenbaumLayout
         double blaetter = 0;
 
         // Issue #385: Das Spiel um Platz 3 gehört nicht zur Baumkette, die Wurzel ist das Finale.
-        var wurzel = runden.LastOrDefault(r => !r.IstSpielUmPlatzDrei)?.Knoten.FirstOrDefault();
-        var platzDrei = runden.Where(r => r.IstSpielUmPlatzDrei).SelectMany(r => r.Knoten).ToList();
+        var letzteRunde = runden.LastOrDefault(r => !r.IstSpielUmPlatzDrei);
+        var wurzel = letzteRunde?.Knoten.FirstOrDefault();
+        // #567: Platz 3 rückt nur an ein echtes Finale (genau eine Karte) heran, sonst bleibt es ohne Linien.
+        var finale = letzteRunde?.Knoten is [var einzige] ? einzige : null;
+        var platzDrei = finale is null
+            ? []
+            : runden.Where(r => r.IstSpielUmPlatzDrei).SelectMany(r => r.Knoten).ToList();
         if (wurzel is not null)
-        {
             KartenZeilen.ZeileZuweisen(wurzel, alle, zeile, ref blaetter);
-            // #567: Platz 3 steht wie bei kicker.de auf der Höhe des Finales, nicht in einer eigenen Zeile.
-            foreach (var k in platzDrei)
-                zeile[k.Id] = zeile[wurzel.Id];
-        }
+        // #567: Platz 3 steht wie bei kicker.de auf der Höhe des Finales, nicht in einer eigenen Zeile.
+        foreach (var k in platzDrei)
+            zeile[k.Id] = zeile[finale!.Id];
 
         // Knoten ohne Weg zur Wurzel (Direkteinsteiger) in jeder Runde anhängen, nicht nur in der ersten — sonst
         // fehlen sie in der Anzeige.
         foreach (var k in runden.SelectMany(r => r.Knoten).Where(k => !zeile.ContainsKey(k.Id)))
             KartenZeilen.NaechsteZeileBelegen(k, zeile, ref blaetter);
 
-        return new RundenbaumLayoutErgebnis(zeile, blaetter, Vorgaenger(alle.Values, wurzel, platzDrei));
+        return new RundenbaumLayoutErgebnis(zeile, blaetter, Vorgaenger(alle.Values, finale, platzDrei));
     }
 
     /// <summary>#567: Die Kette Halbfinale → Spiel um Platz 3 → Finale gibt es nur in der Anzeige — im Baum hängt das
     /// Finale an den Halbfinals, und das Spiel um Platz 3 hat keine Kinder.</summary>
     private static Dictionary<int, KartenVorgaenger> Vorgaenger(
-        IEnumerable<TurnierBaumKnoten> alle, TurnierBaumKnoten? wurzel, IReadOnlyList<TurnierBaumKnoten> platzDrei)
+        IEnumerable<TurnierBaumKnoten> alle, TurnierBaumKnoten? finale, IReadOnlyList<TurnierBaumKnoten> platzDrei)
     {
         var vorgaenger = alle.ToDictionary(k => k.Id, k => new KartenVorgaenger(k.LinkerKindKnotenId, k.RechterKindKnotenId));
-        if (wurzel is null || platzDrei.Count == 0) return vorgaenger;
+        if (finale is null || platzDrei.Count == 0) return vorgaenger;
 
         foreach (var k in platzDrei)
-            vorgaenger[k.Id] = vorgaenger[wurzel.Id];
-        vorgaenger[wurzel.Id] = new KartenVorgaenger(platzDrei[0].Id, platzDrei.Count > 1 ? platzDrei[^1].Id : null);
+            vorgaenger[k.Id] = vorgaenger[finale.Id];
+        vorgaenger[finale.Id] = new KartenVorgaenger(platzDrei[0].Id, platzDrei.Count > 1 ? platzDrei[^1].Id : null);
         return vorgaenger;
     }
 }

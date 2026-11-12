@@ -116,6 +116,20 @@ public class RundenbaumLayoutTests
     }
 
     [Fact]
+    public void OhneEchtesFinale_BleibtSpielUmPlatzDreiOhneVorgaengerUndInEigenerZeile()
+    {
+        // Die letzte Runde der Kette hat zwei Karten — es gibt kein Finale, an das Platz 3 heranrücken könnte.
+        var halbfinale = new[] { Knoten(), Knoten() };
+        var platzDrei = Knoten();
+
+        var e = RundenbaumLayout.Berechnen([Runde(1, halbfinale), Runde(2, [platzDrei], platzDrei: true)]);
+
+        e.VorgaengerJeKnoten[platzDrei.Id].Should().Be(new KartenVorgaenger(null, null));
+        e.VorgaengerJeKnoten[halbfinale[0].Id].Should().Be(new KartenVorgaenger(null, null));
+        e.ZeileJeKnoten[platzDrei.Id].Should().Be(2.5);
+    }
+
+    [Fact]
     public void KnotenOhneWegZurWurzelWerdenInJederRundeAngehaengt()
     {
         var a = Knoten();

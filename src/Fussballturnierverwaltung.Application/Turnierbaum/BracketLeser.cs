@@ -71,12 +71,14 @@ public class BracketLeser(
 
     /// <summary>#567 (Vorbild kicker.de): Halbfinale → Spiel um Platz 3 → Finale, auch wenn das Spiel um Platz 3 per
     /// Reihenfolge erst nach dem Finale kommt. Die Linien verbinden die drei trotzdem durchgehend — anders als mit
-    /// #385, wo Platz 3 ohne Linien hinter dem Finale stand.</summary>
+    /// #385, wo Platz 3 ohne Linien hinter dem Finale stand. Ohne echtes Finale (letzte Runde der Kette mit genau
+    /// einer Karte, wie in <see cref="RundenbaumLayout"/>) bleibt Platz 3 am Ende.</summary>
     private static List<BracketRunde> PlatzDreiVorDasFinale(List<BracketRunde> runden)
     {
         var kette = runden.Where(r => !r.IstSpielUmPlatzDrei).ToList();
-        if (kette.Count == 0) return runden;
-        return [.. kette.Take(kette.Count - 1), .. runden.Where(r => r.IstSpielUmPlatzDrei), kette[^1]];
+        var platzDrei = runden.Where(r => r.IstSpielUmPlatzDrei);
+        if (kette.Count == 0 || kette[^1].Knoten.Count != 1) return [.. kette, .. platzDrei];
+        return [.. kette.Take(kette.Count - 1), .. platzDrei, kette[^1]];
     }
 }
 
