@@ -3,8 +3,10 @@ using Fussballturnierverwaltung.Domain.Entitaeten.Turnierbaum;
 namespace Fussballturnierverwaltung.Application.Turnierbaum;
 
 /// <summary>
-/// Zeilen der Turnierbaum-Karten (#450, aus <see cref="RundenbaumLayout"/> herausgelöst): Blätter stehen fortlaufend
-/// untereinander, jeder Elternknoten mittig zwischen seinen Kindern, mit nur einem Kind auf dessen Zeile.
+/// Zeilen der Turnierbaum-Karten, gemeinsam für <see cref="RundenbaumLayout"/> und <see cref="GesamtbaumLayout"/>
+/// (#450 — vorher hatte jedes Layout eine eigene Kopie, und nur eine davon behandelte das einzelne rechte Kind
+/// richtig): Blätter stehen fortlaufend untereinander, jeder Elternknoten mittig zwischen seinen Kindern, mit nur
+/// einem Kind auf dessen Zeile. Ein Kind, das nicht in <c>alle</c> steht, gilt als fehlend.
 /// </summary>
 internal static class KartenZeilen
 {
@@ -30,12 +32,12 @@ internal static class KartenZeilen
         zeile[knoten.Id] = (z1 + z2) / 2.0;
     }
 
-    private static TurnierBaumKnoten? KindVon(int? id, Dictionary<int, TurnierBaumKnoten> alle) =>
-        id is int wert ? alle.GetValueOrDefault(wert) : null;
-
     public static void NaechsteZeileBelegen(TurnierBaumKnoten knoten, Dictionary<int, double> zeile, ref double blaetter)
     {
         zeile[knoten.Id] = blaetter + 0.5;
         blaetter++;
     }
+
+    private static TurnierBaumKnoten? KindVon(int? id, Dictionary<int, TurnierBaumKnoten> alle) =>
+        id is int wert ? alle.GetValueOrDefault(wert) : null;
 }

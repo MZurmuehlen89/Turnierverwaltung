@@ -117,7 +117,7 @@ public static class GesamtbaumLayout
             }
         }
 
-        // ── Zeilen je Seite: Blätter fortlaufend, Eltern mittig zwischen ihren Kindern ─────────────────
+        // ── Zeilen je Seite (KartenZeilen): Blätter fortlaufend, Eltern mittig zwischen ihren Kindern ───
         private double ZeilenVergeben(GesamtbaumSeite s)
         {
             double blaetter = 0;
@@ -126,7 +126,7 @@ public static class GesamtbaumLayout
                 .OfType<TurnierBaumKnoten>()
                 .Concat(_wurzeln.Where(w => _seite[w.Id] == s));
             foreach (var k in startKnoten)
-                ZeileZuweisen(k, ref blaetter);
+                KartenZeilen.ZeileZuweisen(k, _alle, _zeile, ref blaetter);
             return blaetter;
         }
 
@@ -201,27 +201,6 @@ public static class GesamtbaumLayout
             if (!_seite.TryAdd(knoten.Id, s)) return;
             if (KindVon(knoten.LinkerKindKnotenId) is { } l) SeiteVererben(l, s);
             if (KindVon(knoten.RechterKindKnotenId) is { } r) SeiteVererben(r, s);
-        }
-
-        private void ZeileZuweisen(TurnierBaumKnoten knoten, ref double blaetter)
-        {
-            if (_zeile.ContainsKey(knoten.Id)) return;
-
-            var links = KindVon(knoten.LinkerKindKnotenId);
-            var rechts = KindVon(knoten.RechterKindKnotenId);
-            if (links is null && rechts is null)
-            {
-                _zeile[knoten.Id] = blaetter + 0.5;
-                blaetter++;
-                return;
-            }
-
-            if (links is not null) ZeileZuweisen(links, ref blaetter);
-            if (rechts is not null) ZeileZuweisen(rechts, ref blaetter);
-
-            double z1 = links is not null ? _zeile[links.Id] : _zeile[rechts!.Id];
-            double z2 = rechts is not null ? _zeile[rechts.Id] : z1;
-            _zeile[knoten.Id] = (z1 + z2) / 2;
         }
     }
 }
