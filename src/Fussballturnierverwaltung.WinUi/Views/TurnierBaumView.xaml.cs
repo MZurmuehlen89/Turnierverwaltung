@@ -289,10 +289,10 @@ public sealed partial class TurnierBaumView : UserControl
             return;
         }
 
-        var segmente = new List<(Point Von, Point Nach)>();
+        var segmente = new List<Segment>();
         foreach (var eltern in vm.RechteSpalteKnoten)
         {
-            Point? links = null, rechts = null;
+            Punkt? links = null, rechts = null;
 
             if (eltern.LinkerKindKnotenId is { } lid)
             {
@@ -309,13 +309,7 @@ public sealed partial class TurnierBaumView : UserControl
             if (links is null && rechts is null) continue;
             if (!TryKartenMitte(RechteSpalteItems, eltern, rechteKante: false, out var nach)) continue;
 
-            double midX = ((links ?? rechts!.Value).X + nach.X) / 2;
-
-            if (links is { } l) segmente.Add((l, new Point(midX, l.Y)));
-            if (rechts is { } r) segmente.Add((r, new Point(midX, r.Y)));
-            if (links is { } lv && rechts is { } rv && Math.Abs(lv.Y - rv.Y) > 0.5)
-                segmente.Add((new Point(midX, lv.Y), new Point(midX, rv.Y)));
-            segmente.Add((new Point(midX, nach.Y), nach));
+            segmente.AddRange(Verbindungslinien.ZwischenSpalten(links, rechts, nach));
         }
 
         if (segmente.Count == 0)
@@ -386,7 +380,7 @@ public sealed partial class TurnierBaumView : UserControl
 
     private static double Round(double wert) => Math.Round(wert, 1);
 
-    private bool TryKartenMitte(ItemsControl liste, BracketKnotenAnzeige knoten, bool rechteKante, out Point punkt)
+    private bool TryKartenMitte(ItemsControl liste, BracketKnotenAnzeige knoten, bool rechteKante, out Punkt punkt)
     {
         punkt = default;
         if (liste.ContainerFromItem(knoten) is not ContentPresenter praesentator) return false;
@@ -397,7 +391,8 @@ public sealed partial class TurnierBaumView : UserControl
         var lokalePosition = new Point(rechteKante ? element.ActualWidth : 0, element.ActualHeight / 2);
         try
         {
-            punkt = element.TransformToVisual(VerbindungsCanvas).TransformPoint(lokalePosition);
+            var position = element.TransformToVisual(VerbindungsCanvas).TransformPoint(lokalePosition);
+            punkt = new Punkt(position.X, position.Y);
         }
         catch (Exception ex) when (ex is InvalidOperationException or ArgumentException)
         {
