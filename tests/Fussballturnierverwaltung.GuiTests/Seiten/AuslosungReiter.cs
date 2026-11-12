@@ -364,8 +364,7 @@ public sealed class AuslosungReiter(Window fenster, Hauptfenster hauptfenster)
             : ansage.EndsWith("ziehe die Position", StringComparison.Ordinal) ? "HandZiehung.Platz"
             : "HandZiehung.Team";
 
-        // Die Ansage steht vor den Klickflächen: direkt nach dem Start fand der Test schon einmal keine (#631-Lauf
-        // 43222392801, Abbruch 234 ms nach „Ziehung von Hand starten“, das Bildschirmfoto danach zeigt alle Teams).
+        // Die Ansage erscheint vor den Klickflächen – direkt nach dem Start fand der Test schon einmal noch keine.
         var kandidaten = Wait.UntilFound(() => fenster.FindAllById(flaeche) is { Count: > 0 } gefunden ? gefunden : null,
             Wait.DefaultTimeout, $"Klickflächen '{flaeche}'");
         foreach (var kandidat in kandidaten)
