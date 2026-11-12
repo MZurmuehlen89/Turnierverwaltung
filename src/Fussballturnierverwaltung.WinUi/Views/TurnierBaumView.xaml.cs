@@ -1,3 +1,4 @@
+using Fussballturnierverwaltung.Application.Turnierbaum;
 using Fussballturnierverwaltung.WinUi.ViewModels;
 using Microsoft.UI.Input;
 using Microsoft.UI.Xaml;
@@ -65,9 +66,7 @@ public sealed partial class TurnierBaumView : UserControl
 
     // ── Gesamtübersicht (Issue #238) ──────────────────────────────────────────
 
-    /// <summary>Vertikale Streckung der Kartenabstände (≥ 1): Ein breiter Baum wird beim Einpassen auf die
-    /// Fensterbreite verkleinert und bliebe sonst ein flaches Band in der Mitte — die Zeilenabstände wachsen deshalb,
-    /// bis der Baum auch die Höhe ausfüllt. Die Karten selbst behalten ihre Größe.</summary>
+    /// <summary>Faktor der <see cref="GesamtbaumStreckung"/>, beim Einpassen ermittelt.</summary>
     private double _streckung = 1.0;
     private const double MAX_STRECKUNG = 3.0;
     private (double Breite, double Hoehe) _letzteBaumGroesse;
@@ -96,14 +95,10 @@ public sealed partial class TurnierBaumView : UserControl
         GesamtCanvas.Children.Clear();
         if (_vm is null) return;
 
-        const double kopf = TurnierBaumViewModel.GESAMT_KOPF_H;
-        const double rand = TurnierBaumViewModel.GESAMT_RAND;
-        double streckung = _streckung;
-        // Kartenmitten unterhalb des Spaltenkopfs werden gestreckt, die Kartengröße bleibt.
-        double Strecken(double y) => kopf + (y - kopf) * streckung;
+        var streckung = new GesamtbaumStreckung(TurnierBaumViewModel.GESAMT_KOPF_H, _streckung);
 
         GesamtCanvas.Width = _vm.GesamtBreite;
-        GesamtCanvas.Height = kopf + (_vm.GesamtHoehe - kopf - rand) * streckung + rand;
+        GesamtCanvas.Height = streckung.FlaechenHoehe(_vm.GesamtHoehe, TurnierBaumViewModel.GESAMT_RAND);
 
         const double w = TurnierBaumViewModel.KOMPAKT_W;
         const double h = TurnierBaumViewModel.KOMPAKT_H;
@@ -117,19 +112,12 @@ public sealed partial class TurnierBaumView : UserControl
             {
                 if (kindId is not int id || !knotenJeId.TryGetValue(id, out var kind)) continue;
 
-                // Kinder liegen weiter außen: links vom Elternknoten → rechte Kante zur linken, sonst gespiegelt.
-                bool kindLinks = kind.GesamtX < eltern.GesamtX;
-                double x1 = kindLinks ? kind.GesamtX + w : kind.GesamtX;
-                double x2 = kindLinks ? eltern.GesamtX : eltern.GesamtX + w;
-                double y1 = Strecken(kind.GesamtY + h / 2);
-                double y2 = Strecken(eltern.GesamtY + h / 2);
-                double mitteX = (x1 + x2) / 2;
+                var punkte = Verbindungslinien.ZwischenKarten(kind.GesamtX, streckung.Strecken(kind.GesamtY + h / 2),
+                    eltern.GesamtX, streckung.Strecken(eltern.GesamtY + h / 2), w);
 
                 var linie = new Polyline { Stroke = pinsel, StrokeThickness = 1.5, IsHitTestVisible = false };
-                linie.Points.Add(new Point(x1, y1));
-                linie.Points.Add(new Point(mitteX, y1));
-                linie.Points.Add(new Point(mitteX, y2));
-                linie.Points.Add(new Point(x2, y2));
+                foreach (var punkt in punkte)
+                    linie.Points.Add(new Point(punkt.X, punkt.Y));
                 GesamtCanvas.Children.Add(linie);
             }
         }
@@ -144,7 +132,7 @@ public sealed partial class TurnierBaumView : UserControl
             };
             Canvas.SetLeft(text, b.X);
             double abstand = TurnierBaumViewModel.GESAMT_BESCHRIFTUNG_ABSTAND;
-            Canvas.SetTop(text, b.GehoertZuKarte ? Strecken(b.Y + abstand + h / 2) - h / 2 - abstand : b.Y);
+            Canvas.SetTop(text, b.GehoertZuKarte ? streckung.KartenOben(b.Y + abstand, h) - abstand : b.Y);
             GesamtCanvas.Children.Add(text);
         }
 
@@ -161,15 +149,15 @@ public sealed partial class TurnierBaumView : UserControl
             };
             SpielKontextmenue.SetKarte(karte, k);
             Canvas.SetLeft(karte, k.GesamtX);
-            Canvas.SetTop(karte, Strecken(k.GesamtY + h / 2) - h / 2);
+            Canvas.SetTop(karte, streckung.KartenOben(k.GesamtY, h));
             GesamtCanvas.Children.Add(karte);
         }
 
-        GesamtSiegerfeldAufbauen(Strecken);
+        GesamtSiegerfeldAufbauen(streckung);
     }
 
     // #527: über dem Finale, auf Höhe der gestreckten Finalkarte.
-    private void GesamtSiegerfeldAufbauen(Func<double, double> strecken)
+    private void GesamtSiegerfeldAufbauen(GesamtbaumStreckung streckung)
     {
         if (_vm?.Siegerfeld is not { } siegerfeld || _vm.FinaleKnoten is not { IstInGesamtbaum: true } finale) return;
 
@@ -180,7 +168,7 @@ public sealed partial class TurnierBaumView : UserControl
             IsHitTestVisible = false
         };
         Canvas.SetLeft(feld, finale.GesamtX);
-        Canvas.SetTop(feld, strecken(finale.GesamtY + h / 2) - h / 2 - TurnierBaumViewModel.SIEGERFELD_UEBER_FINALE);
+        Canvas.SetTop(feld, streckung.KartenOben(finale.GesamtY, h) - TurnierBaumViewModel.SIEGERFELD_UEBER_FINALE);
         GesamtCanvas.Children.Add(feld);
     }
 
@@ -200,14 +188,10 @@ public sealed partial class TurnierBaumView : UserControl
             return;
 
         // Zoom richtet sich nach der Breite; die bei diesem Zoom sichtbare Höhe füllen die gestreckten Abstände.
-        const double kopf = TurnierBaumViewModel.GESAMT_KOPF_H;
-        const double rand = TurnierBaumViewModel.GESAMT_RAND;
         double breitenFaktor = Math.Clamp(GesamtScroll.ViewportWidth / _vm.GesamtBreite, GesamtScroll.MinZoomFactor, 1.0);
         double verfuegbareHoehe = GesamtScroll.ViewportHeight / breitenFaktor;
-        double inhaltsHoehe = _vm.GesamtHoehe - kopf - rand;
-        double streckung = inhaltsHoehe > 0
-            ? Math.Clamp((verfuegbareHoehe - kopf - rand) / inhaltsHoehe, 1.0, MAX_STRECKUNG)
-            : 1.0;
+        double streckung = GesamtbaumStreckung.FaktorZumEinpassen(verfuegbareHoehe, _vm.GesamtHoehe,
+            TurnierBaumViewModel.GESAMT_KOPF_H, TurnierBaumViewModel.GESAMT_RAND, MAX_STRECKUNG);
         if (Math.Abs(streckung - _streckung) > 0.001)
         {
             _streckung = streckung;
