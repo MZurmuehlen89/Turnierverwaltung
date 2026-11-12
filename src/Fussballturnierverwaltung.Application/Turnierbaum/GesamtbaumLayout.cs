@@ -100,8 +100,8 @@ public static class GesamtbaumLayout
             foreach (var k in _baumRunden[_letzte].Knoten)
             {
                 _seite[k.Id] = GesamtbaumSeite.Mitte;
-                if (KindVon(k.LinkerKindKnotenId, _alle) is { } l) SeiteVererben(l, GesamtbaumSeite.Links, _alle, _seite);
-                if (KindVon(k.RechterKindKnotenId, _alle) is { } r) SeiteVererben(r, GesamtbaumSeite.Rechts, _alle, _seite);
+                if (KindVon(k.LinkerKindKnotenId) is { } l) SeiteVererben(l, GesamtbaumSeite.Links);
+                if (KindVon(k.RechterKindKnotenId) is { } r) SeiteVererben(r, GesamtbaumSeite.Rechts);
             }
             for (int ri = _letzte - 1; ri >= 0; ri--)
             {
@@ -111,7 +111,7 @@ public static class GesamtbaumLayout
                 {
                     int index = IndexVon(rundenKnoten, k);
                     var s = index < (rundenKnoten.Count + 1) / 2 ? GesamtbaumSeite.Links : GesamtbaumSeite.Rechts;
-                    SeiteVererben(k, s, _alle, _seite);
+                    SeiteVererben(k, s);
                     _wurzeln.Add(k);
                 }
             }
@@ -122,14 +122,11 @@ public static class GesamtbaumLayout
         {
             double blaetter = 0;
             var startKnoten = _baumRunden[_letzte].Knoten
-                .SelectMany(f => new[]
-                {
-                    s == GesamtbaumSeite.Links ? KindVon(f.LinkerKindKnotenId, _alle) : KindVon(f.RechterKindKnotenId, _alle)
-                })
+                .Select(f => KindVon(s == GesamtbaumSeite.Links ? f.LinkerKindKnotenId : f.RechterKindKnotenId))
                 .OfType<TurnierBaumKnoten>()
                 .Concat(_wurzeln.Where(w => _seite[w.Id] == s));
             foreach (var k in startKnoten)
-                ZeileZuweisen(k, _alle, _zeile, ref blaetter);
+                ZeileZuweisen(k, ref blaetter);
             return blaetter;
         }
 
@@ -149,14 +146,15 @@ public static class GesamtbaumLayout
         // ── Mitte: Finale auf halber Höhe, darunter das Spiel um Platz 3 ───────────────────────────────
         private double FinaleSetzen(double hoehe)
         {
-            double mitteZeile = hoehe / 2 - (_baumRunden[_letzte].Knoten.Count - 1) / 2.0;
-            foreach (var k in _baumRunden[_letzte].Knoten)
+            var finalRunde = _baumRunden[_letzte];
+            double ersteZeile = hoehe / 2 - (finalRunde.Knoten.Count - 1) / 2.0;
+            double mitteZeile = ersteZeile;
+            foreach (var k in finalRunde.Knoten)
             {
                 _positionen.Add(new GesamtbaumPosition(k.Id, Mitte, mitteZeile, GesamtbaumSeite.Mitte));
                 mitteZeile += 1;
             }
-            _beschriftungen.Add(new GesamtbaumBeschriftung(Mitte, RundenBezeichnung.Name(_baumRunden[_letzte]),
-                hoehe / 2 - (_baumRunden[_letzte].Knoten.Count - 1) / 2.0));
+            _beschriftungen.Add(new GesamtbaumBeschriftung(Mitte, RundenBezeichnung.Name(finalRunde), ersteZeile));
 
             return mitteZeile - 1;
         }
@@ -186,45 +184,44 @@ public static class GesamtbaumLayout
                 _beschriftungen.Add(new GesamtbaumBeschriftung(_spaltenAnzahl - 1 - ri, name));
             }
         }
-    }
 
-    private static TurnierBaumKnoten? KindVon(int? id, Dictionary<int, TurnierBaumKnoten> alle) =>
-        id is int wert ? alle.GetValueOrDefault(wert) : null;
+        // ── Hilfsmethoden ─────────────────────────────────────────────────────
 
-    private static int IndexVon(IReadOnlyList<TurnierBaumKnoten> liste, TurnierBaumKnoten knoten)
-    {
-        for (int i = 0; i < liste.Count; i++)
-            if (liste[i].Id == knoten.Id) return i;
-        return -1;
-    }
+        private TurnierBaumKnoten? KindVon(int? id) => id is int wert ? _alle.GetValueOrDefault(wert) : null;
 
-    private static void SeiteVererben(TurnierBaumKnoten knoten, GesamtbaumSeite s,
-        Dictionary<int, TurnierBaumKnoten> alle, Dictionary<int, GesamtbaumSeite> seite)
-    {
-        if (!seite.TryAdd(knoten.Id, s)) return;
-        if (KindVon(knoten.LinkerKindKnotenId, alle) is { } l) SeiteVererben(l, s, alle, seite);
-        if (KindVon(knoten.RechterKindKnotenId, alle) is { } r) SeiteVererben(r, s, alle, seite);
-    }
-
-    private static void ZeileZuweisen(TurnierBaumKnoten knoten, Dictionary<int, TurnierBaumKnoten> alle,
-        Dictionary<int, double> zeile, ref double blaetter)
-    {
-        if (zeile.ContainsKey(knoten.Id)) return;
-
-        var links = KindVon(knoten.LinkerKindKnotenId, alle);
-        var rechts = KindVon(knoten.RechterKindKnotenId, alle);
-        if (links is null && rechts is null)
+        private static int IndexVon(IReadOnlyList<TurnierBaumKnoten> liste, TurnierBaumKnoten knoten)
         {
-            zeile[knoten.Id] = blaetter + 0.5;
-            blaetter++;
-            return;
+            for (int i = 0; i < liste.Count; i++)
+                if (liste[i].Id == knoten.Id) return i;
+            return -1;
         }
 
-        if (links is not null) ZeileZuweisen(links, alle, zeile, ref blaetter);
-        if (rechts is not null) ZeileZuweisen(rechts, alle, zeile, ref blaetter);
+        private void SeiteVererben(TurnierBaumKnoten knoten, GesamtbaumSeite s)
+        {
+            if (!_seite.TryAdd(knoten.Id, s)) return;
+            if (KindVon(knoten.LinkerKindKnotenId) is { } l) SeiteVererben(l, s);
+            if (KindVon(knoten.RechterKindKnotenId) is { } r) SeiteVererben(r, s);
+        }
 
-        double z1 = links is not null ? zeile[links.Id] : zeile[rechts!.Id];
-        double z2 = rechts is not null ? zeile[rechts.Id] : z1;
-        zeile[knoten.Id] = (z1 + z2) / 2;
+        private void ZeileZuweisen(TurnierBaumKnoten knoten, ref double blaetter)
+        {
+            if (_zeile.ContainsKey(knoten.Id)) return;
+
+            var links = KindVon(knoten.LinkerKindKnotenId);
+            var rechts = KindVon(knoten.RechterKindKnotenId);
+            if (links is null && rechts is null)
+            {
+                _zeile[knoten.Id] = blaetter + 0.5;
+                blaetter++;
+                return;
+            }
+
+            if (links is not null) ZeileZuweisen(links, ref blaetter);
+            if (rechts is not null) ZeileZuweisen(rechts, ref blaetter);
+
+            double z1 = links is not null ? _zeile[links.Id] : _zeile[rechts!.Id];
+            double z2 = rechts is not null ? _zeile[rechts.Id] : z1;
+            _zeile[knoten.Id] = (z1 + z2) / 2;
+        }
     }
 }
