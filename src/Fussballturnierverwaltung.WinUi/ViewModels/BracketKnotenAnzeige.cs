@@ -10,6 +10,11 @@ namespace Fussballturnierverwaltung.WinUi.ViewModels;
 
 // ── Hilfsklassen für die Karten des Turnierbaums ──────────────────────────
 
+/// <summary>Wo eine Karte im rundenweisen Baum steht: <paramref name="Zeile"/> aus dem
+/// <see cref="RundenbaumLayout"/>, die Runde, die Beschriftung bei festen Paarungen und die Turnierrunde für den
+/// Klick (bei einem Freilos die der übrigen Karten seiner Runde).</summary>
+public readonly record struct KnotenPlatz(double Zeile, int RundenIndex, string Label, int? TurnierRundeId);
+
 public class BracketKnotenAnzeige
 {
     public int Id { get; init; }
@@ -58,35 +63,37 @@ public class BracketKnotenAnzeige
     public double GesamtY { get; set; }
     public bool IstInGesamtbaum { get; set; }
 
-    public static BracketKnotenAnzeige Aus(
-        TurnierBaumKnoten k, Spiel? rueckspiel, double zeile, int rundenIndex, string label, int? turnierRundeId)
-    {
-        if (k.Spiel is not { } s)
-            return new BracketKnotenAnzeige
-            {
-                Id = k.Id,
-                Zeile = zeile,
-                RundenIndex = rundenIndex,
-                TurnierRundeId = turnierRundeId,
-                LinkerKindKnotenId = k.LinkerKindKnotenId,
-                RechterKindKnotenId = k.RechterKindKnotenId,
-                IstFreilos = true,
-                Label = label,
-                HeimName = "–",
-                AuswaertsName = "–"
-            };
+    /// <summary>Karte eines Knotens: ohne Spiel ein Freilos, sonst die Paarung samt (Gesamt-)Ergebnis.</summary>
+    public static BracketKnotenAnzeige Aus(TurnierBaumKnoten k, Spiel? rueckspiel, KnotenPlatz platz) =>
+        k.Spiel is { } spiel ? FuerSpiel(k, spiel, rueckspiel, platz) : Freilos(k, platz);
 
+    private static BracketKnotenAnzeige Freilos(TurnierBaumKnoten k, KnotenPlatz platz) => new()
+    {
+        Id = k.Id,
+        Zeile = platz.Zeile,
+        RundenIndex = platz.RundenIndex,
+        TurnierRundeId = platz.TurnierRundeId,
+        LinkerKindKnotenId = k.LinkerKindKnotenId,
+        RechterKindKnotenId = k.RechterKindKnotenId,
+        IstFreilos = true,
+        Label = platz.Label,
+        HeimName = "–",
+        AuswaertsName = "–"
+    };
+
+    private static BracketKnotenAnzeige FuerSpiel(TurnierBaumKnoten k, Spiel s, Spiel? rueckspiel, KnotenPlatz platz)
+    {
         var ergebnis = KnotenErgebnis.Fuer(s, rueckspiel);
         return new BracketKnotenAnzeige
         {
             Id = k.Id,
-            Zeile = zeile,
-            RundenIndex = rundenIndex,
-            TurnierRundeId = turnierRundeId ?? s.TurnierRundeId,
+            Zeile = platz.Zeile,
+            RundenIndex = platz.RundenIndex,
+            TurnierRundeId = platz.TurnierRundeId ?? s.TurnierRundeId,
             LinkerKindKnotenId = k.LinkerKindKnotenId,
             RechterKindKnotenId = k.RechterKindKnotenId,
             IstFreilos = false,
-            Label = label,
+            Label = platz.Label,
             HeimName = s.HeimMannschaft?.Name ?? s.HeimPlatzhalterName ?? "—",
             AuswaertsName = s.AuswaertsMannschaft?.Name ?? s.AuswaertsPlatzhalterName ?? "—",
             HeimWappen = MannschaftsIcon.Fuer(s.HeimMannschaft),

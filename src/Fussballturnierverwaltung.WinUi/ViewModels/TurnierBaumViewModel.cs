@@ -332,7 +332,7 @@ public partial class TurnierBaumViewModel : ViewModelBase
 
             string label = mitLabels ? RundenBezeichnung.KnotenLabel(runde, pos) : "";
             var rueckspiel = k.SpielId is int spielId ? runde.RueckspielJeHinspielId.GetValueOrDefault(spielId) : null;
-            yield return BracketKnotenAnzeige.Aus(k, rueckspiel, zeile, rundenIndex, label, turnierRundeId);
+            yield return BracketKnotenAnzeige.Aus(k, rueckspiel, new KnotenPlatz(zeile, rundenIndex, label, turnierRundeId));
         }
     }
 
