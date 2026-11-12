@@ -40,7 +40,126 @@ public class GesamtbaumLayoutTests
     private static GesamtbaumPosition Pos(GesamtbaumLayoutErgebnis e, TurnierBaumKnoten k) =>
         e.Positionen.Single(p => p.KnotenId == k.Id);
 
+    /// <summary>Das ganze Ergebnis als Text, in der gelieferten Reihenfolge. Knoten erscheinen unter ihrem Namen
+    /// statt ihrer Id, weil die Ids vom Zähler über alle Tests abhängen.</summary>
+    private static string Abbild(GesamtbaumLayoutErgebnis e, Dictionary<TurnierBaumKnoten, string> namen)
+    {
+        var nameJeId = namen.ToDictionary(n => n.Key.Id, n => n.Value);
+        var zeilen = e.Positionen
+            .Select(p => FormattableString.Invariant($"{nameJeId[p.KnotenId]} {p.Spalte}/{p.Zeile}/{p.Seite}"))
+            .Concat(e.Beschriftungen.Select(b => FormattableString.Invariant($"[{b.Name}] {b.Spalte}/{b.Zeile}")))
+            .Append(FormattableString.Invariant($"= {e.SpaltenAnzahl} Spalten, {e.ZeilenAnzahl} Zeilen"));
+        return string.Join(Environment.NewLine, zeilen);
+    }
+
+    // Rohtext-Literale übernehmen die Zeilenenden der Quelldatei.
+    private static string ZeilenumbruecheWieHier(string text) => text.ReplaceLineEndings();
+
+    private static Dictionary<TurnierBaumKnoten, string> Benennen(string praefix, IEnumerable<TurnierBaumKnoten> knoten,
+        Dictionary<TurnierBaumKnoten, string>? namen = null)
+    {
+        namen ??= [];
+        int i = 0;
+        foreach (var k in knoten) namen[k] = $"{praefix}{i++}";
+        return namen;
+    }
+
     // ── Tests ─────────────────────────────────────────────────────────────
+
+    [Fact]
+    public void VollerBaumMitPlatzDrei_LiefertGenauDiesesLayout()
+    {
+        var b = VollerBaum(3); // VF 4, HF 2, F 1
+        var p3 = Knoten();
+        var runden = new[]
+        {
+            Runde(1, "Viertelfinale", b[0]), Runde(2, "Halbfinale", b[1]), Runde(3, "Finale", b[2]),
+            Runde(4, "Spiel um Platz 3", [p3], platzDrei: true)
+        };
+        var namen = Benennen("VF", b[0]);
+        Benennen("HF", b[1], namen);
+        Benennen("F", b[2], namen);
+        Benennen("P", [p3], namen);
+
+        var e = GesamtbaumLayout.Berechnen(runden);
+
+        Abbild(e, namen).Should().Be(ZeilenumbruecheWieHier("""
+            VF0 0/0.5/Links
+            VF1 0/1.5/Links
+            HF0 1/1/Links
+            VF2 4/0.5/Rechts
+            VF3 4/1.5/Rechts
+            HF1 3/1/Rechts
+            F0 2/1/Mitte
+            P0 2/2.75/Mitte
+            [Finale] 2/1
+            [Spiel um Platz 3] 2/2.75
+            [Viertelfinale] 0/
+            [Viertelfinale] 4/
+            [Halbfinale] 1/
+            [Halbfinale] 3/
+            = 5 Spalten, 3.25 Zeilen
+            """));
+    }
+
+    [Fact]
+    public void GemischterBaum_MitWurzelnUndEinzelkindern_LiefertGenauDiesesLayout()
+    {
+        // Playoff-Runde teils verknüpft (Einzelkinder), ein unverknüpftes Playoff-Spiel, ein Achtelfinale ohne
+        // Kinder, ein unverknüpftes Halbfinale — dazu zwei Spiele um Platz 3.
+        var po = Enumerable.Range(0, 4).Select(_ => Knoten()).ToList();
+        var af = new List<TurnierBaumKnoten> { Knoten(rechts: po[0]), Knoten(rechts: po[1]), Knoten(), Knoten(links: po[2]) };
+        var hf = new List<TurnierBaumKnoten> { Knoten(af[0], af[1]), Knoten(af[2], af[3]) };
+        var f = Knoten(hf[0], hf[1]);
+        hf.Add(Knoten());
+        var p3 = new List<TurnierBaumKnoten> { Knoten(), Knoten() };
+        var runden = new[]
+        {
+            Runde(1, "Playoff-Runde", po), Runde(2, "Achtelfinale", af), Runde(3, "Halbfinale", hf),
+            Runde(4, "Finale", [f]), Runde(5, "Spiel um Platz 3", p3, platzDrei: true)
+        };
+        var namen = Benennen("PO", po);
+        Benennen("AF", af, namen);
+        Benennen("HF", hf, namen);
+        Benennen("F", [f], namen);
+        Benennen("P", p3, namen);
+
+        var e = GesamtbaumLayout.Berechnen(runden);
+
+        Abbild(e, namen).Should().Be(ZeilenumbruecheWieHier("""
+            PO0 0/1.5/Links
+            AF0 1/1.5/Links
+            PO1 0/2.5/Links
+            AF1 1/2.5/Links
+            HF0 2/2/Links
+            AF2 5/0.5/Rechts
+            PO2 6/1.5/Rechts
+            AF3 5/1.5/Rechts
+            HF1 4/1/Rechts
+            HF2 4/2.5/Rechts
+            PO3 6/3.5/Rechts
+            F0 3/2/Mitte
+            P0 3/3.75/Mitte
+            P1 3/4.75/Mitte
+            [Finale] 3/2
+            [Spiel um Platz 3] 3/3.75
+            [Playoff-Runde] 0/
+            [Playoff-Runde] 6/
+            [Achtelfinale] 1/
+            [Achtelfinale] 5/
+            [Halbfinale] 2/
+            [Halbfinale] 4/
+            = 7 Spalten, 5.25 Zeilen
+            """));
+    }
+
+    [Fact]
+    public void LeereRundenliste_LiefertLeeresLayout()
+    {
+        var e = GesamtbaumLayout.Berechnen([]);
+
+        e.Should().BeEquivalentTo(new GesamtbaumLayoutErgebnis([], [], 0, 0));
+    }
 
     [Fact]
     public void AchtelfinaleBisFinale_WirdGespiegeltMitFinaleInDerMitte()
