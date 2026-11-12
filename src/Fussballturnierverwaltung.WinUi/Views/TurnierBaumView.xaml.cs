@@ -283,41 +283,42 @@ public sealed partial class TurnierBaumView : UserControl
             PositioniereKarten(RechteSpalteItems, vm.RechteSpalteKnoten);
         RundenSiegerfeldPositionieren(vm);
 
-        if (!vm.ZeigtZweiteSpalte)
-        {
-            LeereCanvas();
-            return;
-        }
-
-        var segmente = new List<Segment>();
-        foreach (var eltern in vm.RechteSpalteKnoten)
-        {
-            Punkt? links = null, rechts = null;
-
-            if (eltern.LinkerKindKnotenId is { } lid)
-            {
-                var kind = vm.LinkeSpalteKnoten.FirstOrDefault(k => k.Id == lid);
-                if (kind is not null && TryKartenMitte(LinkeSpalteItems, kind, rechteKante: true, out var p))
-                    links = p;
-            }
-            if (eltern.RechterKindKnotenId is { } rid)
-            {
-                var kind = vm.LinkeSpalteKnoten.FirstOrDefault(k => k.Id == rid);
-                if (kind is not null && TryKartenMitte(LinkeSpalteItems, kind, rechteKante: true, out var p))
-                    rechts = p;
-            }
-            if (links is null && rechts is null) continue;
-            if (!TryKartenMitte(RechteSpalteItems, eltern, rechteKante: false, out var nach)) continue;
-
-            segmente.AddRange(Verbindungslinien.ZwischenSpalten(links, rechts, nach));
-        }
-
+        var segmente = vm.ZeigtZweiteSpalte ? GemesseneSegmente(vm) : [];
         if (segmente.Count == 0)
         {
             LeereCanvas();
             return;
         }
+        LinienZeichnen(segmente);
+    }
 
+    private List<Segment> GemesseneSegmente(TurnierBaumViewModel vm)
+    {
+        var linkeKnoten = vm.LinkeSpalteKnoten;
+        var segmente = new List<Segment>();
+        foreach (var eltern in vm.RechteSpalteKnoten)
+        {
+            var links = KindKante(linkeKnoten, eltern.LinkerKindKnotenId);
+            var rechts = KindKante(linkeKnoten, eltern.RechterKindKnotenId);
+            if (links is null && rechts is null) continue;
+            if (!TryKartenMitte(RechteSpalteItems, eltern, rechteKante: false, out var nach)) continue;
+
+            segmente.AddRange(Verbindungslinien.ZwischenSpalten(links, rechts, nach));
+        }
+        return segmente;
+    }
+
+    /// <summary>Rechte Kante der Kindkarte in der linken Spalte, auf Kartenmitte — <c>null</c>, wenn es das Kind
+    /// dort nicht gibt oder seine Karte noch nicht gemessen ist.</summary>
+    private Punkt? KindKante(IReadOnlyList<BracketKnotenAnzeige> linkeKnoten, int? kindId)
+    {
+        var kind = kindId is int id ? linkeKnoten.FirstOrDefault(k => k.Id == id) : null;
+        return kind is not null && TryKartenMitte(LinkeSpalteItems, kind, rechteKante: true, out var kante) ? kante : null;
+    }
+
+    // Das Neuzeichnen löst selbst LayoutUpdated aus — unveränderte Linien (gleiche Signatur) bleiben stehen.
+    private void LinienZeichnen(IReadOnlyList<Segment> segmente)
+    {
         var signatur = segmente.Select(s => (Round(s.Von.X), Round(s.Von.Y), Round(s.Nach.X), Round(s.Nach.Y))).ToList();
         if (signatur.SequenceEqual(_letzteSignatur)) return;
 

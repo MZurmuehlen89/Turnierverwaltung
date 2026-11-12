@@ -3,11 +3,9 @@ using Fussballturnierverwaltung.Application.Turnierbaum;
 
 namespace Fussballturnierverwaltung.Tests.Turnierbaum;
 
-/// <summary>Streckung und Verbindungslinien der Gesamtübersicht (#506 aus der Ansicht herausgelöst).</summary>
-public class GesamtbaumGeometrieTests
+/// <summary>Vertikale Streckung der Gesamtübersicht (#506 aus der Ansicht herausgelöst).</summary>
+public class GesamtbaumStreckungTests
 {
-    // ── Streckung ─────────────────────────────────────────────────────────
-
     [Fact]
     public void Strecken_LaesstDenKopfStehenUndStrecktDarunter()
     {
@@ -58,27 +56,5 @@ public class GesamtbaumGeometrieTests
     public void FaktorZumEinpassen_OhneInhalt_IstEins()
     {
         GesamtbaumStreckung.FaktorZumEinpassen(1000, baumHoehe: 48, kopf: 32, rand: 16, maxFaktor: 3).Should().Be(1);
-    }
-
-    // ── Linien zwischen Karten ───────────────────────────────────────────
-
-    [Fact]
-    public void ZwischenKarten_KindLinks_VonRechterKindkanteZurLinkenElternkante()
-    {
-        var punkte = Verbindungslinien.ZwischenKarten(kindX: 16, kindMitteY: 100, elternX: 250, elternMitteY: 140,
-            kartenBreite: 190);
-
-        // x1 = 16 + 190 = 206, x2 = 250, Mitte 228.
-        punkte.Should().Equal(new Punkt(206, 100), new Punkt(228, 100), new Punkt(228, 140), new Punkt(250, 140));
-    }
-
-    [Fact]
-    public void ZwischenKarten_KindRechts_Gespiegelt()
-    {
-        var punkte = Verbindungslinien.ZwischenKarten(kindX: 500, kindMitteY: 100, elternX: 266, elternMitteY: 140,
-            kartenBreite: 190);
-
-        // x1 = 500 (linke Kindkante), x2 = 266 + 190 = 456 (rechte Elternkante), Mitte 478.
-        punkte.Should().Equal(new Punkt(500, 100), new Punkt(478, 100), new Punkt(478, 140), new Punkt(456, 140));
     }
 }
