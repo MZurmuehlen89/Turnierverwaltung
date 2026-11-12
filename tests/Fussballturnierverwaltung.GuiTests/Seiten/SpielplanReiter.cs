@@ -46,10 +46,7 @@ public sealed class SpielplanReiter(Window fenster, Hauptfenster hauptfenster)
         return SichtbareSpiele();
     }
 
-    /// <summary>Die Spiele der gewählten Runde, Spieltag für Spieltag über die Auswahl „n. Spieltag“ gelesen. Für
-    /// Runden mit vielen Spielen statt <see cref="Spiele"/>: Bei einigen hundert Zeilen recycelt die Liste ihre
-    /// Zeilen, und eine gerade erst wiederverwendete Zeile zeigt kurz noch Teile des vorigen Spiels (#560: 306
-    /// Bundesliga-Spiele, gelesen 27 Paare doppelt, die Datenbank korrekt). Ein Spieltag hat wenige Spiele.</summary>
+    /// <summary>Die Spiele der gewählten Runde, Spieltag für Spieltag über die Auswahl „n. Spieltag“ gelesen.</summary>
     public IReadOnlyList<SpielZeile> SpieleJeSpieltag(int spieltage)
     {
         var auswahl = fenster.FindById("Spielplan.Spieltag").AsComboBox();

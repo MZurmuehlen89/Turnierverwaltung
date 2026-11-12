@@ -29,6 +29,10 @@ public sealed class LigaTests(TurnierverwaltungApp app) : IClassFixture<Turnierv
         spielplan.RundeWaehlen(SAISON);
         spielplan.RundeSimulieren(SPIELE);
         var spiele = spielplan.SpieleJeSpieltag(SPIELTAGE);
+        // Alle 306 Zeilen auf einmal, zweimal hintereinander: Ohne Pause zwischen den Realize-Aufrufen lieferte
+        // ReadAllItems hier veraltete Zeilen (#569)
+        spielplan.Spiele().Should().Equal(spiele, "„Alle Spieltage“ zeigt dieselben Spiele wie die Spieltage einzeln");
+        spielplan.Spiele().Should().Equal(spiele, "ein zweites Lesen liefert dasselbe");
         var statistik = turnier.Statistik();
         statistik.AuswertungWaehlen("Gesamt");
         var tabelle = statistik.Tabelle();

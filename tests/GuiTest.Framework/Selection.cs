@@ -66,7 +66,7 @@ public static class Selection
         [.. RealizedItems(list).Select(read).OfType<T>()];
 
     /// <summary>Reads the first <paramref name="count"/> entries of a list (fewer if it is shorter) and stops there —
-    /// for long virtualizing lists, where reading all of them returns recycled rows with stale content (#569).</summary>
+    /// for long lists where only the top matters: every further entry costs a pause before it is realized.</summary>
     public static IReadOnlyList<T> ReadFirstItems<T>(this AutomationElement list, int count, Func<AutomationElement, T> read) =>
         [.. RealizedItems(list).Take(count).Select(read)];
 
@@ -75,6 +75,12 @@ public static class Selection
     /// whose element then reports "not available" when it is used (#572).</summary>
     public static AutomationElement? FindItem(this AutomationElement list, Func<AutomationElement, bool> matches) =>
         RealizedItems(list).FirstOrDefault(matches);
+
+    // Realizing items in quick succession makes a virtualizing list hand out rows that still show an earlier item, in
+    // whole or field by field. Measured on the CI runner with 306 rows (#569): without a pause 90–100 of 306 pairs
+    // missing, 10 ms still 21, 20/30/60 ms none. A row read right after Realize never changed when read again, so the
+    // error cannot be caught by reading until stable — only the pause before the next Realize avoids it.
+    private static readonly TimeSpan _pauseBeforeRealize = TimeSpan.FromMilliseconds(50);
 
     /// <summary>Every entry of a list, each realized just before it is handed out — lazily, so a caller that stops
     /// early realizes nothing beyond.</summary>
@@ -87,12 +93,18 @@ public static class Selection
             yield break;
         }
 
+        bool realizedBefore = false;
         for (var item = container.FindItemByProperty(null, null, null);
              item is not null;
              item = container.FindItemByProperty(item, null, null))
         {
             if (item.Patterns.VirtualizedItem.TryGetPattern(out var virtualized))
+            {
+                if (realizedBefore)
+                    Thread.Sleep(_pauseBeforeRealize);
                 virtualized.Realize();
+                realizedBefore = true;
+            }
             yield return item;
         }
     }
