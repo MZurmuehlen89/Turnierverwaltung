@@ -426,7 +426,12 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
 
     /// <summary>Von <see cref="TurnierdurchfuehrungViewModel"/> einmalig beim Aktivieren geladen — analog
     /// <see cref="TurnierkopfViewModel.StammdatenLadenAsync"/>.</summary>
-    public Task RanglistenLadenAsync() => Arbeitsbereich.RanglistenLadenAsync();
+    public async Task RanglistenLadenAsync()
+    {
+        // Eigener Vorgang, damit ein hängendes Laden im Log einen Beginn ohne Ende hinterlässt (#631, Fall 1).
+        using var vorgang = _logger.Vorgang("Auslosung: Ranglisten laden");
+        await Arbeitsbereich.RanglistenLadenAsync();
+    }
 
     /// <summary>Vom Composite gesetzt, wenn sich die geteilte Instanzauswahl ändert (Precedent:
     /// <see cref="VorbelegungViewModel.InstanzSetzenAsync"/>).</summary>
@@ -523,7 +528,8 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
                 var standardRanglisteId = runde.StandardRanglisteId;
                 NeuFormAktiv = false;
 
-                Auslosungen = await LadeAuslosungenGefiltertAsync(_instanz.Id);
+                using (_logger.Vorgang($"Auslosung anlegen: Seitenliste laden (Instanz {_instanz.Id})"))
+                    Auslosungen = await LadeAuslosungenGefiltertAsync(_instanz.Id);
 
                 // Standard-Rangliste der Runde (#349): Detail hier sequenziell laden und befüllen, BEVOR die
                 // Auswahl gesetzt wird — deren Change-Hook lädt fire-and-forget und liefe sonst parallel auf
@@ -538,6 +544,9 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
                 }
 
                 AusgewaehlteAuslosung = Auslosungen.FirstOrDefault(a => a.Id == neu.Id);
+                _logger.LogInformation(
+                    "Auslosung {Id} angelegt: Auswahl {AuswahlId}, Detail {DetailId}, Detail offen {DetailAktiv}.",
+                    neu.Id, AusgewaehlteAuslosung?.Id, _auslosungDetail?.Id, DetailAktiv);
             }
             catch (Exception ex) { Fehlermeldung = ex.Message; }
         }
@@ -870,7 +879,14 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
 
     // ── Interne Hilfsmethoden ─────────────────────────────────────────────────
 
-    partial void OnAusgewaehlteAuslosungChanged(Auslosung? value) => _ = BeiAuslosungAenderungAsync();
+    partial void OnAusgewaehlteAuslosungChanged(Auslosung? value)
+    {
+        // #631, Fall 1: zeigt im Log, ob die Bindung die Auswahl beim Tausch der Seitenliste kurz auf null setzt.
+        _logger.LogInformation(
+            "Auswahl Auslosung: {Id} (Seitenliste wird getauscht: {Guard}, Detail {DetailId}, Detail offen {DetailAktiv})",
+            value?.Id, _seitenlisteAktualisierungAktiv, _auslosungDetail?.Id, DetailAktiv);
+        _ = BeiAuslosungAenderungAsync();
+    }
 
     private async Task BeiAuslosungAenderungAsync()
     {
@@ -885,19 +901,29 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
 
         if (!await AuswahlwechselErlaubtAsync())
         {
+            _logger.LogInformation("Auswahlwechsel nicht bestätigt, Auswahl zurück auf Auslosung {Id}.", _auslosungDetail?.Id);
             AuswahlZurueckstellen();
             return;
         }
 
         NeuFormAktiv = false;
-        if (AusgewaehlteAuslosung is null) { Ziehung.Beenden(); HandZiehung.Beenden(); DetailAktiv = false; return; }
+        if (AusgewaehlteAuslosung is null)
+        {
+            _logger.LogInformation("Keine Auslosung ausgewählt, Detail geschlossen.");
+            Ziehung.Beenden(); HandZiehung.Beenden(); DetailAktiv = false;
+            return;
+        }
 
         // AktualisiereSeitenlisteAsync() weist AusgewaehlteAuslosung nach einem Reload der Seitenliste
         // erneut zu (neue Objektinstanz, gleiche Id) — das würde hier ohne diesen Guard einen bereits
         // frisch geladenen Detail-Stand ein zweites Mal nachladen (sichtbares Flackern, Issue #318).
         // Nur bei offenem Detail: nach einem Reset (z.B. InstanzSetzenAsync beim Reiter-Wechsel) steht
         // _auslosungDetail noch auf der alten Id, und erneutes Auswählen derselben Auslosung zeigte sonst nichts (#347).
-        if (DetailAktiv && _auslosungDetail?.Id == AusgewaehlteAuslosung.Id) return;
+        if (DetailAktiv && _auslosungDetail?.Id == AusgewaehlteAuslosung.Id)
+        {
+            _logger.LogInformation("Auslosung {Id} ist schon geöffnet, kein Neuladen.", AusgewaehlteAuslosung.Id);
+            return;
+        }
 
         Ziehung.Beenden();
         HandZiehung.Beenden();
@@ -925,8 +951,13 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
     private async Task AusgewaehltesDetailLadenAsync(int auslosungId)
     {
         using var schutz = await DbContextSchutz.BetretenAsync();
-        if (AusgewaehlteAuslosung?.Id != auslosungId) return;
-        if (DetailAktiv && _auslosungDetail?.Id == auslosungId) return;
+        if (AusgewaehlteAuslosung?.Id != auslosungId || (DetailAktiv && _auslosungDetail?.Id == auslosungId))
+        {
+            _logger.LogInformation(
+                "Auslosung {Id} nach dem Warten nicht geladen: Auswahl {AuswahlId}, Detail {DetailId}, Detail offen {DetailAktiv}.",
+                auslosungId, AusgewaehlteAuslosung?.Id, _auslosungDetail?.Id, DetailAktiv);
+            return;
+        }
         try { await LadeDetailAsync(auslosungId); }
         catch (Exception ex)
         {
