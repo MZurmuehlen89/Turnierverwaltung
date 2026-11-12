@@ -6,6 +6,7 @@ using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Shapes;
+using System.Windows.Input;
 using Windows.Foundation;
 
 namespace Fussballturnierverwaltung.WinUi.Views;
@@ -96,24 +97,31 @@ public sealed partial class TurnierBaumView : UserControl
         if (_vm is null) return;
 
         var streckung = new GesamtbaumStreckung(TurnierBaumViewModel.GESAMT_KOPF_H, _streckung);
-
         GesamtCanvas.Width = _vm.GesamtBreite;
         GesamtCanvas.Height = streckung.FlaechenHoehe(_vm.GesamtHoehe, TurnierBaumViewModel.GESAMT_RAND);
 
-        const double w = TurnierBaumViewModel.KOMPAKT_W;
-        const double h = TurnierBaumViewModel.KOMPAKT_H;
         var knoten = _vm.GesamtKnoten;
-        var knotenJeId = knoten.ToDictionary(k => k.Id);
+        GesamtLinienZeichnen(knoten, streckung);
+        GesamtBeschriftungenSetzen(_vm.GesamtBeschriftungen, streckung);
+        GesamtKartenSetzen(knoten, _vm.KnotenAngeklicktBefehl, streckung);
+        GesamtSiegerfeldAufbauen(streckung);
+    }
 
+    private void GesamtLinienZeichnen(IReadOnlyList<BracketKnotenAnzeige> knoten, GesamtbaumStreckung streckung)
+    {
+        const double h = TurnierBaumViewModel.KOMPAKT_H;
+        var knotenJeId = knoten.ToDictionary(k => k.Id);
         var pinsel = LinienFarbQuelle.Fill ?? new SolidColorBrush(Microsoft.UI.Colors.Gray);
+
         foreach (var eltern in knoten)
         {
-            foreach (var kindId in new[] { eltern.LinkerKindKnotenId, eltern.RechterKindKnotenId })
+            var kinder = new[] { eltern.LinkerKindKnotenId, eltern.RechterKindKnotenId }
+                .Select(id => id is int wert ? knotenJeId.GetValueOrDefault(wert) : null)
+                .OfType<BracketKnotenAnzeige>();
+            foreach (var kind in kinder)
             {
-                if (kindId is not int id || !knotenJeId.TryGetValue(id, out var kind)) continue;
-
                 var punkte = Verbindungslinien.ZwischenKarten(kind.GesamtX, streckung.Strecken(kind.GesamtY + h / 2),
-                    eltern.GesamtX, streckung.Strecken(eltern.GesamtY + h / 2), w);
+                    eltern.GesamtX, streckung.Strecken(eltern.GesamtY + h / 2), TurnierBaumViewModel.KOMPAKT_W);
 
                 var linie = new Polyline { Stroke = pinsel, StrokeThickness = 1.5, IsHitTestVisible = false };
                 foreach (var punkt in punkte)
@@ -121,8 +129,14 @@ public sealed partial class TurnierBaumView : UserControl
                 GesamtCanvas.Children.Add(linie);
             }
         }
+    }
 
-        foreach (var b in _vm.GesamtBeschriftungen)
+    // Spaltenköpfe stehen fest oben; Beschriftungen über einer Karte (Finale, Spiel um Platz 3) wandern mit ihr.
+    private void GesamtBeschriftungenSetzen(IReadOnlyList<GesamtbaumBeschriftungAnzeige> beschriftungen,
+        GesamtbaumStreckung streckung)
+    {
+        const double abstand = TurnierBaumViewModel.GESAMT_BESCHRIFTUNG_ABSTAND;
+        foreach (var b in beschriftungen)
         {
             var text = new TextBlock
             {
@@ -131,29 +145,34 @@ public sealed partial class TurnierBaumView : UserControl
                 TextTrimming = TextTrimming.CharacterEllipsis, IsHitTestVisible = false
             };
             Canvas.SetLeft(text, b.X);
-            double abstand = TurnierBaumViewModel.GESAMT_BESCHRIFTUNG_ABSTAND;
-            Canvas.SetTop(text, b.GehoertZuKarte ? streckung.KartenOben(b.Y + abstand, h) - abstand : b.Y);
+            Canvas.SetTop(text, b.GehoertZuKarte
+                ? streckung.KartenOben(b.Y + abstand, TurnierBaumViewModel.KOMPAKT_H) - abstand
+                : b.Y);
             GesamtCanvas.Children.Add(text);
         }
+    }
 
+    private void GesamtKartenSetzen(IReadOnlyList<BracketKnotenAnzeige> knoten, ICommand angeklicktBefehl,
+        GesamtbaumStreckung streckung)
+    {
         var vorlage = (DataTemplate)Resources["KompaktKartenTemplate"];
         foreach (var k in knoten)
         {
             var karte = new Button
             {
-                Content = k, ContentTemplate = vorlage, Width = w, Height = h, Padding = new Thickness(0),
-                BorderThickness = new Thickness(0), Background = new SolidColorBrush(Microsoft.UI.Colors.Transparent),
+                Content = k, ContentTemplate = vorlage,
+                Width = TurnierBaumViewModel.KOMPAKT_W, Height = TurnierBaumViewModel.KOMPAKT_H,
+                Padding = new Thickness(0), BorderThickness = new Thickness(0),
+                Background = new SolidColorBrush(Microsoft.UI.Colors.Transparent),
                 HorizontalContentAlignment = HorizontalAlignment.Stretch,
                 VerticalContentAlignment = VerticalAlignment.Stretch,
-                Command = _vm.KnotenAngeklicktBefehl, CommandParameter = k
+                Command = angeklicktBefehl, CommandParameter = k
             };
             SpielKontextmenue.SetKarte(karte, k);
             Canvas.SetLeft(karte, k.GesamtX);
-            Canvas.SetTop(karte, streckung.KartenOben(k.GesamtY, h));
+            Canvas.SetTop(karte, streckung.KartenOben(k.GesamtY, TurnierBaumViewModel.KOMPAKT_H));
             GesamtCanvas.Children.Add(karte);
         }
-
-        GesamtSiegerfeldAufbauen(streckung);
     }
 
     // #527: über dem Finale, auf Höhe der gestreckten Finalkarte.
