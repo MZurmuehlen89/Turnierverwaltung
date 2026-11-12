@@ -37,8 +37,9 @@ Spielplan, Tabelle, Simulation in Application, without `*Service` classes. Repor
 - `ignore-methods` in `stryker-config.json` skips mutants inside log calls (`LogInformation` …, `Vorgang`) and
   exception constructors (message texts) — noise, not test gaps. Other user-visible texts (event texts, rule names)
   stay in and are judged case by case.
-- Second full run (08.11.2026, 2 h 10 min): score 81.2 %, 413 Survived / 109 NoCoverage, 0 Dubious. Follow-up
-  issues per area: #615 Simulation, #616 Spielplan, #617 Tabelle, #618 Auslosungen.
+- Baseline (12.11.2026, Stryker 5.1.0 with `ignore-methods`, 2 h 12 min): score 82.3 %, 391 Survived /
+  94 NoCoverage / 70 Timeout, 0 Dubious — Auslosungen 84.4 %, Spielplan 87.6 %, Tabelle 84.0 %, Simulation 52.4 %.
+  Follow-up issues per area: #615 Simulation, #616 Spielplan, #617 Tabelle, #618 Auslosungen.
 - **Verify results — the MTP runner is still "preview"** (Stryker logs a warning). Stryker issue #3871: a test that
   exceeds the timeout during per-test coverage capture is marked `Dubious` and attached to almost every mutant; a
   surviving mutant then runs into the timeout and counts as detected. The first full run (01.11.2026) reported
