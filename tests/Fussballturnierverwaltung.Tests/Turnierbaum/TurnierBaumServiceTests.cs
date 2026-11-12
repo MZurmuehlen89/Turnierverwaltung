@@ -397,6 +397,29 @@ public class TurnierBaumServiceTests
         runden.Select(r => r.IstSpielUmPlatzDrei).Should().Equal(false, true, false);
     }
 
+    [Fact]
+    public async Task BracketLadenAsync_PlatzhalterEbenenOhneRunde_WennDieRundenNichtMehrZumBaumPassen()
+    {
+        // Nach dem Erzeugen kommt eine K.-o.-Runde dazu, ohne dass der Baum neu entsteht — die Ebenennummern zeigen
+        // dann auf die falschen Runden und werden nicht benutzt.
+        await using var ctx = NeuerContext();
+        HalbfinalePlatzDreiFinaleAnlegen(ctx);
+        ctx.Spiele.RemoveRange(ctx.Spiele.Where(s => s.Id == 3 || s.Id == 4));
+        ctx.SaveChanges();
+        var (baumService, _) = ServiceFuer(ctx);
+        await baumService.GenerierenAsync(1);
+        ctx.TurnierRunden.Add(new TurnierRunde { Id = 4, TurnierInstanzId = 1, Name = "Viertelfinale", Reihenfolge = 0,
+            Rundenart = Rundenart.KoRunde, EingangsMannschaftsanzahl = 8, AusgangsMannschaftsanzahl = 4, RegelwerkId = 1 });
+        ctx.SaveChanges();
+
+        var runden = await new BracketLeser(
+            new TurnierBaumRepository(ctx), new TurnierInstanzRepository(ctx), new SpielRepository(ctx))
+            .BracketLadenAsync(1);
+
+        runden.Select(r => r.RundenName).Should().Equal("Halbfinale", null, null);
+        runden.Should().OnlyContain(r => !r.IstSpielUmPlatzDrei);
+    }
+
     // ── Issue #390: unveränderter Baum bleibt stehen ──────────────────────
 
     [Fact]

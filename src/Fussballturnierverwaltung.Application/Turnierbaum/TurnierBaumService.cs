@@ -2,7 +2,6 @@ using Fussballturnierverwaltung.Application.Spielplan;
 using Fussballturnierverwaltung.Application.Turniere;
 using Fussballturnierverwaltung.Domain.Entitaeten.Spiele;
 using Fussballturnierverwaltung.Domain.Entitaeten.Turnierbaum;
-using Fussballturnierverwaltung.Domain.Enums;
 using Microsoft.Extensions.Logging;
 using System.Diagnostics;
 

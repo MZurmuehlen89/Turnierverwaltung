@@ -44,7 +44,10 @@ public class BracketLeser(
         // (CL-Playoff-Runde hat ebenfalls 8 Paarungen und wurde als "Achtelfinale" beschriftet).
         var instanz = await instanzRepository.FindenNachIdMitRundenAsync(turnierInstanzId, ct);
         var rundeJeId = instanz?.Runden.ToDictionary(r => r.Id) ?? [];
+        // Die Ebenennummer passt nur, solange der Baum zu den Runden passt — nach einer Rundenänderung ohne neuen
+        // Spielplan (der Baum entsteht nur danach neu) bleibt es bei der Ableitung aus der Spielzahl.
         var koRunden = instanz is null ? [] : TurnierBaumPlan.KoRunden(instanz.Runden);
+        if (koRunden.Count != baum.Knoten.Select(k => k.Runde).Distinct().Count()) koRunden = [];
 
         var rundenGruppen = baum.Knoten
             .GroupBy(k => k.Runde)
