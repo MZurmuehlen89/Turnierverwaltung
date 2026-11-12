@@ -36,17 +36,19 @@ function Sqlcmd-Ausfuehren([string]$abfrage) {
     $datei = New-TemporaryFile
     try {
         Set-Content $datei $abfrage -Encoding utf8
-        & { $ErrorActionPreference = 'Continue'; sqlcmd -S $Server -E -C -I -W -s '|' -f 65001 -i $datei 2>&1 }
+        & { $ErrorActionPreference = 'Continue'; sqlcmd -S $Server -E -C -I -W -s '|' -i $datei 2>&1 }
     }
     finally { Remove-Item $datei }
 }
 
+# Ziel ist eine Datei statt des Ringpuffers: Der verdrängt bei vielen großen Zuteilungen die seltenen Wartezeiten, und
+# seine Ausgabe ist auf etwa 4 MB XML begrenzt. Ohne Pfad landet die Datei im Protokollordner der Instanz.
 if ($AufzeichnungStarten) {
     Sqlcmd-Ausfuehren @"
 CREATE EVENT SESSION [$SITZUNG] ON SERVER
 ADD EVENT sqlserver.query_memory_grant_wait_end (ACTION (sqlserver.sql_text, sqlserver.database_name)),
 ADD EVENT sqlserver.query_memory_grant_usage (ACTION (sqlserver.sql_text))
-ADD TARGET package0.ring_buffer (SET max_events_limit = 500)
+ADD TARGET package0.event_file (SET filename = N'$SITZUNG.xel', max_file_size = 100)
 WITH (EVENT_RETENTION_MODE = ALLOW_SINGLE_EVENT_LOSS, MAX_DISPATCH_LATENCY = 1 SECONDS);
 ALTER EVENT SESSION [$SITZUNG] ON SERVER STATE = START;
 SELECT name AS sitzung_aktiv FROM sys.dm_xe_sessions WHERE name = '$SITZUNG';
@@ -54,35 +56,45 @@ SELECT name AS sitzung_aktiv FROM sys.dm_xe_sessions WHERE name = '$SITZUNG';
     exit 0
 }
 
+# Den vollständigen Dateinamen meldet die laufende Sitzung; das Muster erfasst auch Folgedateien.
 $ereignisse = @"
-DECLARE @x xml = (SELECT CAST(t.target_data AS xml) FROM sys.dm_xe_session_targets t
-                  JOIN sys.dm_xe_sessions s ON s.address = t.event_session_address
-                  WHERE s.name = '$SITZUNG' AND t.target_name = 'ring_buffer');
+DECLARE @datei nvarchar(400) = (
+    SELECT CAST(t.target_data AS xml).value('(EventFileTarget/File/@name)[1]', 'nvarchar(400)')
+    FROM sys.dm_xe_session_targets t JOIN sys.dm_xe_sessions s ON s.address = t.event_session_address
+    WHERE s.name = '$SITZUNG' AND t.target_name = 'event_file');
+DECLARE @e TABLE (name nvarchar(60), d xml);
+IF @datei IS NOT NULL
+    INSERT @e SELECT f.object_name, CAST(f.event_data AS xml)
+    FROM sys.fn_xe_file_target_read_file(REPLACE(@datei, N'.xel', N'*.xel'), NULL, NULL, NULL) f;
 "@
 
 $abfragen = [ordered]@{
     'Wartezeiten auf eine Speicherzuteilung (Extended Events), in zeitlicher Folge' = @"
 SET NOCOUNT ON;
 $ereignisse
-IF @x IS NULL SELECT 'keine Aufzeichnung' AS hinweis;
+IF @datei IS NULL SELECT 'keine Aufzeichnung' AS hinweis;
 ELSE
-    SELECT CONVERT(char(12), e.value('@timestamp', 'datetime2'), 114) AS ende_utc,
-           e.value('(data[@name="wait_time_sec"]/value)[1]', 'int') AS warte_s,
-           e.value('(data[@name="exit_cause"]/text)[1]', 'nvarchar(40)') AS ausgang,
-           e.value('(data[@name="requested_memory_kb"]/value)[1]', 'bigint') / 1024 AS angefordert_mb,
-           e.value('(data[@name="granted_memory_kb"]/value)[1]', 'bigint') / 1024 AS erhalten_mb,
-           e.value('(data[@name="total_available_memory_kb"]/value)[1]', 'bigint') / 1024 AS verfuegbar_mb,
-           e.value('(data[@name="total_granted_memory_kb"]/value)[1]', 'bigint') / 1024 AS vergeben_mb,
-           e.value('(data[@name="total_grantee_count"]/value)[1]', 'int') AS zuteilungen,
-           LEFT(REPLACE(REPLACE(e.value('(action[@name="sql_text"]/value)[1]', 'nvarchar(max)'),
-                CHAR(13), ' '), CHAR(10), ' '), 300) AS sql_text
-    FROM @x.nodes('/RingBufferTarget/event[@name="query_memory_grant_wait_end"]') AS n(e)
-    ORDER BY ende_utc;
+    SELECT CONVERT(char(12), z.zeit, 114) AS ende_utc, z.warte_s, z.ausgang, z.angefordert_mb, z.erhalten_mb,
+           z.verfuegbar_mb, z.vergeben_mb, z.zuteilungen, z.sql_text
+    FROM @e AS q
+    CROSS APPLY q.d.nodes('/event') AS n(e)
+    CROSS APPLY (SELECT e.value('@timestamp', 'datetime2') AS zeit,
+                        e.value('(data[@name="wait_time_sec"]/value)[1]', 'int') AS warte_s,
+                        e.value('(data[@name="exit_cause"]/text)[1]', 'nvarchar(40)') AS ausgang,
+                        e.value('(data[@name="requested_memory_kb"]/value)[1]', 'bigint') / 1024 AS angefordert_mb,
+                        e.value('(data[@name="granted_memory_kb"]/value)[1]', 'bigint') / 1024 AS erhalten_mb,
+                        e.value('(data[@name="total_available_memory_kb"]/value)[1]', 'bigint') / 1024 AS verfuegbar_mb,
+                        e.value('(data[@name="total_granted_memory_kb"]/value)[1]', 'bigint') / 1024 AS vergeben_mb,
+                        e.value('(data[@name="total_grantee_count"]/value)[1]', 'int') AS zuteilungen,
+                        LEFT(REPLACE(REPLACE(e.value('(action[@name="sql_text"]/value)[1]', 'nvarchar(max)'),
+                             CHAR(13), ' '), CHAR(10), ' '), 300) AS sql_text) AS z
+    WHERE q.name = 'query_memory_grant_wait_end'
+    ORDER BY z.zeit;
 "@
     'Größte Speicherzuteilungen (Extended Events, ab 5 MB)' = @"
 SET NOCOUNT ON;
 $ereignisse
-IF @x IS NULL SELECT 'keine Aufzeichnung' AS hinweis;
+IF @datei IS NULL SELECT 'keine Aufzeichnung' AS hinweis;
 ELSE
     SELECT TOP 15 COUNT(*) AS anzahl, MAX(erhalten_kb) / 1024 AS max_erhalten_mb, MAX(genutzt_kb) / 1024 AS max_genutzt_mb,
            sql_text
@@ -90,7 +102,8 @@ ELSE
                  e.value('(data[@name="used_memory_kb"]/value)[1]', 'bigint') AS genutzt_kb,
                  LEFT(REPLACE(REPLACE(e.value('(action[@name="sql_text"]/value)[1]', 'nvarchar(max)'),
                       CHAR(13), ' '), CHAR(10), ' '), 300) AS sql_text
-          FROM @x.nodes('/RingBufferTarget/event[@name="query_memory_grant_usage"]') AS n(e)) AS z
+          FROM @e AS q CROSS APPLY q.d.nodes('/event') AS n(e)
+          WHERE q.name = 'query_memory_grant_usage') AS z
     GROUP BY sql_text
     ORDER BY max_erhalten_mb DESC;
 "@
