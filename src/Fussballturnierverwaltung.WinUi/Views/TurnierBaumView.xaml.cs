@@ -276,14 +276,18 @@ public sealed partial class TurnierBaumView : UserControl
             return;
         }
 
+        // Beide Listen einmal je Durchlauf: sie werden bei jedem Zugriff neu gefiltert und sortiert, und dieser
+        // Durchlauf läuft bei jedem LayoutUpdated. Ohne zweite Spalte ist die rechte leer.
+        var linke = vm.LinkeSpalteKnoten;
+        var rechte = vm.RechteSpalteKnoten;
+
         // Canvas.Top per ItemContainerStyle-Binding wird in WinUI3 nicht zuverlässig ausgewertet (siehe
         // TurnierBaumView.xaml) — deshalb hier programmatisch gesetzt, bei jedem Layout-Durchlauf neu.
-        PositioniereKarten(LinkeSpalteItems, vm.LinkeSpalteKnoten);
-        if (vm.ZeigtZweiteSpalte)
-            PositioniereKarten(RechteSpalteItems, vm.RechteSpalteKnoten);
-        RundenSiegerfeldPositionieren(vm);
+        PositioniereKarten(LinkeSpalteItems, linke);
+        PositioniereKarten(RechteSpalteItems, rechte);
+        RundenSiegerfeldPositionieren(vm, linke, rechte);
 
-        var segmente = vm.ZeigtZweiteSpalte ? GemesseneSegmente(vm) : [];
+        var segmente = GemesseneSegmente(linke, rechte);
         if (segmente.Count == 0)
         {
             LeereCanvas();
@@ -292,11 +296,11 @@ public sealed partial class TurnierBaumView : UserControl
         LinienZeichnen(segmente);
     }
 
-    private List<Segment> GemesseneSegmente(TurnierBaumViewModel vm)
+    private List<Segment> GemesseneSegmente(IReadOnlyList<BracketKnotenAnzeige> linkeKnoten,
+        IReadOnlyList<BracketKnotenAnzeige> rechteKnoten)
     {
-        var linkeKnoten = vm.LinkeSpalteKnoten;
         var segmente = new List<Segment>();
-        foreach (var eltern in vm.RechteSpalteKnoten)
+        foreach (var eltern in rechteKnoten)
         {
             var links = KindKante(linkeKnoten, eltern.LinkerKindKnotenId);
             var rechts = KindKante(linkeKnoten, eltern.RechterKindKnotenId);
@@ -351,12 +355,13 @@ public sealed partial class TurnierBaumView : UserControl
 
     /// <summary>Siegerfeld (#527) unter die Finalkarte, sofern das Finale im Fenster steht. Läuft bei jedem
     /// Layout-Durchlauf — geschrieben wird nur, was sich ändert, sonst stieße jede Zuweisung den nächsten an.</summary>
-    private void RundenSiegerfeldPositionieren(TurnierBaumViewModel vm)
+    private void RundenSiegerfeldPositionieren(TurnierBaumViewModel vm, IReadOnlyList<BracketKnotenAnzeige> linke,
+        IReadOnlyList<BracketKnotenAnzeige> rechte)
     {
         var finale = vm.FinaleKnoten;
         var liste = finale is null ? null
-            : vm.LinkeSpalteKnoten.Contains(finale) ? LinkeSpalteItems
-            : vm.RechteSpalteKnoten.Contains(finale) ? RechteSpalteItems
+            : linke.Contains(finale) ? LinkeSpalteItems
+            : rechte.Contains(finale) ? RechteSpalteItems
             : null;
 
         if (vm.Siegerfeld is null || liste?.ContainerFromItem(finale) is not ContentPresenter karte || karte.ActualHeight <= 0)

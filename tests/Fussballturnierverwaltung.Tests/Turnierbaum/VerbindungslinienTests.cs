@@ -48,7 +48,10 @@ public class VerbindungslinienTests
         // Abstand 0,5 gilt noch als gleiche Höhe.
         var segmente = Verbindungslinien.ZwischenSpalten(new Punkt(100, 50), new Punkt(100, 50.5), new Punkt(200, 50));
 
-        segmente.Should().HaveCount(3).And.NotContain(s => s.Von.X == 150 && s.Nach.X == 150);
+        segmente.Should().Equal(
+            new Segment(new Punkt(100, 50), new Punkt(150, 50)),
+            new Segment(new Punkt(100, 50.5), new Punkt(150, 50.5)),
+            new Segment(new Punkt(150, 50), new Punkt(200, 50)));
     }
 
     [Fact]

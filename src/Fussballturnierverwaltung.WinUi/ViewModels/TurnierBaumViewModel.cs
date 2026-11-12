@@ -11,7 +11,8 @@ namespace Fussballturnierverwaltung.WinUi.ViewModels;
 /// <summary>
 /// "Turnierbaum"-Bereich des #301-Composite (<see cref="SpielplanUndBaumViewModel"/>) — 1:1 aus
 /// Wpf/ViewModels/TurnierBaumViewModel.cs portiert. Verbindungslinien-Zeichnung selbst lebt im
-/// Code-Behind der View (Canvas-Overlay, siehe TurnierBaumView.xaml.cs), analog zum WPF-Original.
+/// Code-Behind der View (Canvas-Overlay, siehe TurnierBaumView.xaml.cs), analog zum WPF-Original; die Geometrie
+/// dazu rechnen <see cref="Verbindungslinien"/> und <see cref="GesamtbaumStreckung"/> (#506).
 /// Die Tabellen einer fokussierten Gruppen- oder Ligarunde zeigt das Kind-ViewModel <see cref="Tabellen"/> (#438).
 /// #262-Fix (lange Mannschaftsnamen in Tabellenkarten): die Gruppentabellen-/Liga-Tabelle-Karten in
 /// der View bekommen ausreichend Breite ohne TextTrimming — die Bracket-Karten selbst behalten die

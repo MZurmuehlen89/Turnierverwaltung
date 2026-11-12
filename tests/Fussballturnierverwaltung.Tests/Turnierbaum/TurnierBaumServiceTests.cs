@@ -185,7 +185,9 @@ public class TurnierBaumServiceTests
         });
         ctx.SaveChanges();
 
-        var (baumService, _) = ServiceFuer(ctx);
+        var dienste = new SpielplanDienste(ctx);
+        var baumService = new TurnierBaumService(new TurnierBaumRepository(ctx), new TurnierInstanzRepository(ctx),
+            new SpielRepository(ctx), dienste.Quellverknuepfung, NullLogger<TurnierBaumService>.Instance);
         await baumService.GenerierenAsync(1);
 
         // AF-Spiel 1 (Team 1 vs Team 2) entscheiden: Team 1 gewinnt.
@@ -200,7 +202,7 @@ public class TurnierBaumServiceTests
 
         // Die Auflösung läuft in der App nach jedem Ergebnis (SpielErgebnisService); die ID-Verknüpfung, die sie
         // braucht, hat GenerierenAsync aus den Platzhaltertexten nachgezogen.
-        int fortgeschrieben = await new SpielplanDienste(ctx).Aufloesung.AlleRundenAufloesenAsync(1);
+        int fortgeschrieben = await dienste.Aufloesung.AlleRundenAufloesenAsync(1);
 
         fortgeschrieben.Should().BeGreaterThan(0);
         ctx.Spiele.First(s => s.Id == 101).HeimMannschaftId.Should().Be(1, "Sieger AF 1 = Team 1");
