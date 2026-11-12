@@ -23,12 +23,23 @@ public sealed class TurnierbaumAnsicht(Window fenster, Hauptfenster hauptfenster
         hauptfenster.WarteBisRuhig();
     }
 
-    /// <summary>Senkrechte Bildschirmmitte der Karten einer Spalte, von oben nach unten.</summary>
-    public IReadOnlyList<double> KartenMitten(Spalte spalte) =>
-        [.. fenster.FindById(spalte == Spalte.Links ? "TurnierBaum.LinkeSpalte" : "TurnierBaum.RechteSpalte")
+    /// <summary>Senkrechte Bildschirmmitte der Karten beider Spalten, von oben nach unten. Die Karten bekommen ihre
+    /// Höhe erst in den Layout-Durchläufen nach dem Laden — gewartet wird, bis die erwartete Zahl Karten steht und
+    /// <paramref name="angekommen"/> zutrifft, höchstens <see cref="Wait.DefaultTimeout"/>; danach wird gelesen,
+    /// was dasteht, und der Test prüft es selbst.</summary>
+    public (IReadOnlyList<double> Links, IReadOnlyList<double> Rechts) KartenMittenNachLayout(int links, int rechts,
+        Func<IReadOnlyList<double>, IReadOnlyList<double>, bool> angekommen)
+    {
+        Wait.Within(() => KartenMitten("TurnierBaum.LinkeSpalte") is var l && l.Count == links
+                          && KartenMitten("TurnierBaum.RechteSpalte") is var r && r.Count == rechts
+                          && angekommen(l, r),
+            Wait.DefaultTimeout);
+        return (KartenMitten("TurnierBaum.LinkeSpalte"), KartenMitten("TurnierBaum.RechteSpalte"));
+    }
+
+    private IReadOnlyList<double> KartenMitten(string spalte) =>
+        [.. fenster.FindById(spalte)
             .FindAllById("TurnierBaum.Karte")
             .Select(karte => karte.BoundingRectangle.Top + karte.BoundingRectangle.Height / 2.0)
             .Order()];
 }
-
-public enum Spalte { Links, Rechts }

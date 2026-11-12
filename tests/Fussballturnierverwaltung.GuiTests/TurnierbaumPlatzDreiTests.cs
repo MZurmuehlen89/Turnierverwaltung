@@ -1,3 +1,4 @@
+using FluentAssertions;
 using Fussballturnierverwaltung.GuiTests.Seiten;
 using GuiTest.Framework;
 using static Fussballturnierverwaltung.GuiTests.MiniTurnier;
@@ -30,18 +31,17 @@ public sealed class TurnierbaumPlatzDreiTests(TurnierverwaltungApp app) : IClass
 
         // AK2/AK3: Halbfinale | Spiel um Platz 3, die Platz-3-Karte mittig zwischen den Halbfinals.
         baum.WarteAufFenster(HALBFINALE, SPIEL_UM_PLATZ_DREI);
-        Wait.Until(() => baum.KartenMitten(Spalte.Links) is [var oben, var unten]
-                         && baum.KartenMitten(Spalte.Rechts) is [var platzDrei]
-                         && Math.Abs(platzDrei - (oben + unten) / 2) <= TOLERANZ,
-            Wait.DefaultTimeout, "Platz-3-Karte mittig zwischen den Halbfinals");
+        var (halbfinals, platzDrei) = baum.KartenMittenNachLayout(links: 2, rechts: 1,
+            (l, r) => Math.Abs(r[0] - (l[0] + l[1]) / 2) <= TOLERANZ);
+        platzDrei.Single().Should().BeApproximately((halbfinals[0] + halbfinals[1]) / 2, TOLERANZ,
+            "die Platz-3-Karte steht mittig zwischen den Halbfinals");
 
         // AK2/AK4: weiter zu Spiel um Platz 3 | Finale, beide auf derselben Höhe.
         baum.NaechsteRunde();
         baum.WarteAufFenster(SPIEL_UM_PLATZ_DREI, FINALE);
-        Wait.Until(() => baum.KartenMitten(Spalte.Links) is [var platzDrei]
-                         && baum.KartenMitten(Spalte.Rechts) is [var finale]
-                         && Math.Abs(finale - platzDrei) <= TOLERANZ,
-            Wait.DefaultTimeout, "Finale auf Höhe der Platz-3-Karte");
+        var (links, finale) = baum.KartenMittenNachLayout(links: 1, rechts: 1,
+            (l, r) => Math.Abs(r[0] - l[0]) <= TOLERANZ);
+        finale.Single().Should().BeApproximately(links.Single(), TOLERANZ, "das Finale steht auf Höhe der Platz-3-Karte");
     }
 
     public void Dispose() => app.BeiFehlschlagBelegeSichern();
