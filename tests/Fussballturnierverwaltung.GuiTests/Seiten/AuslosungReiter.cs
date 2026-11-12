@@ -37,9 +37,12 @@ public sealed class AuslosungReiter(Window fenster, Hauptfenster hauptfenster)
             fenster.FindById("Auslosung.Art").AsComboBox().SelectItem(auslosungsart);
         fenster.ActivateById("Befehlsleiste.Speichern");
 
+        // Erst auf das Ende des Vorgangs „Auslosung anlegen“ warten (bis zu 30 s), dann die Kopfzeile prüfen: Auf dem
+        // CI-Runner brauchten Seitenliste und Ranglisten zwischen Speichern und Detail schon über 10 s, die frühere
+        // Prüfung der Kopfzeile mit dem Standard-Timeout scheiterte daran (#631, Fall 1)
+        hauptfenster.WarteBisRuhig();
         Wait.Until(() => Runde == runde && Status == VORBEREITUNG, Wait.DefaultTimeout,
             $"Auslosung für '{runde}' gespeichert");
-        hauptfenster.WarteBisRuhig();
     }
 
     public void RanglisteWaehlen(string rangliste)
