@@ -18,6 +18,9 @@ public sealed class SpielplanReiter(Window fenster, Hauptfenster hauptfenster)
     private (int Gespielt, int Gesamt)? AktuellerFortschritt =>
         Spielstand.Fortschritt(fenster.TextOf("Spielplan.Fortschritt"));
 
+    /// <summary>Der Turnierbaum neben dem Spielplan — sichtbar, solange eine K.-o.-Runde gewählt ist.</summary>
+    public TurnierbaumAnsicht Turnierbaum() => new(fenster, hauptfenster);
+
     public void RundeWaehlen(string runde)
     {
         fenster.FindById("Spielplan.Runden").FindByName(runde, FlaUI.Core.Definitions.ControlType.ListItem).Activate();

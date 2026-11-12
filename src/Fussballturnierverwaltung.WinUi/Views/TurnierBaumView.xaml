@@ -15,6 +15,7 @@
         <DataTemplate x:Key="BracketKartenTemplate" x:DataType="vm:BracketKnotenAnzeige">
             <Button Command="{Binding DataContext.KnotenAngeklicktBefehl, ElementName=Root}"
                     CommandParameter="{Binding}"
+                    AutomationProperties.AutomationId="TurnierBaum.Karte"
                     views:SpielKontextmenue.Karte="{Binding}"
                     Padding="0" Width="240" HorizontalContentAlignment="Stretch">
                 <Border BorderThickness="1" CornerRadius="6" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
@@ -129,6 +130,7 @@
                     <Grid Grid.Column="0" HorizontalAlignment="Left"
                           Visibility="{Binding IstGesamtansicht, Converter={StaticResource InverseBoolToVisibility}}">
                         <Button Command="{Binding VorherigeRundeBefehl}" Background="Transparent" BorderThickness="0"
+                                AutomationProperties.AutomationId="TurnierBaum.VorherigeRunde"
                                 Visibility="{Binding HatVorherigeRunde, Converter={StaticResource BoolToVisibility}}">
                             <StackPanel Orientation="Horizontal" Spacing="6">
                                 <TextBlock Text="◀" FontSize="14" />
@@ -166,6 +168,7 @@
                     <Grid Grid.Column="2" HorizontalAlignment="Right"
                           Visibility="{Binding IstGesamtansicht, Converter={StaticResource InverseBoolToVisibility}}">
                         <Button Command="{Binding NaechsteRundeBefehl}" Background="Transparent" BorderThickness="0"
+                                AutomationProperties.AutomationId="TurnierBaum.NaechsteRunde"
                                 Visibility="{Binding HatNaechsteRunde, Converter={StaticResource BoolToVisibility}}">
                             <StackPanel Orientation="Horizontal" Spacing="6">
                                 <TextBlock Text="{Binding NaechsteRundeName}" FontSize="12" Opacity="0.7" />
@@ -178,10 +181,13 @@
                 <Grid Grid.Row="1" ColumnDefinitions="*,60,*" Margin="16,0,16,8"
                       Visibility="{Binding IstGesamtansicht, Converter={StaticResource InverseBoolToVisibility}}">
                     <TextBlock Grid.Column="0" Text="{Binding LinkeSpalteName}" FontSize="13" FontWeight="SemiBold" HorizontalAlignment="Center"
+                               AutomationProperties.AutomationId="TurnierBaum.LinkeSpalteName"
                                Grid.ColumnSpan="3" Visibility="{Binding ZeigtZweiteSpalte, Converter={StaticResource InverseBoolToVisibility}}" />
                     <TextBlock Grid.Column="0" Text="{Binding LinkeSpalteName}" FontSize="13" FontWeight="SemiBold" HorizontalAlignment="Center"
+                               AutomationProperties.AutomationId="TurnierBaum.LinkeSpalteName"
                                Visibility="{Binding ZeigtZweiteSpalte, Converter={StaticResource BoolToVisibility}}" />
                     <TextBlock Grid.Column="2" Text="{Binding RechteSpalteName}" FontSize="13" FontWeight="SemiBold" HorizontalAlignment="Center"
+                               AutomationProperties.AutomationId="TurnierBaum.RechteSpalteName"
                                Visibility="{Binding ZeigtZweiteSpalte, Converter={StaticResource BoolToVisibility}}" />
                 </Grid>
 
@@ -193,6 +199,7 @@
                              zuverlässig ausgewertet, siehe TurnierBaumView.xaml.cs/PositioniereKarten) —
                              stattdessen programmatisch im Code-Behind, analog zur Verbindungslinien-Messung. -->
                         <ItemsControl x:Name="LinkeSpalteItems" Grid.Column="0"
+                                      AutomationProperties.AutomationId="TurnierBaum.LinkeSpalte"
                                       ItemsSource="{Binding LinkeSpalteKnoten}" ItemTemplate="{StaticResource BracketKartenTemplate}"
                                       Width="240" Height="{Binding FensterCanvasHoehe}" HorizontalAlignment="Center">
                             <ItemsControl.ItemsPanel>
@@ -203,6 +210,7 @@
                         </ItemsControl>
 
                         <ItemsControl x:Name="RechteSpalteItems" Grid.Column="2"
+                                      AutomationProperties.AutomationId="TurnierBaum.RechteSpalte"
                                       ItemsSource="{Binding RechteSpalteKnoten}" ItemTemplate="{StaticResource BracketKartenTemplate}"
                                       Width="240" Height="{Binding FensterCanvasHoehe}" HorizontalAlignment="Center"
                                       Visibility="{Binding ZeigtZweiteSpalte, Converter={StaticResource BoolToVisibility}}">
