@@ -199,7 +199,6 @@
                              zuverlässig ausgewertet, siehe TurnierBaumView.xaml.cs/PositioniereKarten) —
                              stattdessen programmatisch im Code-Behind, analog zur Verbindungslinien-Messung. -->
                         <ItemsControl x:Name="LinkeSpalteItems" Grid.Column="0"
-                                      AutomationProperties.AutomationId="TurnierBaum.LinkeSpalte"
                                       ItemsSource="{Binding LinkeSpalteKnoten}" ItemTemplate="{StaticResource BracketKartenTemplate}"
                                       Width="240" Height="{Binding FensterCanvasHoehe}" HorizontalAlignment="Center">
                             <ItemsControl.ItemsPanel>
@@ -210,7 +209,6 @@
                         </ItemsControl>
 
                         <ItemsControl x:Name="RechteSpalteItems" Grid.Column="2"
-                                      AutomationProperties.AutomationId="TurnierBaum.RechteSpalte"
                                       ItemsSource="{Binding RechteSpalteKnoten}" ItemTemplate="{StaticResource BracketKartenTemplate}"
                                       Width="240" Height="{Binding FensterCanvasHoehe}" HorizontalAlignment="Center"
                                       Visibility="{Binding ZeigtZweiteSpalte, Converter={StaticResource BoolToVisibility}}">

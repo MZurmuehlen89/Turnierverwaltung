@@ -30,16 +30,21 @@ public sealed class TurnierbaumAnsicht(Window fenster, Hauptfenster hauptfenster
     public (IReadOnlyList<double> Links, IReadOnlyList<double> Rechts) KartenMittenNachLayout(int links, int rechts,
         Func<IReadOnlyList<double>, IReadOnlyList<double>, bool> angekommen)
     {
-        Wait.Within(() => KartenMitten("TurnierBaum.LinkeSpalte") is var l && l.Count == links
-                          && KartenMitten("TurnierBaum.RechteSpalte") is var r && r.Count == rechts
-                          && angekommen(l, r),
+        Wait.Within(() => KartenMitten() is var (l, r) && l.Count == links && r.Count == rechts && angekommen(l, r),
             Wait.DefaultTimeout);
-        return (KartenMitten("TurnierBaum.LinkeSpalte"), KartenMitten("TurnierBaum.RechteSpalte"));
+        return KartenMitten();
     }
 
-    private IReadOnlyList<double> KartenMitten(string spalte) =>
-        [.. fenster.FindById(spalte)
-            .FindAllById("TurnierBaum.Karte")
-            .Select(karte => karte.BoundingRectangle.Top + karte.BoundingRectangle.Height / 2.0)
-            .Order()];
+    // Die beiden Spalten (ItemsControls) haben keinen UIA-Knoten — die Karten werden darum über ihre waagerechte
+    // Lage den Spalten zugeordnet: links steht, was links von der Mitte zwischen äußerster linker und rechter Karte liegt.
+    private (IReadOnlyList<double> Links, IReadOnlyList<double> Rechts) KartenMitten()
+    {
+        var karten = fenster.FindAllById("TurnierBaum.Karte").Select(k => k.BoundingRectangle).ToList();
+        if (karten.Count == 0) return ([], []);
+
+        double trenner = (karten.Min(k => k.Left) + karten.Max(k => k.Left)) / 2;
+        IReadOnlyList<double> Mitten(Func<double, bool> inSpalte) =>
+            [.. karten.Where(k => inSpalte(k.Left)).Select(k => k.Top + k.Height / 2.0).Order()];
+        return (Mitten(x => x <= trenner), Mitten(x => x > trenner));
+    }
 }
