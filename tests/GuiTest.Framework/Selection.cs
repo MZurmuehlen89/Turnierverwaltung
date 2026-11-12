@@ -76,10 +76,11 @@ public static class Selection
     public static AutomationElement? FindItem(this AutomationElement list, Func<AutomationElement, bool> matches) =>
         RealizedItems(list).FirstOrDefault(matches);
 
-    // Realizing items in quick succession makes a virtualizing list hand out rows that still show an earlier item, in
+    // Realizing list items in quick succession makes a virtualizing list hand out rows that still show an earlier item, in
     // whole or field by field. Measured on the CI runner with 306 rows (#569): without a pause 90–100 of 306 pairs
-    // missing, 10 ms still 21, 20/30/60 ms none. A row read right after Realize never changed when read again, so the
-    // error cannot be caught by reading until stable — only the pause before the next Realize avoids it.
+    // missing, 10 ms still 21, 30/60 ms none (as did reading each row again after 20/50 ms, which only lengthened the
+    // gap to the next Realize). A row read right after Realize never changed when read again, so the error cannot be
+    // caught by reading until stable — only the pause before the next Realize avoids it.
     private static readonly TimeSpan _pauseBeforeRealize = TimeSpan.FromMilliseconds(50);
 
     /// <summary>Every entry of a list, each realized just before it is handed out — lazily, so a caller that stops
