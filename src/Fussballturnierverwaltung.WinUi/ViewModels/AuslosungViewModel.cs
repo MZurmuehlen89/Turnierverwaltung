@@ -882,6 +882,8 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
     partial void OnAusgewaehlteAuslosungChanged(Auslosung? value)
     {
         // #631, Fall 1: zeigt im Log, ob die Bindung die Auswahl beim Tausch der Seitenliste kurz auf null setzt.
+        // Befristet: diese und die anderen Auswahl-Logzeilen fallen mit dem Abschluss von #631 wieder weg (die
+        // Vorgänge „Seitenliste laden“ und „Ranglisten laden“ bleiben).
         _logger.LogInformation(
             "Auswahl Auslosung: {Id} (Seitenliste wird getauscht: {Guard}, Detail {DetailId}, Detail offen {DetailAktiv})",
             value?.Id, _seitenlisteAktualisierungAktiv, _auslosungDetail?.Id, DetailAktiv);
