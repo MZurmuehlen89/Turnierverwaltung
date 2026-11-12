@@ -65,7 +65,11 @@ internal sealed class TurnierVorlagenNachruestung
 
         // Issue #294: Vorlagen sind TurnierInstanz-Zeilen mit Status Vorlage — der Status gehört zur Identität,
         // damit ein echtes Turnier mit zufällig gleichem Namen nicht als "bereits vorhanden" zählt.
+        // Issue #631: geteilt, sonst vervielfachen sich die Zeilen der fünf Unterlisten (1398 statt 365) und
+        // SQL Server verlangt 134 MB Arbeitsspeicher statt 11 MB — auf der knappen LocalDB des CI-Runners wartete
+        // der App-Start darauf bis zu 10 s (RESOURCE_SEMAPHORE).
         var vorlagen = await context.TurnierInstanzen
+            .AsSplitQuery()
             .Include(i => i.Runden)
                 .ThenInclude(r => r.TabellenBereiche)
             .Include(i => i.Auslosungen)
