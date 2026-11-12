@@ -2,6 +2,7 @@ using Fussballturnierverwaltung.Application.Spielplan;
 using Fussballturnierverwaltung.Application.Turniere;
 using Fussballturnierverwaltung.Domain.Entitaeten.Spiele;
 using Fussballturnierverwaltung.Domain.Entitaeten.Turnierbaum;
+using Fussballturnierverwaltung.Domain.Entitaeten.Turniere;
 using Fussballturnierverwaltung.Domain.Enums;
 
 namespace Fussballturnierverwaltung.Application.Turnierbaum;
@@ -42,9 +43,8 @@ public class BracketLeser(
         // Issue #365: echter Rundenname je Baum-Spalte statt Ableitung aus der Spielanzahl
         // (CL-Playoff-Runde hat ebenfalls 8 Paarungen und wurde als "Achtelfinale" beschriftet).
         var instanz = await instanzRepository.FindenNachIdMitRundenAsync(turnierInstanzId, ct);
-        var rundenNameJeId = instanz?.Runden.ToDictionary(r => r.Id, r => r.Name) ?? [];
-        var platzDreiRundenIds = instanz?.Runden.Where(r => r.Rundenart == Rundenart.SpielUmPlatzDrei)
-            .Select(r => r.Id).ToHashSet() ?? [];
+        var rundeJeId = instanz?.Runden.ToDictionary(r => r.Id) ?? [];
+        var koRunden = instanz is null ? [] : TurnierBaumPlan.KoRunden(instanz.Runden);
 
         var rundenGruppen = baum.Knoten
             .GroupBy(k => k.Runde)
@@ -55,18 +55,25 @@ public class BracketLeser(
                 var rueckspiele = geordnet
                     .Where(k => k.SpielId.HasValue && rueckspielJeHinspielId.ContainsKey(k.SpielId.Value))
                     .ToDictionary(k => k.SpielId!.Value, k => rueckspielJeHinspielId[k.SpielId!.Value]);
-                string? rundenName = geordnet
-                    .Select(k => k.Spiel?.TurnierRundeId)
-                    .Where(id => id.HasValue)
-                    .Select(id => rundenNameJeId.GetValueOrDefault(id!.Value))
-                    .FirstOrDefault(n => !string.IsNullOrWhiteSpace(n));
-                bool istSpielUmPlatzDrei = geordnet.Any(k => k.Spiel is not null
-                    && platzDreiRundenIds.Contains(k.Spiel.TurnierRundeId));
+                var runde = TurnierRundeDerEbene(geordnet, g.Key, rundeJeId, koRunden);
+                string? rundenName = string.IsNullOrWhiteSpace(runde?.Name) ? null : runde.Name;
+                bool istSpielUmPlatzDrei = runde?.Rundenart == Rundenart.SpielUmPlatzDrei;
                 return new BracketRunde(g.Key, geordnet, rueckspiele, rundenName, istSpielUmPlatzDrei);
             })
             .ToList();
 
         return PlatzDreiVorDasFinale(rundenGruppen);
+    }
+
+    /// <summary>Die Turnierrunde einer Baum-Ebene: aus den Spielen ihrer Knoten, bei einer Ebene nur aus Platzhaltern
+    /// (Runde noch nicht ausgelost) über die Ebenennummer — Ebene n ist die n-te K.-o.-Runde, wie beim Erzeugen
+    /// (#567: sonst hieß das noch offene Spiel um Platz 3 nach seiner Spielzahl „Finale“ und galt nicht als
+    /// Spiel um Platz 3).</summary>
+    private static TurnierRunde? TurnierRundeDerEbene(List<TurnierBaumKnoten> knoten, int ebene,
+        Dictionary<int, TurnierRunde> rundeJeId, IReadOnlyList<TurnierRunde> koRunden)
+    {
+        int? rundeId = knoten.Select(k => k.Spiel?.TurnierRundeId).FirstOrDefault(id => id.HasValue);
+        return rundeId is int id ? rundeJeId.GetValueOrDefault(id) : koRunden.ElementAtOrDefault(ebene - 1);
     }
 
     /// <summary>#567 (Vorbild kicker.de): Halbfinale → Spiel um Platz 3 → Finale, auch wenn das Spiel um Platz 3 per

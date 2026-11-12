@@ -56,6 +56,13 @@ public sealed class TurnierBaumPlan
 
     public bool HatSpiele => AlleKnoten.Any(k => k.SpielId.HasValue);
 
+    /// <summary>Die K.-o.-Runden eines Turniers in Reihenfolge — Ebene n des Baums (<c>TurnierBaumKnoten.Runde</c>)
+    /// ist die n-te davon.</summary>
+    public static List<TurnierRunde> KoRunden(IEnumerable<TurnierRunde> runden) =>
+        runden.Where(r => r.Rundenart is Rundenart.KoRunde or Rundenart.Finale or Rundenart.SpielUmPlatzDrei)
+            .OrderBy(r => r.Reihenfolge)
+            .ToList();
+
     /// <summary>Baut den Baum aus den K.-o.-Runden (in Reihenfolge) und allen Spielen je Runde.</summary>
     public static TurnierBaumPlan Erstellen(
         IReadOnlyList<TurnierRunde> koRunden, IReadOnlyList<IReadOnlyList<Spiel>> spieleProRunde)

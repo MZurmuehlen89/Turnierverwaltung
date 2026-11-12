@@ -71,13 +71,7 @@ public class TurnierBaumService(
         // deckt auch Alt-Turniere ab, die seit der Migration noch nicht neu generiert wurden.
         await quellverknuepfung.AlleRundenVerknuepfenAsync(turnierInstanzId, ct);
 
-        // Alle K.-o.-Runden in Reihenfolge
-        var koRunden = instanz.Runden
-            .Where(r => r.Rundenart is Rundenart.KoRunde
-                                    or Rundenart.Finale
-                                    or Rundenart.SpielUmPlatzDrei)
-            .OrderBy(r => r.Reihenfolge)
-            .ToList();
+        var koRunden = TurnierBaumPlan.KoRunden(instanz.Runden);
 
         if (!koRunden.Any())
             throw new InvalidOperationException(

@@ -375,6 +375,28 @@ public class TurnierBaumServiceTests
         runden.Select(r => r.IstSpielUmPlatzDrei).Should().Equal(false, true, false);
     }
 
+    /// <summary>AK1 (#567) vor der Auslosung von Platz 3 und Finale: Deren Ebenen bestehen nur aus Platzhalter-Knoten
+    /// ohne Spiel — die Runde ergibt sich dann aus der Ebenennummer. Vorher hieß Platz 3 nach seiner Spielzahl
+    /// „Finale“ und galt nicht als Spiel um Platz 3 (GUI-Test des Issues).</summary>
+    [Fact]
+    public async Task BracketLadenAsync_ErkenntPlatzhalterEbenenAnIhrerRunde()
+    {
+        await using var ctx = NeuerContext();
+        HalbfinalePlatzDreiFinaleAnlegen(ctx);
+        ctx.Spiele.RemoveRange(ctx.Spiele.Where(s => s.Id == 3 || s.Id == 4));
+        ctx.SaveChanges();
+        var (baumService, _) = ServiceFuer(ctx);
+
+        await baumService.GenerierenAsync(1);
+        var runden = await new BracketLeser(
+            new TurnierBaumRepository(ctx), new TurnierInstanzRepository(ctx), new SpielRepository(ctx))
+            .BracketLadenAsync(1);
+
+        runden.Skip(1).SelectMany(r => r.Knoten).Should().OnlyContain(k => k.SpielId == null);
+        runden.Select(r => r.RundenName).Should().Equal("Halbfinale", "Spiel um Platz 3", "Finale");
+        runden.Select(r => r.IstSpielUmPlatzDrei).Should().Equal(false, true, false);
+    }
+
     // ── Issue #390: unveränderter Baum bleibt stehen ──────────────────────
 
     [Fact]
