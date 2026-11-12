@@ -96,7 +96,7 @@ public record SiegerfeldAnzeige(string? SiegerName, byte[]? Wappen)
 /// </summary>
 public partial class TurnierBaumViewModel : ViewModelBase
 {
-    private readonly TurnierBaumService _baumService;
+    private readonly BracketLeser _bracketLeser;
 
     private const double NODE_H = 148.0;
     private const double GAP_V = 24.0;
@@ -272,9 +272,9 @@ public partial class TurnierBaumViewModel : ViewModelBase
 
     private readonly RelayCommand<BracketKnotenAnzeige> _knotenAngeklicktBefehl;
 
-    public TurnierBaumViewModel(TurnierBaumService baumService, RundenTabellenViewModel tabellen)
+    public TurnierBaumViewModel(BracketLeser bracketLeser, RundenTabellenViewModel tabellen)
     {
-        _baumService = baumService;
+        _bracketLeser = bracketLeser;
         Tabellen = tabellen;
         Tabellen.FehlerGemeldet += meldung => Fehlermeldung = meldung;
         Tabellen.GruppeAngeklickt += gruppenNummer => GruppeAngeklickt?.Invoke(this, gruppenNummer);
@@ -325,7 +325,7 @@ public partial class TurnierBaumViewModel : ViewModelBase
 
         try
         {
-            var runden = await _baumService.BracketLadenAsync(AusgewaehlteInstanz.Id);
+            var runden = await _bracketLeser.BracketLadenAsync(AusgewaehlteInstanz.Id);
             if (runden.Count == 0) return;
 
             HatBaum = true;
@@ -342,7 +342,7 @@ public partial class TurnierBaumViewModel : ViewModelBase
         if (AusgewaehlteInstanz is null) return;
         try
         {
-            var runden = await _baumService.BracketLadenAsync(AusgewaehlteInstanz.Id);
+            var runden = await _bracketLeser.BracketLadenAsync(AusgewaehlteInstanz.Id);
             if (runden.Count == 0) return;
             BerechneBracket(runden, rundenNavigationZuruecksetzen: false);
         }

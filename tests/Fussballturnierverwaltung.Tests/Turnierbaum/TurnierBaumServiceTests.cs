@@ -263,7 +263,9 @@ public class TurnierBaumServiceTests
 
         var (baumService, _) = ServiceFuer(ctx);
         await baumService.GenerierenAsync(1);
-        var runden = await baumService.BracketLadenAsync(1);
+        var runden = await new BracketLeser(
+            new TurnierBaumRepository(ctx), new TurnierInstanzRepository(ctx), new SpielRepository(ctx))
+            .BracketLadenAsync(1);
 
         var af = runden.First();
         af.RueckspielJeHinspielId.Should().ContainKey(1);
@@ -351,7 +353,9 @@ public class TurnierBaumServiceTests
         var (baumService, _) = ServiceFuer(ctx);
 
         await baumService.GenerierenAsync(1);
-        var runden = await baumService.BracketLadenAsync(1);
+        var runden = await new BracketLeser(
+            new TurnierBaumRepository(ctx), new TurnierInstanzRepository(ctx), new SpielRepository(ctx))
+            .BracketLadenAsync(1);
 
         runden.Select(r => r.RundenName).Should().Equal("Halbfinale", "Finale", "Spiel um Platz 3");
         runden.Select(r => r.IstSpielUmPlatzDrei).Should().Equal(false, false, true);
