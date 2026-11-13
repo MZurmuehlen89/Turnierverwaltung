@@ -11,9 +11,24 @@
             <Setter Property="FontWeight" Value="SemiBold" />
             <Setter Property="Opacity" Value="0.6" />
         </Style>
+        <Style x:Key="ErgebnisZeilenTextStyle" TargetType="TextBlock" BasedOn="{StaticResource SpielKopfzeileTextStyle}">
+            <Setter Property="Width" Value="130" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+        <Style x:Key="ErgebnisToreTextBoxStyle" TargetType="TextBox">
+            <Setter Property="Width" Value="52" />
+            <Setter Property="FontSize" Value="16" />
+            <Setter Property="FontWeight" Value="Bold" />
+            <Setter Property="TextAlignment" Value="Center" />
+        </Style>
+        <Style x:Key="ErgebnisDoppelpunktStyle" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="18" />
+            <Setter Property="FontWeight" Value="Bold" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
     </UserControl.Resources>
 
-    <Grid ColumnDefinitions="220,*,Auto">
+    <Grid ColumnDefinitions="220,*">
 
         <!-- ── Spalte 0: Mannschaft (#479) und Runden ── -->
         <Grid Grid.Column="0" RowDefinitions="Auto,Auto,Auto,*"
@@ -34,8 +49,9 @@
             </ListView>
         </Grid>
 
-        <!-- ── Spalte 1: Spielliste ── -->
-        <Grid Grid.Column="1">
+        <!-- ── Spalte 1: Spielliste, darunter die Ergebnis-Leiste (#391) ── -->
+        <Grid Grid.Column="1" RowDefinitions="*,Auto">
+        <Grid Grid.Row="0">
             <TextBlock Text="Bitte ein Turnier und eine Runde oder eine Mannschaft auswählen."
                        Opacity="0.5" FontSize="14" HorizontalAlignment="Center" VerticalAlignment="Center"
                        Visibility="{Binding ZeigtSpielliste, Converter={StaticResource InverseBoolToVisibility}}" />
@@ -254,77 +270,107 @@
             </Grid>
         </Grid>
 
-        <!-- ── Spalte 2: Ergebnis-Formular ── -->
-        <Border Grid.Column="2" x:Name="ErgebnisFormular" Width="310"
-                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1,0,0,0"
-                Visibility="{Binding FormAktiv, Converter={StaticResource BoolToVisibility}}">
-            <ScrollViewer VerticalScrollBarVisibility="Auto">
-                <StackPanel Margin="16,14">
+            <!-- ── Ergebnis-Leiste (#391): unter der Spielliste statt als Spalte neben ihr; bleibt ohne gewähltes
+                 Spiel mit Hinweis stehen, damit die Liste beim Wählen nicht springt ── -->
+            <Border Grid.Row="1" x:Name="ErgebnisFormular" MinHeight="140"
+                    Background="{ThemeResource LayerFillColorDefaultBrush}"
+                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="0,1,0,0"
+                    Visibility="{Binding ZeigtSpielliste, Converter={StaticResource BoolToVisibility}}">
+                <Grid>
+                    <TextBlock Text="Spiel in der Liste oder im Baum auswählen, um das Ergebnis einzugeben."
+                               AutomationProperties.AutomationId="Ergebnis.Hinweis"
+                               Opacity="0.6" FontSize="13" HorizontalAlignment="Center" VerticalAlignment="Center"
+                               Visibility="{Binding FormAktiv, Converter={StaticResource InverseBoolToVisibility}}" />
 
-                    <TextBlock Text="{Binding Formular.SpielInfo}" FontSize="11" FontWeight="Bold" Opacity="0.6" Margin="0,0,0,8" />
-                    <TextBlock FontSize="15" FontWeight="Bold" Margin="0,0,0,16" TextWrapping="Wrap">
-                        <Run Text="{Binding Formular.HeimName}" />
-                        <Run Text=" vs. " />
-                        <Run Text="{Binding Formular.AuswaertsName}" />
-                    </TextBlock>
+                    <Grid ColumnDefinitions="*,Auto,*" ColumnSpacing="24" Padding="16,10"
+                          Visibility="{Binding FormAktiv, Converter={StaticResource BoolToVisibility}}">
 
-                    <Border Background="{ThemeResource SystemFillColorCriticalBackgroundBrush}"
-                            CornerRadius="4" Padding="10,7" Margin="0,0,0,12"
-                            Visibility="{Binding Fehlermeldung, Converter={StaticResource NullToCollapsed}}">
-                        <TextBlock Text="{Binding Fehlermeldung}" Foreground="{ThemeResource SystemFillColorCriticalBrush}"
-                                   FontSize="12" TextWrapping="Wrap" />
-                    </Border>
+                        <!-- Links: Paarung und Hinweise zum Spiel -->
+                        <StackPanel Grid.Column="0" Spacing="6">
+                            <TextBlock Text="{Binding Formular.SpielInfo}" FontSize="11" FontWeight="Bold" Opacity="0.6" />
+                            <TextBlock FontSize="15" FontWeight="Bold" TextWrapping="Wrap">
+                                <Run Text="{Binding Formular.HeimName}" />
+                                <Run Text=" – " />
+                                <Run Text="{Binding Formular.AuswaertsName}" />
+                            </TextBlock>
+                            <Border BorderBrush="{ThemeResource SystemFillColorCautionBrush}" BorderThickness="1"
+                                    CornerRadius="4" Padding="8,5"
+                                    Visibility="{Binding Formular.ZeigtErgebnisHinweis, Converter={StaticResource BoolToVisibility}}">
+                                <TextBlock Text="Dieses Spiel hat bereits ein Ergebnis. Zum Neu-Simulieren zuerst über 'Löschen' zurücksetzen."
+                                           AutomationProperties.AutomationId="Ergebnis.HatErgebnis" FontSize="12" TextWrapping="Wrap" />
+                            </Border>
+                            <TextBlock Text="Die Paarung steht noch nicht fest." AutomationProperties.AutomationId="Ergebnis.Platzhalter"
+                                       FontSize="12" Opacity="0.7"
+                                       Visibility="{Binding Formular.IstPlatzhalterSpiel, Converter={StaticResource BoolToVisibility}}" />
+                        </StackPanel>
 
-                    <TextBlock Text="REGULÄRE SPIELZEIT" Style="{StaticResource SpielKopfzeileTextStyle}" Margin="0,0,0,6" />
-                    <Grid ColumnDefinitions="*,20,*" Margin="0,0,0,12">
-                        <TextBox Grid.Column="0" x:Name="ErstesFormularFeld" AutomationProperties.AutomationId="Ergebnis.HeimTore" Text="{Binding Formular.HeimToreRegulaer, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                                 FontSize="18" FontWeight="Bold" TextAlignment="Center" />
-                        <TextBlock Grid.Column="1" Text=":" FontSize="20" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center" />
-                        <TextBox Grid.Column="2" AutomationProperties.AutomationId="Ergebnis.AuswaertsTore" Text="{Binding Formular.AuswaertsToreRegulaer, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                                 FontSize="18" FontWeight="Bold" TextAlignment="Center" />
+                        <!-- Mitte: Spielstände in der Reihenfolge des Spielverlaufs, unter der Ergebnis-Spalte der Liste -->
+                        <StackPanel Grid.Column="1" Spacing="6"
+                                    Visibility="{Binding Formular.ZeigtEingabe, Converter={StaticResource BoolToVisibility}}">
+                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                <TextBlock Text="90 MINUTEN" Style="{StaticResource ErgebnisZeilenTextStyle}" />
+                                <TextBox x:Name="ErstesFormularFeld" AutomationProperties.AutomationId="Ergebnis.HeimTore"
+                                         Text="{Binding Formular.HeimToreRegulaer, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                         Style="{StaticResource ErgebnisToreTextBoxStyle}" />
+                                <TextBlock Text=":" Style="{StaticResource ErgebnisDoppelpunktStyle}" />
+                                <TextBox AutomationProperties.AutomationId="Ergebnis.AuswaertsTore"
+                                         Text="{Binding Formular.AuswaertsToreRegulaer, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                         Style="{StaticResource ErgebnisToreTextBoxStyle}" />
+                            </StackPanel>
+                            <StackPanel Orientation="Horizontal" Spacing="6"
+                                        Visibility="{Binding Formular.VerlaengerungAktiv, Converter={StaticResource BoolToVisibility}}">
+                                <TextBlock Text="NACH VERLÄNGERUNG" Style="{StaticResource ErgebnisZeilenTextStyle}" />
+                                <TextBox AutomationProperties.AutomationId="Ergebnis.HeimToreVerlaengerung"
+                                         Text="{Binding Formular.HeimToreVerlaengerung, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                         Style="{StaticResource ErgebnisToreTextBoxStyle}" />
+                                <TextBlock Text=":" Style="{StaticResource ErgebnisDoppelpunktStyle}" />
+                                <TextBox AutomationProperties.AutomationId="Ergebnis.AuswaertsToreVerlaengerung"
+                                         Text="{Binding Formular.AuswaertsToreVerlaengerung, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                         Style="{StaticResource ErgebnisToreTextBoxStyle}" />
+                            </StackPanel>
+                            <StackPanel Orientation="Horizontal" Spacing="6"
+                                        Visibility="{Binding Formular.ElfmeterAktiv, Converter={StaticResource BoolToVisibility}}">
+                                <TextBlock Text="ELFMETERSCHIESSEN" Style="{StaticResource ErgebnisZeilenTextStyle}" />
+                                <TextBox AutomationProperties.AutomationId="Ergebnis.HeimElfmetertore"
+                                         Text="{Binding Formular.HeimElfmetertore, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                         Style="{StaticResource ErgebnisToreTextBoxStyle}" />
+                                <TextBlock Text=":" Style="{StaticResource ErgebnisDoppelpunktStyle}" />
+                                <TextBox AutomationProperties.AutomationId="Ergebnis.AuswaertsElfmetertore"
+                                         Text="{Binding Formular.AuswaertsElfmetertore, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                         Style="{StaticResource ErgebnisToreTextBoxStyle}" />
+                            </StackPanel>
+                            <StackPanel Orientation="Horizontal" Spacing="6"
+                                        Visibility="{Binding Formular.LosAktiv, Converter={StaticResource BoolToVisibility}}">
+                                <TextBlock Text="{Binding Formular.LosUeberschrift}" Style="{StaticResource ErgebnisZeilenTextStyle}" />
+                                <RadioButton GroupName="Losgewinner" AutomationProperties.AutomationId="Ergebnis.LosHeim"
+                                             Content="{Binding Formular.HeimName}" MinWidth="0"
+                                             IsChecked="{Binding Formular.LosFuerHeim, Mode=TwoWay}" />
+                                <RadioButton GroupName="Losgewinner" AutomationProperties.AutomationId="Ergebnis.LosAuswaerts"
+                                             Content="{Binding Formular.AuswaertsName}" MinWidth="0"
+                                             IsChecked="{Binding Formular.LosFuerAuswaerts, Mode=TwoWay}" />
+                            </StackPanel>
+                        </StackPanel>
+
+                        <!-- Rechts: Silver-Goal-Haken und Live-Prüfung der Eingabe -->
+                        <StackPanel Grid.Column="2" Spacing="8">
+                            <CheckBox AutomationProperties.AutomationId="Ergebnis.SilverGoal"
+                                      IsChecked="{Binding Formular.SilverGoalNachErsterHaelfte, Mode=TwoWay}"
+                                      Visibility="{Binding Formular.SilverGoalWaehlbar, Converter={StaticResource BoolToVisibility}}">
+                                <TextBlock TextWrapping="Wrap">
+                                    <Run Text="Silver Goal" />
+                                    <Run Text="(ohne Häkchen n.V. nach 120 Minuten)" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                </TextBlock>
+                            </CheckBox>
+                            <Border Background="{ThemeResource SystemFillColorCriticalBackgroundBrush}" CornerRadius="4" Padding="10,7"
+                                    Visibility="{Binding Formular.EingabeFehler, Converter={StaticResource NullToCollapsed}}">
+                                <TextBlock Text="{Binding Formular.EingabeFehler}" AutomationProperties.AutomationId="Ergebnis.Fehler"
+                                           Foreground="{ThemeResource SystemFillColorCriticalBrush}" FontSize="12" TextWrapping="Wrap" />
+                            </Border>
+                        </StackPanel>
                     </Grid>
-
-                    <TextBlock Text="HALBZEITSTAND (OPTIONAL)" Style="{StaticResource SpielKopfzeileTextStyle}" Margin="0,0,0,6" />
-                    <Grid ColumnDefinitions="*,20,*" Margin="0,0,0,12">
-                        <TextBox Grid.Column="0" Text="{Binding Formular.HeimHalbzeitTore, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                                 FontSize="16" FontWeight="Bold" TextAlignment="Center" />
-                        <TextBlock Grid.Column="1" Text=":" FontSize="18" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center" />
-                        <TextBox Grid.Column="2" Text="{Binding Formular.AuswaertsHalbzeitTore, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                                 FontSize="16" FontWeight="Bold" TextAlignment="Center" />
-                    </Grid>
-
-                    <StackPanel Visibility="{Binding Formular.VerlaengerungAktiv, Converter={StaticResource BoolToVisibility}}">
-                        <TextBlock Text="ERGEBNIS NACH VERLÄNGERUNG" Style="{StaticResource SpielKopfzeileTextStyle}" Margin="0,0,0,6" />
-                        <Grid ColumnDefinitions="*,20,*" Margin="0,0,0,12">
-                            <TextBox Grid.Column="0" AutomationProperties.AutomationId="Ergebnis.HeimToreVerlaengerung" Text="{Binding Formular.HeimToreVerlaengerung, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                                     FontSize="16" FontWeight="Bold" TextAlignment="Center" />
-                            <TextBlock Grid.Column="1" Text=":" FontSize="18" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center" />
-                            <TextBox Grid.Column="2" AutomationProperties.AutomationId="Ergebnis.AuswaertsToreVerlaengerung" Text="{Binding Formular.AuswaertsToreVerlaengerung, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                                     FontSize="16" FontWeight="Bold" TextAlignment="Center" />
-                        </Grid>
-                    </StackPanel>
-
-                    <StackPanel Visibility="{Binding Formular.ElfmeterAktiv, Converter={StaticResource BoolToVisibility}}">
-                        <TextBlock Text="ELFMETER" Style="{StaticResource SpielKopfzeileTextStyle}" Margin="0,0,0,6" />
-                        <Grid ColumnDefinitions="*,20,*" Margin="0,0,0,12">
-                            <TextBox Grid.Column="0" AutomationProperties.AutomationId="Ergebnis.HeimElfmetertore" Text="{Binding Formular.HeimElfmetertore, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                                     FontSize="16" FontWeight="Bold" TextAlignment="Center" />
-                            <TextBlock Grid.Column="1" Text=":" FontSize="18" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center" />
-                            <TextBox Grid.Column="2" AutomationProperties.AutomationId="Ergebnis.AuswaertsElfmetertore" Text="{Binding Formular.AuswaertsElfmetertore, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                                     FontSize="16" FontWeight="Bold" TextAlignment="Center" />
-                        </Grid>
-                    </StackPanel>
-
-                    <Border BorderBrush="{ThemeResource SystemFillColorCautionBrush}" BorderThickness="1"
-                            CornerRadius="4" Padding="10,7" Margin="0,0,0,12"
-                            Visibility="{Binding Formular.HatErgebnis, Converter={StaticResource BoolToVisibility}}">
-                        <TextBlock Text="Dieses Spiel hat bereits ein Ergebnis. Zum Neu-Simulieren zuerst über 'Löschen' zurücksetzen."
-                                   FontSize="12" TextWrapping="Wrap" />
-                    </Border>
-
-                </StackPanel>
-            </ScrollViewer>
-        </Border>
+                </Grid>
+            </Border>
+        </Grid>
 
     </Grid>
 </UserControl>

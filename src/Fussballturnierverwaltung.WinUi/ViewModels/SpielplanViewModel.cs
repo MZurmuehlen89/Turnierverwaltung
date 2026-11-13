@@ -572,7 +572,8 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
         _logger = logger;
 
         _neuBefehl = new AsyncRelayCommand(SpielplanNeuGenerierenAsync, () => HatRunde && !IstMannschaftsansicht);
-        _speichernBefehl = new AsyncRelayCommand(SpeichernAsync, () => FormAktiv && Formular.IsDirty);
+        // #391: gesperrt, solange die Leiste einen Eingabefehler zeigt oder der Losgewinner fehlt.
+        _speichernBefehl = new AsyncRelayCommand(SpeichernAsync, () => FormAktiv && Formular.IsDirty && Formular.KannSpeichern);
         _abbrechenBefehl = new RelayCommand(FormZuruecksetzen, () => FormAktiv && Formular.IsDirty);
         _loeschenBefehl = new AsyncRelayCommand(ErgebnisLoeschenAsync, CanErgebnisLoeschen);
 
@@ -603,7 +604,8 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
         };
         Formular.PropertyChanged += (_, e) =>
         {
-            if (e.PropertyName != nameof(ErgebnisFormularViewModel.IsDirty)) return;
+            if (e.PropertyName is not (nameof(ErgebnisFormularViewModel.IsDirty)
+                                       or nameof(ErgebnisFormularViewModel.KannSpeichern))) return;
             _speichernBefehl.NotifyCanExecuteChanged();
             _abbrechenBefehl.NotifyCanExecuteChanged();
         };

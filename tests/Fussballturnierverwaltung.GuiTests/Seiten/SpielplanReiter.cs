@@ -125,9 +125,10 @@ public sealed class SpielplanReiter(Window fenster, Hauptfenster hauptfenster)
         (int Heim, int Auswaerts)? nachVerlaengerung = null, (int Heim, int Auswaerts)? elfmeter = null)
     {
         SpielWaehlen(heim, auswaerts);
-        ToreSetzen("Tore", regulaer);
-        if (nachVerlaengerung is { } verlaengerung) ToreSetzen("ToreVerlaengerung", verlaengerung);
-        if (elfmeter is { } elfmeterTore) ToreSetzen("Elfmetertore", elfmeterTore);
+        var leiste = Leiste();
+        leiste.ToreSetzen(Ergebnisleiste.TORE, regulaer);
+        if (nachVerlaengerung is { } verlaengerung) leiste.ToreSetzen(Ergebnisleiste.VERLAENGERUNG, verlaengerung);
+        if (elfmeter is { } elfmeterTore) leiste.ToreSetzen(Ergebnisleiste.ELFMETER, elfmeterTore);
         fenster.ActivateById("Befehlsleiste.Speichern");
 
         var (endeHeim, endeAuswaerts) = nachVerlaengerung ?? regulaer;
@@ -139,22 +140,22 @@ public sealed class SpielplanReiter(Window fenster, Hauptfenster hauptfenster)
         hauptfenster.WarteBisRuhig();
     }
 
-    private void SpielWaehlen(string heim, string auswaerts)
+    /// <summary>Die Ergebnis-Leiste unter der Spielliste (#391).</summary>
+    public Ergebnisleiste Leiste() => new(fenster, hauptfenster);
+
+    /// <summary>Wählt das Spiel <paramref name="heim"/> – <paramref name="auswaerts"/> und wartet, bis die Leiste es
+    /// zeigt: mit Eingabefeldern, bei einem Spiel mit Platzhaltern (<paramref name="platzhalter"/>) mit dem Hinweis,
+    /// dass die Paarung noch nicht feststeht.</summary>
+    public void SpielWaehlen(string heim, string auswaerts, bool platzhalter = false)
     {
         fenster.FindById("Spielplan.Spiele")
             .ReadAllItems(z => z.TryFindById("Spiel.Heim") is not null && z.TextOf("Spiel.Heim") == heim
                                && z.TextOf("Spiel.Auswaerts") == auswaerts ? z : null)
             .Single()
             .Activate();
-        Wait.Until(() => fenster.TryFindById("Ergebnis.HeimTore") is not null, Wait.DefaultTimeout,
-            $"Ergebnisformular für {heim} – {auswaerts}");
-    }
-
-    /// <summary>Setzt ein Torpaar des Formulars, die Felder „Ergebnis.Heim{feld}“ und „Ergebnis.Auswaerts{feld}“.
-    /// FindById wartet, bis ein gerade erst eingeblendetes Feld (Verlängerung, Elfmeter) im Baum steht.</summary>
-    private void ToreSetzen(string feld, (int Heim, int Auswaerts) tore)
-    {
-        fenster.FindById($"Ergebnis.Heim{feld}").Patterns.Value.Pattern.SetValue(tore.Heim.ToString());
-        fenster.FindById($"Ergebnis.Auswaerts{feld}").Patterns.Value.Pattern.SetValue(tore.Auswaerts.ToString());
+        var leiste = Leiste();
+        Wait.Until(() => platzhalter ? leiste.ZeigtPlatzhalterHinweis : leiste.ZeigtEingabe, Wait.DefaultTimeout,
+            $"Ergebnisleiste für {heim} – {auswaerts}");
+        hauptfenster.WarteBisRuhig();
     }
 }
