@@ -24,6 +24,15 @@ public sealed class StatistikReiter(Window fenster, Hauptfenster hauptfenster)
         hauptfenster.WarteBisRuhig();
     }
 
+    /// <summary>Der Turnierausgang der Auswertung „Turnier“ (#527): Turniersieger, dann die übrigen Platzierungen in
+    /// Platzreihenfolge. Leer, solange der Sieger offen ist.</summary>
+    public IReadOnlyList<string> Platzierungen()
+    {
+        var sieger = Wait.UntilFound(() => fenster.TryFindById("Statistik.Turniersieger"), Wait.DefaultTimeout,
+            "Turniersieger in der Statistik");
+        return [sieger.NameOrEmpty(), .. fenster.FindAllById("Statistik.Platzierung").Select(p => p.NameOrEmpty())];
+    }
+
     /// <summary>Die sichtbare Tabelle; die Zellen jeder Zeile werden den Spaltenköpfen der Reihe nach zugeordnet.</summary>
     public IReadOnlyList<TabellenZeile> Tabelle()
     {

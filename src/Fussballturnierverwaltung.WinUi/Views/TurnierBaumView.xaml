@@ -39,9 +39,11 @@
                                        Visibility="{Binding HeimWappen, Converter={StaticResource NullToCollapsed}}"
                                        Width="18" Height="18" Stretch="Uniform" />
                                 <TextBlock Text="{Binding HeimName}" FontSize="13" TextTrimming="CharacterEllipsis" VerticalAlignment="Center"
+                                           AutomationProperties.AutomationId="TurnierBaum.KarteHeim"
                                            FontWeight="{Binding HeimIstSieger, Converter={StaticResource IstNichtNull}}" />
                             </StackPanel>
-                            <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding HeimScore}" FontSize="15" FontWeight="Bold" Margin="8,10,12,4" VerticalAlignment="Center" />
+                            <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding HeimScore}" FontSize="15" FontWeight="Bold" Margin="8,10,12,4" VerticalAlignment="Center"
+                                       AutomationProperties.AutomationId="TurnierBaum.KarteHeimTore" />
 
                             <Rectangle Grid.Row="1" Grid.Column="0" Height="1" Fill="{ThemeResource CardStrokeColorDefaultBrush}" Margin="12,4,0,4" />
                             <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding ErgebnisDetail}" FontSize="9" Opacity="0.6" HorizontalAlignment="Center" Margin="8,0,12,0" />
@@ -50,9 +52,11 @@
                                 <Image Source="{Binding AuswaertsWappen, Converter={StaticResource BildDatenZuBildquelle}}"
                                        Visibility="{Binding AuswaertsWappen, Converter={StaticResource NullToCollapsed}}"
                                        Width="18" Height="18" Stretch="Uniform" />
-                                <TextBlock Text="{Binding AuswaertsName}" FontSize="13" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+                                <TextBlock Text="{Binding AuswaertsName}" FontSize="13" TextTrimming="CharacterEllipsis" VerticalAlignment="Center"
+                                           AutomationProperties.AutomationId="TurnierBaum.KarteAuswaerts" />
                             </StackPanel>
-                            <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding AuswaertsScore}" FontSize="15" FontWeight="Bold" Margin="8,4,12,10" VerticalAlignment="Center" />
+                            <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding AuswaertsScore}" FontSize="15" FontWeight="Bold" Margin="8,4,12,10" VerticalAlignment="Center"
+                                       AutomationProperties.AutomationId="TurnierBaum.KarteAuswaertsTore" />
                         </Grid>
 
                         <!-- Issue #340: Einzelergebnisse einer Hin-/Rückspiel-Paarung über die volle Kartenbreite. -->
@@ -83,9 +87,10 @@
                                Width="16" Height="16" Stretch="Uniform" />
                         <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding HeimName}" FontSize="12"
                                    TextTrimming="CharacterEllipsis" VerticalAlignment="Center"
+                                   AutomationProperties.AutomationId="TurnierBaum.KarteHeim"
                                    FontWeight="{Binding HeimSchrift}" />
                         <TextBlock Grid.Row="0" Grid.Column="3" Text="{Binding HeimScore}" FontSize="13" FontWeight="Bold"
-                                   VerticalAlignment="Center" />
+                                   VerticalAlignment="Center" AutomationProperties.AutomationId="TurnierBaum.KarteHeimTore" />
 
                         <Image Grid.Row="1" Grid.Column="0"
                                Source="{Binding AuswaertsWappen, Converter={StaticResource BildDatenZuBildquelle}}"
@@ -93,9 +98,10 @@
                                Width="16" Height="16" Stretch="Uniform" />
                         <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding AuswaertsName}" FontSize="12"
                                    TextTrimming="CharacterEllipsis" VerticalAlignment="Center"
+                                   AutomationProperties.AutomationId="TurnierBaum.KarteAuswaerts"
                                    FontWeight="{Binding AuswaertsSchrift}" />
                         <TextBlock Grid.Row="1" Grid.Column="3" Text="{Binding AuswaertsScore}" FontSize="13" FontWeight="Bold"
-                                   VerticalAlignment="Center" />
+                                   VerticalAlignment="Center" AutomationProperties.AutomationId="TurnierBaum.KarteAuswaertsTore" />
 
                         <TextBlock Grid.Row="0" Grid.RowSpan="2" Grid.Column="2" Text="{Binding EntscheidungKurz}"
                                    FontSize="9" Opacity="0.6" VerticalAlignment="Center" />
@@ -140,6 +146,7 @@
                     </Grid>
 
                     <Button Grid.Column="1" Command="{Binding GesamtansichtZeigenBefehl}"
+                            AutomationProperties.AutomationId="TurnierBaum.Gesamtuebersicht"
                             Visibility="{Binding IstGesamtansicht, Converter={StaticResource InverseBoolToVisibility}}">
                         <StackPanel Orientation="Horizontal" Spacing="8">
                             <FontIcon Glyph="&#xE8A9;" FontSize="14" />
@@ -148,7 +155,7 @@
                     </Button>
                     <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8"
                                 Visibility="{Binding IstGesamtansicht, Converter={StaticResource BoolToVisibility}}">
-                        <Button Command="{Binding RundenweiseZeigenBefehl}">
+                        <Button Command="{Binding RundenweiseZeigenBefehl}" AutomationProperties.AutomationId="TurnierBaum.Rundenweise">
                             <StackPanel Orientation="Horizontal" Spacing="8">
                                 <FontIcon Glyph="&#xE72B;" FontSize="14" />
                                 <TextBlock Text="Rundenweise" />

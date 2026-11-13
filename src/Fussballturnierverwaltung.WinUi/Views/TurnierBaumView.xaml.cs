@@ -2,6 +2,7 @@ using Fussballturnierverwaltung.Application.Turnierbaum;
 using Fussballturnierverwaltung.WinUi.ViewModels;
 using Microsoft.UI.Input;
 using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Automation;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
@@ -168,6 +169,7 @@ public sealed partial class TurnierBaumView : UserControl
                 VerticalContentAlignment = VerticalAlignment.Stretch,
                 Command = angeklicktBefehl, CommandParameter = k
             };
+            AutomationProperties.SetAutomationId(karte, "TurnierBaum.Karte");
             SpielKontextmenue.SetKarte(karte, k);
             Canvas.SetLeft(karte, k.GesamtX);
             Canvas.SetTop(karte, streckung.KartenOben(k.GesamtY, TurnierBaumViewModel.KOMPAKT_H));
