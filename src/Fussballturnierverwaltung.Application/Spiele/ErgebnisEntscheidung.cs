@@ -110,8 +110,10 @@ public static class ErgebnisEntscheidung
     private static EntscheidungArt? FolgeArtFaellig(ErgebnisRahmen rahmen, TorEingabe tore)
     {
         if (!VerfahrenNoetig(rahmen, tore)) return null;
+        // Eine Verlängerung unter dem Stand nach 90 Minuten ist ein Eingabefehler, kein Gleichstand.
         if (VerlaengerungsVerfahren(rahmen) is not null
-            && (VerlaengerungsTore(tore) is not { } verlaengerung || verlaengerung.Heim != verlaengerung.Auswaerts))
+            && (VerlaengerungsTore(tore) is not { } verlaengerung || verlaengerung.Heim != verlaengerung.Auswaerts
+                || verlaengerung.Heim < 0))
             return null;
         return FolgeArt(rahmen);
     }

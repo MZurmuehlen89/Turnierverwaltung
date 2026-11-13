@@ -290,4 +290,8 @@ public class ErgebnisEntscheidungTests
     [Fact]
     public void VerlaengerungFehler_TorgleichMitFolgeverfahren_KeinFehler() =>
         ErgebnisEntscheidung.VerlaengerungFehler(KoSpiel(_verlaengerungUndElfmeter), Tore(1, 1, 2, 2)).Should().BeNull();
+
+    [Fact]
+    public void ElfmeterAktiv_VerlaengerungUnterDemStandNach90Minuten_Nein() =>
+        ErgebnisEntscheidung.ElfmeterAktiv(KoSpiel(_verlaengerungUndElfmeter), Tore(1, 1, 0, 0)).Should().BeFalse();
 }
