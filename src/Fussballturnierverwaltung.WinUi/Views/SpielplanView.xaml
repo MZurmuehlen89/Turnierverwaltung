@@ -272,7 +272,7 @@
 
             <!-- ── Ergebnis-Leiste (#391): unter der Spielliste statt als Spalte neben ihr; bleibt ohne gewähltes
                  Spiel mit Hinweis stehen, damit die Liste beim Wählen nicht springt ── -->
-            <Border Grid.Row="1" x:Name="ErgebnisFormular" MinHeight="140"
+            <Border Grid.Row="1" x:Name="ErgebnisFormular" Height="140"
                     Background="{ThemeResource LayerFillColorDefaultBrush}"
                     BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="0,1,0,0"
                     Visibility="{Binding ZeigtSpielliste, Converter={StaticResource BoolToVisibility}}">
@@ -280,6 +280,7 @@
                     <TextBlock Text="Spiel in der Liste oder im Baum auswählen, um das Ergebnis einzugeben."
                                AutomationProperties.AutomationId="Ergebnis.Hinweis"
                                Opacity="0.6" FontSize="13" HorizontalAlignment="Center" VerticalAlignment="Center"
+                               TextWrapping="Wrap" TextAlignment="Center" Margin="16,0"
                                Visibility="{Binding FormAktiv, Converter={StaticResource InverseBoolToVisibility}}" />
 
                     <Grid ColumnDefinitions="*,Auto,*" ColumnSpacing="24" Padding="16,10"
@@ -287,8 +288,8 @@
 
                         <!-- Links: Paarung und Hinweise zum Spiel -->
                         <StackPanel Grid.Column="0" Spacing="6">
-                            <TextBlock Text="{Binding Formular.SpielInfo}" FontSize="11" FontWeight="Bold" Opacity="0.6" />
-                            <TextBlock FontSize="15" FontWeight="Bold" TextWrapping="Wrap">
+                            <TextBlock Text="{Binding Formular.SpielInfo}" FontSize="11" FontWeight="Bold" Opacity="0.6" TextTrimming="CharacterEllipsis" />
+                            <TextBlock FontSize="15" FontWeight="Bold" TextTrimming="CharacterEllipsis">
                                 <Run Text="{Binding Formular.HeimName}" />
                                 <Run Text=" – " />
                                 <Run Text="{Binding Formular.AuswaertsName}" />
