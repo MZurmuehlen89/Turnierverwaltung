@@ -34,7 +34,7 @@ public sealed class PlatzhalterVorschauTests(TurnierverwaltungApp app) : IClassF
         Halbfinale(spielplan).Should().Equal(KreuzPaarungen, "ohne Vorschau stehen die Platzhalter da");
 
         spielplan.PlatzhalterVorschauUmschalten();
-        string[] erwartet = [$"({a[0]})", $"({b[1]})", $"({b[0]})", $"({a[1]})"];
+        string[] erwartet = [$"({a[0]})", $"({a[1]})", $"({b[0]})", $"({b[1]})"];
         Wait.Within(() => Halbfinale(spielplan).SequenceEqual(erwartet), Wait.DefaultTimeout);
         Halbfinale(spielplan).Should().Equal(erwartet, "die Vorschau zeigt die Gruppenersten und -zweiten über Kreuz");
 

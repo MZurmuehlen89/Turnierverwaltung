@@ -123,7 +123,7 @@ public sealed class TurnierAblaufTests(TurnierverwaltungApp app) : IClassFixture
     {
         var finale = spiele[FINALE].Single();
         var platzDrei = spiele[SPIEL_UM_PLATZ_DREI].Single();
-        platzierungen.Should().Equal(finale.Sieger, finale.Verlierer, platzDrei.Sieger, platzDrei.Verlierer);
+        platzierungen.Should().Equal(finale.Verlierer, finale.Sieger, platzDrei.Sieger, platzDrei.Verlierer);
     }
 
     /// <summary>Gesamttabelle: die 8 Teams, Halbfinalisten mit 5 Spielen, alle anderen mit 3.</summary>

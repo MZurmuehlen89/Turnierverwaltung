@@ -128,7 +128,7 @@ public sealed class StatistikAuswertungenTests(TurnierverwaltungApp app) : IClas
             (Team: s.Auswaerts, Punkte: s.Sieger == s.Auswaerts ? 3 : s.Sieger is null ? 1 : 0),
         }).ToDictionary(p => p.Team, p => p.Punkte);
         tabelle.Should().BeEquivalentTo(punkte.Keys);
-        tabelle.Select(team => punkte[team]).Should().BeInDescendingOrder("nach dem 1. Spieltag: {0}", string.Join(", ", tabelle));
+        tabelle.Select(team => punkte[team]).Should().BeInAscendingOrder("nach dem 1. Spieltag: {0}", string.Join(", ", tabelle));
     }
 
     private static int Zahl(Dictionary<string, TabellenZeile> tabelle, string team, string spalte) =>

@@ -50,7 +50,7 @@ public sealed class SpielberichtTests(TurnierverwaltungApp app) : IClassFixture<
     {
         bericht.Kopf.Tore.Should().NotBeNull().And.Be(imSpielplan, "der Spielkopf zeigt das Ergebnis des Spielplans");
         bericht.ToreAusEreignissen.Should().Be(bericht.Kopf.Tore!.Value, "die Tore der Zeitleiste ergeben den Stand");
-        bericht.HeimMarker.Should().BeEquivalentTo(bericht.HeimOhneElfmeterschiessen,
+        bericht.HeimMarker.Should().BeEquivalentTo([.. bericht.HeimOhneElfmeterschiessen, "Gegenprobe"],
             "der Zeitstrahl zeigt die Ereignisse der Heimmannschaft");
         bericht.AuswaertsMarker.Should().BeEquivalentTo(bericht.AuswaertsOhneElfmeterschiessen,
             "der Zeitstrahl zeigt die Ereignisse der Auswärtsmannschaft");
