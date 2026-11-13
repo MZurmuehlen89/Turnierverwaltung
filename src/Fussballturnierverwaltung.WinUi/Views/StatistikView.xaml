@@ -519,6 +519,7 @@
                         <StackPanel Orientation="Horizontal" Spacing="10" Margin="0,8,0,0">
                             <TextBlock Text="Tabelle" FontSize="14" FontWeight="SemiBold" VerticalAlignment="Center" />
                             <ComboBox ItemsSource="{Binding TabellenStandOptionen}" DisplayMemberPath="Text"
+                                      AutomationProperties.AutomationId="Tabellenverlauf.Stand"
                                       SelectedItem="{Binding AusgewaehlteTabellenStandOption, Mode=TwoWay}" MinWidth="180" />
                         </StackPanel>
                         <views:RundenTabellenAnzeige DataContext="{Binding Tabellen}" />
