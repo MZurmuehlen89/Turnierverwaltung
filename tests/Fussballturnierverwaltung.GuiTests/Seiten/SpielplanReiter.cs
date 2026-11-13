@@ -3,6 +3,10 @@ using GuiTest.Framework;
 
 namespace Fussballturnierverwaltung.GuiTests.Seiten;
 
+/// <summary>Ebenen der Menüs „Simulieren“ und „Zurücksetzen“ im Spielplan. Gruppe und Spieltag folgen der Auswahl in der
+/// Liste (gewähltes Spiel bzw. Spieltag-Auswahl), Auswahl den markierten Spielen; „Auswahl“ gibt es nur zum Simulieren.</summary>
+public enum Spielmenge { Runde, Hinrunde, Rueckrunde, Gruppe, Spieltag, Auswahl }
+
 /// <summary>Reiter „Spielplan &amp; Baum“: Runde wählen, simulieren, Spiele und Fortschritt lesen.</summary>
 public sealed class SpielplanReiter(Window fenster, Hauptfenster hauptfenster)
 {
@@ -29,11 +33,34 @@ public sealed class SpielplanReiter(Window fenster, Hauptfenster hauptfenster)
 
     /// <summary>Simuliert die gewählte Runde und wartet, bis ihre <paramref name="spieleInDerRunde"/> Spiele im
     /// Fortschritt angekommen sind.</summary>
-    public void RundeSimulieren(int spieleInDerRunde)
+    public void RundeSimulieren(int spieleInDerRunde) => Simulieren(Spielmenge.Runde, spieleInDerRunde);
+
+    /// <summary>Simuliert die offenen Spiele der <paramref name="menge"/> und wartet, bis <paramref name="neu"/>
+    /// weitere Spiele im Fortschritt angekommen sind.</summary>
+    public void Simulieren(Spielmenge menge, int neu)
     {
-        int erwartet = Fortschritt.Gespielt + spieleInDerRunde;
-        fenster.InvokeMenuItem("Befehlsleiste.Simulieren", "Befehlsleiste.SimulierenRunde");
+        int erwartet = Fortschritt.Gespielt + neu;
+        fenster.InvokeMenuItem("Befehlsleiste.Simulieren", $"Befehlsleiste.Simulieren{menge}");
         Wait.Until(() => AktuellerFortschritt?.Gespielt == erwartet, _simulationsZeit, $"{erwartet} Spiele gespielt");
+        hauptfenster.WarteBisRuhig();
+    }
+
+    /// <summary>Setzt die Ergebnisse der <paramref name="menge"/> nach Rückfrage zurück und wartet, bis
+    /// <paramref name="geloescht"/> Spiele weniger im Fortschritt stehen.</summary>
+    public void Zuruecksetzen(Spielmenge menge, int geloescht)
+    {
+        int erwartet = Fortschritt.Gespielt - geloescht;
+        fenster.InvokeMenuItem("Befehlsleiste.Zuruecksetzen", $"Befehlsleiste.Zuruecksetzen{menge}");
+        Dialog.WaitFor(fenster, "Ergebnisse zurücksetzen").Confirm();
+        Wait.Until(() => AktuellerFortschritt?.Gespielt == erwartet, _simulationsZeit, $"{erwartet} Spiele gespielt");
+        hauptfenster.WarteBisRuhig();
+    }
+
+    /// <summary>Schaltet die Platzhalter-Vorschau (#208) um: Platzhalter zeigen dann in Klammern die Mannschaft, die
+    /// nach dem aktuellen Stand der Vorrunde dort stünde.</summary>
+    public void PlatzhalterVorschauUmschalten()
+    {
+        fenster.ActivateById("Befehlsleiste.PlatzhalterVorschau");
         hauptfenster.WarteBisRuhig();
     }
 
@@ -49,17 +76,40 @@ public sealed class SpielplanReiter(Window fenster, Hauptfenster hauptfenster)
         return SichtbareSpiele();
     }
 
+    /// <summary>Wählt in der Spieltag-Auswahl „n. Spieltag“ und liefert dessen Spiele; der Spieltag bleibt gewählt
+    /// (Ebene <see cref="Spielmenge.Spieltag"/>).</summary>
+    public IReadOnlyList<SpielZeile> SpieltagWaehlen(int spieltag)
+    {
+        fenster.FindById("Spielplan.Spieltag").AsComboBox().SelectItem($"{spieltag}. Spieltag");
+        hauptfenster.WarteBisRuhig();
+        return SichtbareSpiele();
+    }
+
+    /// <summary>Markiert genau diese Spiele der Liste (wie Strg + Klick) — Ebene <see cref="Spielmenge.Auswahl"/>.</summary>
+    public void SpieleMarkieren(params (string Heim, string Auswaerts)[] spiele)
+    {
+        var liste = fenster.FindById("Spielplan.Spiele");
+        for (int i = 0; i < spiele.Length; i++)
+        {
+            var (heim, auswaerts) = spiele[i];
+            var zeile = liste.FindItem(z => z.TryFindById("Spiel.Heim") is not null && z.TextOf("Spiel.Heim") == heim
+                                            && z.TextOf("Spiel.Auswaerts") == auswaerts)
+                ?? throw new InvalidOperationException($"{heim} – {auswaerts} steht nicht im Spielplan.");
+            var auswahl = zeile.Patterns.SelectionItem.Pattern;
+            if (i == 0) auswahl.Select();
+            else auswahl.AddToSelection();
+        }
+        Wait.Until(() => liste.Patterns.Selection.Pattern.Selection.Value.Length == spiele.Length, Wait.DefaultTimeout,
+            $"{spiele.Length} Spiele markiert");
+        hauptfenster.WarteBisRuhig();
+    }
+
     /// <summary>Die Spiele der gewählten Runde, Spieltag für Spieltag über die Auswahl „n. Spieltag“ gelesen.</summary>
     public IReadOnlyList<SpielZeile> SpieleJeSpieltag(int spieltage)
     {
-        var auswahl = fenster.FindById("Spielplan.Spieltag").AsComboBox();
         var spiele = new List<SpielZeile>();
         for (int spieltag = 1; spieltag <= spieltage; spieltag++)
-        {
-            auswahl.SelectItem($"{spieltag}. Spieltag");
-            hauptfenster.WarteBisRuhig();
-            spiele.AddRange(SichtbareSpiele());
-        }
+            spiele.AddRange(SpieltagWaehlen(spieltag));
         return spiele;
     }
 

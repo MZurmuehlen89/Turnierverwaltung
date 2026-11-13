@@ -482,41 +482,46 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
                     Unteraktionen =
                     [
                         Ebene("Runde", Mengen.RundeSimulierenBefehl, "Befehlsleiste.SimulierenRunde"),
-                        Ebene(HinrundeMenuText, Mengen.HinrundeSimulierenBefehl),
-                        Ebene(RueckrundeMenuText, Mengen.RueckrundeSimulierenBefehl),
-                        Ebene("Gruppe", Mengen.GruppeSimulierenBefehl),
-                        Ebene(SpieltagSimulierenMenuText, Mengen.SpieltagSimulierenBefehl),
-                        new RibbonUnteraktion(AuswahlSimulierenMenuText, Mengen.AuswahlSimulierenBefehl),
+                        Ebene(HinrundeMenuText, Mengen.HinrundeSimulierenBefehl, "Befehlsleiste.SimulierenHinrunde"),
+                        Ebene(RueckrundeMenuText, Mengen.RueckrundeSimulierenBefehl, "Befehlsleiste.SimulierenRueckrunde"),
+                        Ebene("Gruppe", Mengen.GruppeSimulierenBefehl, "Befehlsleiste.SimulierenGruppe"),
+                        Ebene(SpieltagSimulierenMenuText, Mengen.SpieltagSimulierenBefehl, "Befehlsleiste.SimulierenSpieltag"),
+                        new RibbonUnteraktion(AuswahlSimulierenMenuText, Mengen.AuswahlSimulierenBefehl,
+                            AutomationId: "Befehlsleiste.SimulierenAuswahl"),
                     ],
                 },
                 new RibbonAktion
                 {
                     Header = "Zurücksetzen",
+                    AutomationId = "Befehlsleiste.Zuruecksetzen",
                     IconGlyph = "",
                     Unteraktionen =
                     [
-                        Ebene("Runde", Mengen.RundeZuruecksetzenBefehl),
-                        Ebene(HinrundeMenuText, Mengen.HinrundeZuruecksetzenBefehl),
-                        Ebene(RueckrundeMenuText, Mengen.RueckrundeZuruecksetzenBefehl),
-                        Ebene("Gruppe", Mengen.GruppeZuruecksetzenBefehl),
-                        Ebene(SpieltagZuruecksetzenMenuText, Mengen.SpieltagZuruecksetzenBefehl),
+                        Ebene("Runde", Mengen.RundeZuruecksetzenBefehl, "Befehlsleiste.ZuruecksetzenRunde"),
+                        Ebene(HinrundeMenuText, Mengen.HinrundeZuruecksetzenBefehl, "Befehlsleiste.ZuruecksetzenHinrunde"),
+                        Ebene(RueckrundeMenuText, Mengen.RueckrundeZuruecksetzenBefehl, "Befehlsleiste.ZuruecksetzenRueckrunde"),
+                        Ebene("Gruppe", Mengen.GruppeZuruecksetzenBefehl, "Befehlsleiste.ZuruecksetzenGruppe"),
+                        Ebene(SpieltagZuruecksetzenMenuText, Mengen.SpieltagZuruecksetzenBefehl, "Befehlsleiste.ZuruecksetzenSpieltag"),
                     ],
                 },
                 new RibbonAktion
                 {
                     Header = "Ausführlich simulieren",
+                    AutomationId = "Befehlsleiste.AusfuehrlichSimulieren",
                     Befehl = _ausfuehrlichSimulierenBefehl,
                     IconGlyph = "",
                 },
                 new RibbonAktion
                 {
                     Header = "Spielverlauf ansehen",
+                    AutomationId = "Befehlsleiste.SpielverlaufAnsehen",
                     Befehl = _spielverlaufAnsehenBefehl,
                     IconGlyph = "",
                 },
                 new RibbonAktion
                 {
                     Header = "Platzhalter-Vorschau",
+                    AutomationId = "Befehlsleiste.PlatzhalterVorschau",
                     Befehl = _vorschauUmschaltenBefehl,
                     IstAktiv = VorschauAktiv,
                     IconGlyph = "",
