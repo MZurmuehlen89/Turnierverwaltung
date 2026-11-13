@@ -186,9 +186,11 @@ public sealed partial class SpielZeitstrahlControl : UserControl
                     VerticalContentAlignment = VerticalAlignment.Center
                 };
                 string detail = zeile.Detail is null ? "" : $" {zeile.Detail}";
-                ToolTipService.SetToolTip(marker, $"{zeile.Minute} {zeile.Art}{detail} – {zeile.Seite}");
+                string beschreibung = $"{zeile.Minute} {zeile.Art}{detail} – {zeile.Seite}";
+                ToolTipService.SetToolTip(marker, beschreibung);
                 AutomationProperties.SetAutomationId(marker, zeile.IstHeimSeite ? "Zeitstrahl.HeimMarker" : "Zeitstrahl.AuswaertsMarker");
                 AutomationProperties.SetName(marker, zeile.Art);
+                AutomationProperties.SetHelpText(marker, beschreibung);
                 Canvas.SetLeft(marker, XFuerMinute(zeile.MinuteWert) - MARKER_GROESSE / 2);
                 Canvas.SetTop(marker, zeile.IstHeimSeite ? 0 : auswaertsTop);
                 MarkerFlaeche.Children.Add(marker);

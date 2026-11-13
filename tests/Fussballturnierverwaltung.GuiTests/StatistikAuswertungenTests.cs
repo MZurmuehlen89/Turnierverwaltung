@@ -34,8 +34,8 @@ public sealed class StatistikAuswertungenTests(TurnierverwaltungApp app) : IClas
             spielplan.SpieltagWaehlen(spieltag);
             spielplan.Simulieren(Spielmenge.Spieltag, SPIELE_JE_SPIELTAG);
         }
-        var ersterSpieltag = spielplan.SpieltagWaehlen(1);
         var spiele = spielplan.SpieleJeSpieltag(SPIELTAGE);
+        var ersterSpieltag = spiele.Where(s => s.Kennung == "ST 1").ToList();
         var spielplanTabelle = spielplan.Tabelle();
 
         var statistik = turnier.Statistik();
