@@ -1,5 +1,7 @@
 using Fussballturnierverwaltung.WinUi.ViewModels;
 using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Automation;
+using Microsoft.UI.Xaml.Automation.Peers;
 using Microsoft.UI.Xaml.Controls;
 using System.Collections.Specialized;
 
@@ -174,7 +176,7 @@ public sealed partial class SpielZeitstrahlControl : UserControl
             double auswaertsTop = Zeichenflaeche.Height - MARKER_GROESSE;
             foreach (var zeile in spielEreignisse)
             {
-                var marker = new ContentPresenter
+                var marker = new ZeitstrahlMarker
                 {
                     Content = zeile,
                     ContentTemplate = IconVorlage,
@@ -185,6 +187,8 @@ public sealed partial class SpielZeitstrahlControl : UserControl
                 };
                 string detail = zeile.Detail is null ? "" : $" {zeile.Detail}";
                 ToolTipService.SetToolTip(marker, $"{zeile.Minute} {zeile.Art}{detail} – {zeile.Seite}");
+                AutomationProperties.SetAutomationId(marker, zeile.IstHeimSeite ? "Zeitstrahl.HeimMarker" : "Zeitstrahl.AuswaertsMarker");
+                AutomationProperties.SetName(marker, zeile.Art);
                 Canvas.SetLeft(marker, XFuerMinute(zeile.MinuteWert) - MARKER_GROESSE / 2);
                 Canvas.SetTop(marker, zeile.IstHeimSeite ? 0 : auswaertsTop);
                 MarkerFlaeche.Children.Add(marker);
@@ -196,4 +200,11 @@ public sealed partial class SpielZeitstrahlControl : UserControl
         AuswaertsElfmeter.ItemsSource = schuesse.Where(z => !z.IstHeimSeite).Select(z => new ElfmeterPunkt(z.IstTor)).ToList();
         ElfmeterBereich.Visibility    = schuesse.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
     }
+}
+
+/// <summary>Marker eines Ereignisses auf dem Zeitstrahl. Ein <see cref="ContentPresenter"/> hat keinen eigenen
+/// Automation-Peer und fehlt damit im UIA-Baum — der GUI-Test zählt die Marker je Seite (#534).</summary>
+public sealed partial class ZeitstrahlMarker : ContentPresenter
+{
+    protected override AutomationPeer OnCreateAutomationPeer() => new FrameworkElementAutomationPeer(this);
 }

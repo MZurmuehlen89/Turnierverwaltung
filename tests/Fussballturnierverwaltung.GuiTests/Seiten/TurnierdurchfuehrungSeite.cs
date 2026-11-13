@@ -3,8 +3,8 @@ using GuiTest.Framework;
 
 namespace Fussballturnierverwaltung.GuiTests.Seiten;
 
-/// <summary>Seitenobjekt „Turnierdurchführung“: das gewählte Turnier und die Reiter Auslosung, Spielplan und
-/// Statistik.</summary>
+/// <summary>Seitenobjekt „Turnierdurchführung“: das gewählte Turnier und die Reiter Auslosung, Spielplan,
+/// Simulation und Statistik.</summary>
 public sealed class TurnierdurchfuehrungSeite(Window fenster, Hauptfenster hauptfenster)
 {
     /// <summary>Name des gewählten Turniers (Beschriftung des Auswahlknopfs).</summary>
@@ -28,6 +28,20 @@ public sealed class TurnierdurchfuehrungSeite(Window fenster, Hauptfenster haupt
         var spielplan = Spielplan();
         spielplan.RundeWaehlen(runde);
         return spielplan.Spiele();
+    }
+
+    /// <summary>„Ausführlich simulieren“ für das im Spielplan gewählte Spiel: springt in den Reiter „Simulation“ und
+    /// simuliert die Partie dort.</summary>
+    public SimulationsReiter AusfuehrlichSimulieren() => Sprung("Befehlsleiste.AusfuehrlichSimulieren");
+
+    /// <summary>„Spielverlauf ansehen“ für das im Spielplan gewählte Spiel: springt in den Reiter „Simulation“ und
+    /// zeigt das gespeicherte Protokoll, ohne neu zu simulieren.</summary>
+    public SimulationsReiter SpielverlaufAnsehen() => Sprung("Befehlsleiste.SpielverlaufAnsehen");
+
+    private SimulationsReiter Sprung(string befehl)
+    {
+        fenster.ActivateById(befehl);
+        return new SimulationsReiter(fenster, hauptfenster);
     }
 
     public StatistikReiter Statistik() => Reiter("Statistik", () => new StatistikReiter(fenster, hauptfenster));
