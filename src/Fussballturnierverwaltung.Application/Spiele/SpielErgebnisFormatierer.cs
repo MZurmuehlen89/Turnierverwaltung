@@ -18,7 +18,8 @@ public static class SpielErgebnisFormatierer
 
         bool istVerlaengerungsFall = art is
             EntscheidungArt.Verlaengerung or EntscheidungArt.GoldenGoal or
-            EntscheidungArt.SilverGoal or EntscheidungArt.Elfmeterschiessen;
+            EntscheidungArt.SilverGoal or EntscheidungArt.Elfmeterschiessen or
+            EntscheidungArt.Losentscheid or EntscheidungArt.Muenzwurf;
         if (!istVerlaengerungsFall) return "";
 
         // Die Regulärzeit-Klammer nur, wenn der Endstand durch Verlängerungstore von ihr abweicht.
@@ -31,8 +32,16 @@ public static class SpielErgebnisFormatierer
             ? " " + Stand(ergebnis.HeimElfmetertore, ergebnis.AuswaertsElfmetertore, ausHeimSicht)
             : "";
 
-        return $"{regulaerKlammer}{EntscheidungKuerzel(art)}{elfmeterStand}";
+        return $"{regulaerKlammer}{LosMitVerlaengerung(ergebnis)}{elfmeterStand}";
     }
+
+    /// <summary>#391: Beim Los nach einer Verlängerung nennt das Kürzel beides („n.V., Los“), sonst nur das
+    /// Kürzel der Entscheidung.</summary>
+    private static string LosMitVerlaengerung(SpielErgebnis ergebnis) =>
+        ergebnis.EntscheidungArt is EntscheidungArt.Losentscheid or EntscheidungArt.Muenzwurf
+        && ergebnis.HeimToreVerlaengerung is not null
+            ? $"{EntscheidungKuerzel(EntscheidungArt.Verlaengerung)}, {EntscheidungKuerzel(ergebnis.EntscheidungArt)}"
+            : EntscheidungKuerzel(ergebnis.EntscheidungArt);
 
     private static string Stand(int? heim, int? auswaerts, bool ausHeimSicht) =>
         ausHeimSicht ? $"{heim}:{auswaerts}" : $"{auswaerts}:{heim}";
@@ -46,6 +55,8 @@ public static class SpielErgebnisFormatierer
         EntscheidungArt.Auswaertstorregel => "A.T.",
         EntscheidungArt.GoldenGoal        => "G.G.",
         EntscheidungArt.SilverGoal        => "S.G.",
+        EntscheidungArt.Losentscheid      => "Los",
+        EntscheidungArt.Muenzwurf         => "Münzwurf",
         _                                 => ""
     };
 
@@ -61,6 +72,7 @@ public static class SpielErgebnisFormatierer
         EntscheidungArt.Verlaengerung     => "n.V.",
         EntscheidungArt.GoldenGoal        => "G.G.",
         EntscheidungArt.SilverGoal        => "S.G.",
+        EntscheidungArt.Losentscheid or EntscheidungArt.Muenzwurf => LosMitVerlaengerung(rueckspiel),
         _                                 => ""
     };
 

@@ -229,18 +229,16 @@ public static class SimulationsEngine
                     ? EreignisseGenerieren(hv1, gv1, rng, 91, 105)
                     : (IReadOnlyList<SimuliertesEreignis>)[];
 
-                int hv = hv1, gv = gv1;
-                if (hv1 == gv1)
-                {
-                    int hv2 = ZiehePoisson(hL15, rng);
-                    int gv2 = ZiehePoisson(gL15, rng);
-                    if (ausfuehrlich)
-                        extras = [.. extras, .. EreignisseGenerieren(hv2, gv2, rng, 106, 120)];
-                    hv += hv2;
-                    gv += gv2;
-                }
+                if (hv1 != gv1)
+                    return (hv1 - gv1, EntscheidungArt.SilverGoal, hv1, gv1, null, null, extras);
 
-                return (hv - gv, EntscheidungArt.SilverGoal, hv, gv, null, null, extras);
+                // #391: Ein Sieg erst in der zweiten Hälfte ist ein gewöhnlicher Sieg nach Verlängerung.
+                int hv2 = ZiehePoisson(hL15, rng);
+                int gv2 = ZiehePoisson(gL15, rng);
+                if (ausfuehrlich)
+                    extras = [.. extras, .. EreignisseGenerieren(hv2, gv2, rng, 106, 120)];
+
+                return (hv2 - gv2, EntscheidungArt.Verlaengerung, hv1 + hv2, gv1 + gv2, null, null, extras);
             }
 
             case VerfahrenArt.Elfmeterschiessen:

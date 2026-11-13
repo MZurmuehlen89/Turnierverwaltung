@@ -180,4 +180,30 @@ public class SpielErgebnisFormatiererTests
     {
         SpielErgebnisFormatierer.PaarungsEinzelergebnisse(Ergebnis(1, 0), null).Should().Be("nach Hinspiel");
     }
+
+    // ── Losentscheid (#391) ───────────────────────────────────────────────
+
+    [Theory]
+    [InlineData(EntscheidungArt.Losentscheid, "Los")]
+    [InlineData(EntscheidungArt.Muenzwurf, "Münzwurf")]
+    public void EntscheidungKuerzel_LosUndMuenze(EntscheidungArt art, string erwartet) =>
+        SpielErgebnisFormatierer.EntscheidungKuerzel(art).Should().Be(erwartet);
+
+    [Fact]
+    public void DetailText_LosOhneVerlaengerung_NurKuerzel() =>
+        SpielErgebnisFormatierer.DetailText(Ergebnis(1, 1, EntscheidungArt.Losentscheid)).Should().Be("Los");
+
+    [Fact]
+    public void DetailText_LosNachTorloserVerlaengerung_NennenBeides() =>
+        SpielErgebnisFormatierer.DetailText(Ergebnis(0, 0, EntscheidungArt.Losentscheid, 0, 0)).Should().Be("n.V., Los");
+
+    [Fact]
+    public void DetailText_MuenzwurfNachVerlaengerungMitToren_MitRegulaerKlammer() =>
+        SpielErgebnisFormatierer.DetailText(Ergebnis(1, 1, EntscheidungArt.Muenzwurf, 1, 1))
+            .Should().Be("(1:1) n.V., Münzwurf");
+
+    [Fact]
+    public void PaarungsEntscheidung_Los() =>
+        SpielErgebnisFormatierer.PaarungsEntscheidung(Ergebnis(1, 1, EntscheidungArt.Losentscheid, 0, 0))
+            .Should().Be("n.V., Los");
 }

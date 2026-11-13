@@ -62,7 +62,8 @@ public static class SiegerErmittlung
                 => Vorne(e.HeimToreRegulaer, e.AuswaertsToreRegulaer, heimId, auswaertsId),
             EntscheidungArt.Verlaengerung or EntscheidungArt.GoldenGoal or EntscheidungArt.SilverGoal
                 when e.HeimToreVerlaengerung is { } heimV && e.AuswaertsToreVerlaengerung is { } auswaertsV
-                => e.HeimToreRegulaer + heimV > e.AuswaertsToreRegulaer + auswaertsV ? heimId : auswaertsId,
+                // #391: torgleich gibt es keinen Sieger – bis dahin kam stillschweigend das Auswärtsteam weiter.
+                => Vorne(e.HeimToreRegulaer + heimV, e.AuswaertsToreRegulaer + auswaertsV, heimId, auswaertsId),
             _ => ElfmeterOderLos(heimId, auswaertsId, e)
         };
 

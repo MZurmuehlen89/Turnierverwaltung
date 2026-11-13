@@ -182,7 +182,8 @@ public class SimulationsEngineTests
             var erg = SimulationsEngine.Simulieren(Team(1), Team(2), verfahren, false, new Random(seed));
             if (erg.HeimToreRegulaer != erg.AuswaertsToreRegulaer) continue;
 
-            erg.EntscheidungArt.Should().BeOneOf(EntscheidungArt.SilverGoal, EntscheidungArt.Elfmeterschiessen);
+            erg.EntscheidungArt.Should().BeOneOf(
+                EntscheidungArt.SilverGoal, EntscheidungArt.Verlaengerung, EntscheidungArt.Elfmeterschiessen);
             erg.HeimToreVerlaengerung.Should().NotBeNull();
             erg.AuswaertsToreVerlaengerung.Should().NotBeNull();
 
@@ -418,5 +419,47 @@ public class SimulationsEngineTests
         var standard = SimulationsEngine.Simulieren(Team(1, off: 90), Team(2), [], true, new Random(7));
 
         mitNull.Should().BeEquivalentTo(standard);
+    }
+
+    [Fact]
+    public void SilverGoal_NurBeiEntscheidungNachDerErstenHaelfteDerVerlaengerung()
+    {
+        // #391: Führt nach 105 Minuten niemand, wird weitergespielt — ein Sieg in der zweiten Hälfte ist ein
+        // gewöhnlicher Sieg nach Verlängerung, kein Silver Goal.
+        var verfahren = new[]
+        {
+            Verfahren(VerfahrenArt.SilverGoal, rang: 1),
+            Verfahren(VerfahrenArt.Elfmeterschiessen, rang: 2)
+        };
+        int silverGoals = 0, verlaengerungen = 0;
+
+        for (int seed = 0; seed < 2000; seed++)
+        {
+            var erg = SimulationsEngine.Simulieren(Team(1), Team(2), verfahren, true, new Random(seed));
+            var ersteHaelfte = VerlaengerungsTore(erg, 91, 105);
+            var zweiteHaelfte = VerlaengerungsTore(erg, 106, 120);
+
+            if (erg.EntscheidungArt == EntscheidungArt.SilverGoal)
+            {
+                silverGoals++;
+                ersteHaelfte.Heim.Should().NotBe(ersteHaelfte.Auswaerts, "Silver Goal heißt: nach 105 Minuten führt einer");
+                (zweiteHaelfte.Heim + zweiteHaelfte.Auswaerts).Should().Be(0, "nach einem Silver Goal endet das Spiel");
+            }
+            else if (erg.EntscheidungArt == EntscheidungArt.Verlaengerung)
+            {
+                verlaengerungen++;
+                ersteHaelfte.Heim.Should().Be(ersteHaelfte.Auswaerts, "sonst wäre es ein Silver Goal");
+                zweiteHaelfte.Heim.Should().NotBe(zweiteHaelfte.Auswaerts, "die zweite Hälfte hat entschieden");
+            }
+        }
+
+        silverGoals.Should().BePositive();
+        verlaengerungen.Should().BePositive();
+    }
+
+    private static (int Heim, int Auswaerts) VerlaengerungsTore(SimulationsErgebnis erg, int von, int bis)
+    {
+        var tore = erg.Ereignisse.Where(e => e.Art == EreignisArt.Tor && e.Minute >= von && e.Minute <= bis).ToList();
+        return (tore.Count(e => e.IstHeim), tore.Count(e => !e.IstHeim));
     }
 }

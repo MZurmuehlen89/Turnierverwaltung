@@ -14,6 +14,7 @@ public class SpielErgebnisValidator
             .. HalbzeitstandPruefen(eingabe),
             .. VerlaengerungPruefen(eingabe),
             .. ElfmeterschiessenPruefen(eingabe),
+            .. LosPruefen(eingabe),
             .. SiegerBeteiligtPruefen(eingabe),
             .. KoHinspielPruefen(eingabe),
             .. SiegerZumTorverhaeltnisPruefen(eingabe),
@@ -59,6 +60,18 @@ public class SpielErgebnisValidator
             yield return "Bei Verlängerung müssen Verlängerungstore für beide Mannschaften angegeben werden.";
         else if (heim < 0 || auswaerts < 0)
             yield return "Verlängerungstore dürfen nicht negativ sein.";
+        else if (heim == auswaerts)
+            yield return "Die Verlängerung endete torgleich – das Spiel braucht noch eine Entscheidung (Elfmeterschießen oder Los).";
+        else if (eingabe.EntscheidungArt == EntscheidungArt.GoldenGoal && heim + auswaerts > 1)
+            yield return "Beim Golden Goal endet die Verlängerung mit dem ersten Tor – in ihr fällt genau ein Tor.";
+    }
+
+    /// <summary>#391: Bei Los oder Münze geben die Tore den Sieger nicht her – er muss angegeben sein.</summary>
+    private static IEnumerable<string> LosPruefen(SpielErgebnisEingabe eingabe)
+    {
+        if (eingabe.EntscheidungArt is EntscheidungArt.Losentscheid or EntscheidungArt.Muenzwurf
+            && eingabe.SiegerMannschaftId is null)
+            yield return "Beim Losentscheid muss feststehen, auf wen das Los fiel.";
     }
 
     private static IEnumerable<string> ElfmeterschiessenPruefen(SpielErgebnisEingabe eingabe)

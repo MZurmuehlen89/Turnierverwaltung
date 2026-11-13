@@ -123,4 +123,20 @@ public class SiegerErmittlungTests
                 },
                 auswaertstorRegelAktiv: true)
             .Should().Be(Erwartet(HEIM, EntscheidungArt.Auswaertstorregel));
+
+    // ── Torgleiche Verlängerung (#391) ────────────────────────────────────
+
+    [Theory]
+    [InlineData(EntscheidungArt.Verlaengerung)]
+    [InlineData(EntscheidungArt.GoldenGoal)]
+    [InlineData(EntscheidungArt.SilverGoal)]
+    public void Einzelspiel_TorgleicheVerlaengerung_KeinSieger(EntscheidungArt art) =>
+        Einzelspiel(new(1, 1, art, HeimToreVerlaengerung: 1, AuswaertsToreVerlaengerung: 1))
+            .Should().Be(Erwartet(null, art), "bis #391 kam bei Gleichstand stillschweigend das Auswärtsteam weiter");
+
+    [Fact]
+    public void Einzelspiel_LosNachTorgleicherVerlaengerung_LosGewinnerWirdSieger() =>
+        Einzelspiel(new(0, 0, EntscheidungArt.Losentscheid, HeimToreVerlaengerung: 0, AuswaertsToreVerlaengerung: 0,
+                LosGewinnerHeim: true))
+            .Should().Be(Erwartet(HEIM, EntscheidungArt.Losentscheid));
 }

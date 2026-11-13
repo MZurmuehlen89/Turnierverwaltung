@@ -194,4 +194,50 @@ public class SpielErgebnisValidatorTests
 
         _validator.Validieren(eingabe).IstGueltig.Should().BeTrue();
     }
+
+    // ── Entscheidung in der Verlängerung und per Los (#391) ───────────────
+
+    private static SpielErgebnisEingabe Entscheidung(
+        EntscheidungArt art, int? heimV, int? auswaertsV, int? sieger) =>
+        new(1, 2, 1, 1, heimV, auswaertsV, null, null, art, sieger);
+
+    [Theory]
+    [InlineData(1, 0, 1)]
+    [InlineData(0, 1, 2)]
+    public void GoldenGoal_GenauEinTorInDerVerlaengerung_IstGueltig(int heimV, int auswaertsV, int sieger) =>
+        _validator.Validieren(Entscheidung(EntscheidungArt.GoldenGoal, heimV, auswaertsV, sieger))
+            .IstGueltig.Should().BeTrue();
+
+    [Fact]
+    public void GoldenGoal_MehrAlsEinTorInDerVerlaengerung_IstUngueltig()
+    {
+        var ergebnis = _validator.Validieren(Entscheidung(EntscheidungArt.GoldenGoal, 2, 0, 1));
+        ergebnis.IstUngueltig.Should().BeTrue();
+        ergebnis.Fehler.Should().ContainMatch("*Golden Goal*");
+    }
+
+    [Theory]
+    [InlineData(EntscheidungArt.Verlaengerung)]
+    [InlineData(EntscheidungArt.SilverGoal)]
+    [InlineData(EntscheidungArt.GoldenGoal)]
+    public void TorgleicheVerlaengerungAlsEntscheidung_IstUngueltig(EntscheidungArt art)
+    {
+        var ergebnis = _validator.Validieren(Entscheidung(art, 1, 1, null));
+        ergebnis.IstUngueltig.Should().BeTrue();
+        ergebnis.Fehler.Should().ContainMatch("*torgleich*");
+    }
+
+    [Theory]
+    [InlineData(EntscheidungArt.Losentscheid)]
+    [InlineData(EntscheidungArt.Muenzwurf)]
+    public void LosOhneLosgewinner_IstUngueltig(EntscheidungArt art)
+    {
+        var ergebnis = _validator.Validieren(Entscheidung(art, 0, 0, null));
+        ergebnis.IstUngueltig.Should().BeTrue();
+        ergebnis.Fehler.Should().ContainMatch("*Los*");
+    }
+
+    [Fact]
+    public void LosMitLosgewinner_IstGueltig() =>
+        _validator.Validieren(Entscheidung(EntscheidungArt.Losentscheid, 0, 0, 2)).IstGueltig.Should().BeTrue();
 }
