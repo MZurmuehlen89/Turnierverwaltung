@@ -17,7 +17,7 @@ public sealed class ErgebnisleisteTests(TurnierverwaltungApp app) : IClassFixtur
     private const string GOLDEN_GOAL = "UEFA EM 1996 (Golden Goal)";
     private const string VERLAENGERUNG_LOS = "FIFA WM 1958–1970 (Verlängerung + Los)";
 
-    // AK1, AK2, AK6, AK7
+    // AK1, AK2, AK6, AK7a (AK7b: ErgebnisleistePlatzhalterTests)
     [Fact]
     public void SilverGoal_HakenEntscheidetZwischenSilverGoalUndVerlaengerung()
     {
@@ -25,12 +25,6 @@ public sealed class ErgebnisleisteTests(TurnierverwaltungApp app) : IClassFixtur
         var leiste = spielplan.Leiste();
 
         leiste.ZeigtAuswahlHinweis.Should().BeTrue("ohne gewähltes Spiel bleibt die Leiste mit Hinweis stehen (AK6)");
-
-        spielplan.RundeWaehlen(FINALE);
-        var finale = spielplan.Spiele().Should().ContainSingle().Subject;
-        spielplan.SpielWaehlen(finale.Heim, finale.Auswaerts, platzhalter: true);
-        leiste.ZeigtEingabe.Should().BeFalse("ein Spiel mit Platzhaltern zeigt keine Eingabefelder (AK7b)");
-        spielplan.RundeWaehlen(HALBFINALE);
 
         var (silverGoal, verlaengerung) = (halbfinale[0], halbfinale[1]);
         spielplan.SpielWaehlen(silverGoal.Heim, silverGoal.Auswaerts);

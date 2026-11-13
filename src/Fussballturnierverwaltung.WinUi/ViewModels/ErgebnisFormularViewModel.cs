@@ -171,7 +171,7 @@ public partial class ErgebnisFormularViewModel : ObservableObject
     protected override void OnPropertyChanged(PropertyChangedEventArgs e)
     {
         base.OnPropertyChanged(e);
-        if (e.PropertyName == nameof(IsDirty)) OnPropertyChanged(nameof(ZeigtErgebnisHinweis));
+        if (e.PropertyName is nameof(IsDirty) or nameof(HatErgebnis)) OnPropertyChanged(nameof(ZeigtErgebnisHinweis));
         if (_populiertGerade > 0 || e.PropertyName is null) return;
 
         if (_entscheidungsFelder.Contains(e.PropertyName))

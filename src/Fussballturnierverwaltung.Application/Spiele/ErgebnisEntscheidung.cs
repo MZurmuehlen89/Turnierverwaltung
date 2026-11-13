@@ -72,6 +72,9 @@ public static class ErgebnisEntscheidung
             return "Der Stand nach Verlängerung kann nicht unter dem Stand nach 90 Minuten liegen.";
         if (VerlaengerungsVerfahren(rahmen) == VerfahrenArt.GoldenGoal && verlaengerung.Heim + verlaengerung.Auswaerts > 1)
             return "Golden Goal: Die Verlängerung endet mit dem ersten Tor, in ihr fällt höchstens ein Tor.";
+        // Ohne Folgeverfahren im Regelwerk bliebe das Spiel ohne Sieger – das lehnt der Validator beim Speichern ab.
+        if (verlaengerung.Heim == verlaengerung.Auswaerts && FolgeArt(rahmen) is null)
+            return "Die Verlängerung endete torgleich, das Regelwerk sieht danach keine Entscheidung vor.";
         return null;
     }
 

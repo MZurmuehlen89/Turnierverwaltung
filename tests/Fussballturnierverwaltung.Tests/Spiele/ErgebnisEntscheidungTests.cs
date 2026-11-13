@@ -281,4 +281,13 @@ public class ErgebnisEntscheidungTests
         HeimToreRegulaer = heim, AuswaertsToreRegulaer = auswaerts,
         HalbzeitHeimTore = halbzeitHeim, HalbzeitAuswaertsTore = halbzeitAuswaerts
     };
+
+    [Fact]
+    public void VerlaengerungFehler_TorgleichOhneFolgeverfahrenImRegelwerk_Fehler() =>
+        ErgebnisEntscheidung.VerlaengerungFehler(KoSpiel(VerfahrenArt.VerlaengerungKlassisch), Tore(1, 1, 2, 2))
+            .Should().Contain("keine Entscheidung");
+
+    [Fact]
+    public void VerlaengerungFehler_TorgleichMitFolgeverfahren_KeinFehler() =>
+        ErgebnisEntscheidung.VerlaengerungFehler(KoSpiel(_verlaengerungUndElfmeter), Tore(1, 1, 2, 2)).Should().BeNull();
 }
