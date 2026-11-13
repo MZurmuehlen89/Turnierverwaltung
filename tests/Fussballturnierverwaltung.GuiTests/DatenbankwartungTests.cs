@@ -13,7 +13,8 @@ public sealed class DatenbankwartungTests(TurnierverwaltungApp app, TestDatenban
 
     // Ein Seed-Regelwerk, das keine Vorlage benutzt: Es lässt sich samt Punkteregeln und Entscheidungsverfahren
     // (kaskadierend) löschen, ohne andere Daten mitzureißen
-    private const string UNBENUTZTES_REGELWERK = "UEFA EM 2004 (Silver Goal)";
+    // (kein anderer GUI-Test darf es benutzen – die Silver-Goal-Regel braucht seit #391 ErgebnisleisteTests).
+    private const string UNBENUTZTES_REGELWERK = "Historisch: Wiederholungsspiel + Los";
 
     private readonly DatenbankwartungSeite _seite = app.Hauptfenster.DatenbankwartungOeffnen();
 
