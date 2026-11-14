@@ -23,7 +23,9 @@ public sealed class RanglistenSeite(Window fenster, Hauptfenster hauptfenster)
 
     public StammdatenEditor Editor { get; } = new(fenster, hauptfenster, "Ranglisten", "Rangliste löschen");
 
-    public MannschaftsAuswahl Pokalsieger { get; } = new(fenster, "Ranglisten.Pokalsieger");
+    private const string POKALSIEGER = "Ranglisten.Pokalsieger";
+
+    public MannschaftsAuswahl Pokalsieger { get; } = new(fenster, POKALSIEGER);
 
     private readonly MannschaftsAuswahl _hinzufuegen = new(fenster, "Ranglisten.Hinzufuegen");
 
@@ -116,6 +118,22 @@ public sealed class RanglistenSeite(Window fenster, Hauptfenster hauptfenster)
         fenster.FindById("Ranglisten.Ligapyramide").Patterns.ExpandCollapse.Pattern.Expand();
         Wait.Until(() => fenster.TryFindById("Ranglisten.AbschnittHinzufuegen") is not null, Wait.DefaultTimeout,
             "Ligapyramide aufgeklappt");
+        InhaltStehtStill();
+    }
+
+    // Der Expander lässt den Inhalt ~0,4 s einrollen; die Elemente stehen sofort im UIA-Baum, die Pokalsieger-Box ist
+    // aber anfangs 0–4 px hoch und rutscht dann ~130 px nach unten (CI-Messung, #534). Ein Klick in dieser Zeit
+    // scheitert an NoClickablePointException oder trifft eine alte Position – darum warten, bis sie stillsteht.
+    private void InhaltStehtStill()
+    {
+        System.Drawing.Rectangle? zuletzt = null;
+        Wait.UntilStable(() =>
+        {
+            var jetzt = fenster.FindById(POKALSIEGER).BoundingRectangle;
+            bool still = jetzt.Height > 0 && jetzt == zuletzt;
+            zuletzt = jetzt;
+            return still;
+        }, TimeSpan.FromMilliseconds(300), Wait.DefaultTimeout, "Inhalt der Ligapyramide steht still");
     }
 
     /// <summary>Hängt einen Abschnitt an: eine Spielklasse tiefer als der letzte, bis zum Listenende.</summary>
