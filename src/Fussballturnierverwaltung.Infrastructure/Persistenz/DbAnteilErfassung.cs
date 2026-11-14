@@ -152,11 +152,21 @@ public sealed class DbAnteilErfassung : DbCommandInterceptor, IDbConnectionInter
         return ValueTask.FromResult(result);
     }
 
-    // Ein gescheiterter Befehl zählt nicht als Befehl, gibt aber seine Belegung der Verbindung frei.
+    // Ein gescheiterter oder abgebrochener Befehl zählt nicht als Befehl, gibt aber seine Belegung der Verbindung
+    // frei — sonst bliebe der Zähler offener Befehle dieser Verbindung dauerhaft über 0.
     public override void CommandFailed(DbCommand command, CommandErrorEventData eventData) => Beenden(command);
 
     public override Task CommandFailedAsync(
         DbCommand command, CommandErrorEventData eventData, CancellationToken cancellationToken = default)
+    {
+        Beenden(command);
+        return Task.CompletedTask;
+    }
+
+    public override void CommandCanceled(DbCommand command, CommandEndEventData eventData) => Beenden(command);
+
+    public override Task CommandCanceledAsync(
+        DbCommand command, CommandEndEventData eventData, CancellationToken cancellationToken = default)
     {
         Beenden(command);
         return Task.CompletedTask;

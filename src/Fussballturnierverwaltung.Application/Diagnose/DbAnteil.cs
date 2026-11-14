@@ -40,10 +40,12 @@ internal sealed class DbAnteil
         long befehle = Interlocked.Read(ref _befehle);
         long verbindung = Interlocked.Read(ref _verbindungTicks);
         long speichern = Interlocked.Read(ref _speichernAnzahl);
-        if (befehle == 0 && verbindung == 0 && speichern == 0) return null;
+        long belegung = Interlocked.Read(ref _belegungTicks);
+        // Auch eine Belegung allein zählt: gescheiterte Befehle geben sie frei, ohne als Befehl gezählt zu werden.
+        if (befehle == 0 && belegung == 0 && verbindung == 0 && speichern == 0) return null;
 
         long von = Interlocked.Read(ref _ausfuehrungTicks) + verbindung;
-        long bis = Interlocked.Read(ref _belegungTicks) + verbindung;
+        long bis = belegung + verbindung;
         string text = $"DB {Ms(von)}–{Ms(bis)} ms in {befehle} {(befehle == 1 ? "Befehl" : "Befehlen")}";
         // Aus dem Pool kommt eine Verbindung in Mikrosekunden — „0 ms“ wäre nur Rauschen.
         if (Ms(verbindung) != "0") text += $", Verbindungsaufbau {Ms(verbindung)} ms";

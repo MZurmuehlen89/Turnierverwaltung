@@ -139,6 +139,18 @@ public class AblaufVorgangTests
     }
 
     [Fact]
+    public void DbAnteil_NurBelegungOhneGezaehltenBefehl_WirdTrotzdemGenannt()
+    {
+        var logger = new SammelLogger();
+
+        // ein gescheiterter Befehl gibt nur die Belegung frei
+        using (logger.Vorgang("Test-Vorgang K1"))
+            AblaufVorgang.DbBelegungErfassen(Ms(5));
+
+        logger.Zeilen[1].Should().EndWith("; DB 0–5 ms in 0 Befehlen)");
+    }
+
+    [Fact]
     public void DbAnteil_AusserhalbEinesVorgangs_OhneWirkung()
     {
         var logger = new SammelLogger();
