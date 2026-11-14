@@ -123,13 +123,15 @@ public sealed class RanglistenSeite(Window fenster, Hauptfenster hauptfenster)
             var feld = fenster.TryFindById("Ranglisten.Pokalsieger")
                 ?.FindFirstDescendant(cf => cf.ByControlType(FlaUI.Core.Definitions.ControlType.Edit));
             string klickbar = feld is null ? "-" : feld.TryGetClickablePoint(out var punkt) ? $"ja {punkt}" : "nein";
-            proben.Append($"{uhr.ElapsedMilliseconds}ms knopf={(knopf is null ? "fehlt" : "da")} " +
-                $"feld={(feld is null ? "fehlt" : $"offscreen={feld.Properties.IsOffscreen.ValueOrDefault} rect={feld.Properties.BoundingRectangle.ValueOrDefault}")} klickbar={klickbar}
-");
+            string knopfText = knopf is null ? "fehlt" : "da";
+            string feldText = feld is null
+                ? "fehlt"
+                : "offscreen=" + feld.Properties.IsOffscreen.ValueOrDefault + " rect=" + feld.Properties.BoundingRectangle.ValueOrDefault;
+            proben.Append(uhr.ElapsedMilliseconds).Append("ms knopf=").Append(knopfText)
+                .Append(" feld=").Append(feldText).Append(" klickbar=").Append(klickbar).Append(" | ");
             System.Threading.Thread.Sleep(15);
         }
-        throw new InvalidOperationException("DIAGNOSE Ligapyramide
-" + proben);
+        throw new InvalidOperationException("DIAGNOSE Ligapyramide | " + proben);
     }
 
     /// <summary>Hängt einen Abschnitt an: eine Spielklasse tiefer als der letzte, bis zum Listenende.</summary>
