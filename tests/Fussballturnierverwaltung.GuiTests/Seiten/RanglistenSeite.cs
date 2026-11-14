@@ -113,9 +113,23 @@ public sealed class RanglistenSeite(Window fenster, Hauptfenster hauptfenster)
     /// <summary>Klappt den Bereich auf; er ist bei jedem Ranglistenwechsel und nach dem Speichern wieder zu.</summary>
     public void LigapyramideAufklappen()
     {
+        // DIAGNOSE (nicht committen nach main): Zustand der Pokalsieger-Box über die Zeit nach dem Aufklappen
+        var uhr = System.Diagnostics.Stopwatch.StartNew();
         fenster.FindById("Ranglisten.Ligapyramide").Patterns.ExpandCollapse.Pattern.Expand();
-        Wait.Until(() => fenster.TryFindById("Ranglisten.AbschnittHinzufuegen") is not null, Wait.DefaultTimeout,
-            "Ligapyramide aufgeklappt");
+        var proben = new System.Text.StringBuilder();
+        while (uhr.ElapsedMilliseconds < 1500)
+        {
+            var knopf = fenster.TryFindById("Ranglisten.AbschnittHinzufuegen");
+            var feld = fenster.TryFindById("Ranglisten.Pokalsieger")
+                ?.FindFirstDescendant(cf => cf.ByControlType(FlaUI.Core.Definitions.ControlType.Edit));
+            string klickbar = feld is null ? "-" : feld.TryGetClickablePoint(out var punkt) ? $"ja {punkt}" : "nein";
+            proben.Append($"{uhr.ElapsedMilliseconds}ms knopf={(knopf is null ? "fehlt" : "da")} " +
+                $"feld={(feld is null ? "fehlt" : $"offscreen={feld.Properties.IsOffscreen.ValueOrDefault} rect={feld.Properties.BoundingRectangle.ValueOrDefault}")} klickbar={klickbar}
+");
+            System.Threading.Thread.Sleep(15);
+        }
+        throw new InvalidOperationException("DIAGNOSE Ligapyramide
+" + proben);
     }
 
     /// <summary>Hängt einen Abschnitt an: eine Spielklasse tiefer als der letzte, bis zum Listenende.</summary>
