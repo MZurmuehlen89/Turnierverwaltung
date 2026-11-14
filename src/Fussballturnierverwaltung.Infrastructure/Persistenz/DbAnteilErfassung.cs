@@ -7,21 +7,33 @@ using Microsoft.EntityFrameworkCore.Diagnostics;
 
 namespace Fussballturnierverwaltung.Infrastructure.Persistenz;
 
-/// <summary>Misst je Datenbankbefehl, Verbindungsaufbau und SaveChanges die Dauer und rechnet sie den offenen
-/// Vorgängen des Ablaufprotokolls zu (#49, Stufe 0: Wie groß ist der DB-Anteil eines Vorgangs?). Getrennt von
-/// <see cref="DbZugriffsDiagnose"/>, die Kollisionen und langsame Abfragen meldet und ab dem Öffnen der Verbindung
-/// misst. Die Kosten (ein Zeitstempel und ein Tabelleneintrag je Befehl) liegen im Mikrosekundenbereich, deshalb
-/// läuft die Messung immer mit; geschrieben wird nur, wenn das Ablaufprotokoll aktiv ist.</summary>
+/// <summary>Misst Datenbankbefehle, Verbindungsaufbau und SaveChanges und rechnet sie den offenen Vorgängen des
+/// Ablaufprotokolls zu (#49, Stufe 0: Wie groß ist der DB-Anteil eines Vorgangs?). Getrennt von
+/// <see cref="DbZugriffsDiagnose"/>, die Kollisionen und langsame Abfragen meldet. Die Kosten (ein Zeitstempel und
+/// ein Tabelleneintrag je Befehl) liegen im Mikrosekundenbereich, deshalb läuft die Messung immer mit; geschrieben
+/// wird nur, wenn das Ablaufprotokoll aktiv ist.</summary>
 public sealed class DbAnteilErfassung : DbCommandInterceptor, IDbConnectionInterceptor, ISaveChangesInterceptor
 {
-    /// <summary>Zeitstempel eines laufenden Befehls; <see cref="Ausgefuehrt"/> ist gesetzt, sobald der Reader da ist.</summary>
-    private sealed class Messung(long start)
+    /// <summary>Ein laufender Befehl; <see cref="Ausgefuehrt"/> ist gesetzt, sobald der Reader da ist.</summary>
+    private sealed class Messung(long start, Belegung? belegung)
     {
         public long Start { get; } = start;
+        public Belegung? Belegung { get; } = belegung;
         public long? Ausgefuehrt { get; set; }
     }
 
+    /// <summary>Wie lange auf einer Verbindung mindestens ein Befehl offen ist — die Obergrenze des DB-Anteils.
+    /// Je Befehl gemessen zählte sie doppelt: Bei AsSplitQuery bleiben alle Teilbefehle einer Abfrage offen, bis
+    /// die ganze Abfrage gelesen ist (Diagnose 14.11.2026: „Auslosung laden“ mit 5 Teilbefehlen, gemeinsam nach
+    /// ~18 ms geschlossen, je Befehl summiert ~88 ms; die Kaskade kam so auf 205 ms DB in 73 ms Gesamtdauer).</summary>
+    private sealed class Belegung
+    {
+        public int Offen;
+        public long Beginn;
+    }
+
     private readonly ConditionalWeakTable<DbCommand, Messung> _befehle = new();
+    private readonly ConditionalWeakTable<DbConnection, Belegung> _belegungen = new();
     private readonly ConditionalWeakTable<DbConnection, StrongBox<long>> _verbindungen = new();
     private readonly ConditionalWeakTable<DbContext, StrongBox<long>> _speichern = new();
 
@@ -56,15 +68,25 @@ public sealed class DbAnteilErfassung : DbCommandInterceptor, IDbConnectionInter
         return ValueTask.FromResult(result);
     }
 
+    // Schließen und Dispose: Was zuerst kommt, beendet die Messung (Dispose ohne vorheriges Close kommt vor).
+    public override InterceptionResult DataReaderClosing(
+        DbCommand command, DataReaderClosingEventData eventData, InterceptionResult result)
+    {
+        Beenden(command);
+        return result;
+    }
+
+    public override ValueTask<InterceptionResult> DataReaderClosingAsync(
+        DbCommand command, DataReaderClosingEventData eventData, InterceptionResult result)
+    {
+        Beenden(command);
+        return ValueTask.FromResult(result);
+    }
+
     public override InterceptionResult DataReaderDisposing(
         DbCommand command, DataReaderDisposingEventData eventData, InterceptionResult result)
     {
-        if (_befehle.TryGetValue(command, out var messung) && messung.Ausgefuehrt is { } ausgefuehrt)
-        {
-            _befehle.Remove(command);
-            AblaufVorgang.DbBefehlErfassen(
-                Stopwatch.GetElapsedTime(messung.Start, ausgefuehrt), Stopwatch.GetElapsedTime(messung.Start));
-        }
+        Beenden(command);
         return result;
     }
 
@@ -87,14 +109,16 @@ public sealed class DbAnteilErfassung : DbCommandInterceptor, IDbConnectionInter
 
     public override int NonQueryExecuted(DbCommand command, CommandExecutedEventData eventData, int result)
     {
-        OhneReaderAbschliessen(command);
+        ReaderDa(command);
+        Beenden(command);
         return result;
     }
 
     public override ValueTask<int> NonQueryExecutedAsync(
         DbCommand command, CommandExecutedEventData eventData, int result, CancellationToken cancellationToken = default)
     {
-        OhneReaderAbschliessen(command);
+        ReaderDa(command);
+        Beenden(command);
         return ValueTask.FromResult(result);
     }
 
@@ -115,28 +139,41 @@ public sealed class DbAnteilErfassung : DbCommandInterceptor, IDbConnectionInter
 
     public override object? ScalarExecuted(DbCommand command, CommandExecutedEventData eventData, object? result)
     {
-        OhneReaderAbschliessen(command);
+        ReaderDa(command);
+        Beenden(command);
         return result;
     }
 
     public override ValueTask<object?> ScalarExecutedAsync(
         DbCommand command, CommandExecutedEventData eventData, object? result, CancellationToken cancellationToken = default)
     {
-        OhneReaderAbschliessen(command);
+        ReaderDa(command);
+        Beenden(command);
         return ValueTask.FromResult(result);
     }
 
-    // Ein gescheiterter Befehl zählt nicht mit — er ist kein Teil des normalen Ablaufs.
-    public override void CommandFailed(DbCommand command, CommandErrorEventData eventData) => _befehle.Remove(command);
+    // Ein gescheiterter Befehl zählt nicht als Befehl, gibt aber seine Belegung der Verbindung frei.
+    public override void CommandFailed(DbCommand command, CommandErrorEventData eventData) => Beenden(command);
 
     public override Task CommandFailedAsync(
         DbCommand command, CommandErrorEventData eventData, CancellationToken cancellationToken = default)
     {
-        _befehle.Remove(command);
+        Beenden(command);
         return Task.CompletedTask;
     }
 
-    private void Beginnen(DbCommand command) => _befehle.AddOrUpdate(command, new Messung(Stopwatch.GetTimestamp()));
+    private void Beginnen(DbCommand command)
+    {
+        long jetzt = Stopwatch.GetTimestamp();
+        Belegung? belegung = null;
+        if (command.Connection is { } verbindung)
+        {
+            belegung = _belegungen.GetValue(verbindung, _ => new Belegung());
+            lock (belegung)
+                if (belegung.Offen++ == 0) belegung.Beginn = jetzt;
+        }
+        _befehle.AddOrUpdate(command, new Messung(jetzt, belegung));
+    }
 
     private void ReaderDa(DbCommand command)
     {
@@ -144,12 +181,18 @@ public sealed class DbAnteilErfassung : DbCommandInterceptor, IDbConnectionInter
             messung.Ausgefuehrt = Stopwatch.GetTimestamp();
     }
 
-    private void OhneReaderAbschliessen(DbCommand command)
+    private void Beenden(DbCommand command)
     {
         if (!_befehle.TryGetValue(command, out var messung)) return;
         _befehle.Remove(command);
-        var dauer = Stopwatch.GetElapsedTime(messung.Start);
-        AblaufVorgang.DbBefehlErfassen(dauer, dauer);
+
+        if (messung.Ausgefuehrt is { } ausgefuehrt)
+            AblaufVorgang.DbBefehlErfassen(Stopwatch.GetElapsedTime(messung.Start, ausgefuehrt));
+
+        if (messung.Belegung is not { } belegung) return;
+        lock (belegung)
+            if (--belegung.Offen == 0)
+                AblaufVorgang.DbBelegungErfassen(Stopwatch.GetElapsedTime(belegung.Beginn));
     }
 
     // ── Verbindungsaufbau ───────────────────────────────────────────────────

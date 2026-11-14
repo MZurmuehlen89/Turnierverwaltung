@@ -86,10 +86,11 @@ public static class AblaufVorgang
     /// <summary>Rechnet einen Datenbankbefehl allen offenen Vorgängen des aktuellen Ablaufs zu — verschachtelte
     /// Vorgänge enthalten so auch die Befehle ihrer inneren. Außerhalb eines Vorgangs ohne Wirkung.</summary>
     /// <param name="ausfuehrung">Ausführung des Befehls bis zum ersten Ergebnis (Untergrenze).</param>
-    /// <param name="bisReaderGeschlossen">bis der Reader geschlossen ist, mit dem Einlesen der Zeilen (Obergrenze);
-    /// bei Befehlen ohne Reader gleich <paramref name="ausfuehrung"/>.</param>
-    public static void DbBefehlErfassen(TimeSpan ausfuehrung, TimeSpan bisReaderGeschlossen) =>
-        AllenOffenenZurechnen(db => db.BefehlErfassen(ausfuehrung, bisReaderGeschlossen));
+    public static void DbBefehlErfassen(TimeSpan ausfuehrung) => AllenOffenenZurechnen(db => db.BefehlErfassen(ausfuehrung));
+
+    /// <summary>Rechnet eine Zeitspanne, in der die Verbindung ohne Unterbrechung belegt war (Befehle laufen oder
+    /// Reader sind offen), allen offenen Vorgängen des aktuellen Ablaufs zu (Obergrenze).</summary>
+    public static void DbBelegungErfassen(TimeSpan dauer) => AllenOffenenZurechnen(db => db.BelegungErfassen(dauer));
 
     /// <summary>Rechnet den Aufbau einer Datenbankverbindung allen offenen Vorgängen des aktuellen Ablaufs zu.</summary>
     public static void DbVerbindungErfassen(TimeSpan dauer) => AllenOffenenZurechnen(db => db.VerbindungErfassen(dauer));

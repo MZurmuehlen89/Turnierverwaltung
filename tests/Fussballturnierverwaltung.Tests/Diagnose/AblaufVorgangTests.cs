@@ -88,13 +88,15 @@ public class AblaufVorgangTests
         using (logger.Vorgang("Test-Vorgang F1"))
         {
             AblaufVorgang.DbVerbindungErfassen(Ms(3));
-            AblaufVorgang.DbBefehlErfassen(Ms(10), Ms(25));
-            AblaufVorgang.DbBefehlErfassen(Ms(5), Ms(5));
+            AblaufVorgang.DbBefehlErfassen(Ms(10));
+            AblaufVorgang.DbBelegungErfassen(Ms(25));
+            AblaufVorgang.DbBefehlErfassen(Ms(5));
+            AblaufVorgang.DbBelegungErfassen(Ms(5));
             AblaufVorgang.DbSpeichernErfassen(Ms(7));
             AblaufVorgang.DbSpeichernErfassen(Ms(8));
         }
 
-        // Spanne: Ausführung 15 bzw. bis Reader geschlossen 30, jeweils + 3 ms Verbindungsaufbau.
+        // Spanne: Ausführung 15 bzw. Belegung 30, jeweils + 3 ms Verbindungsaufbau.
         logger.Zeilen[1].Should().MatchRegex(
             @"^Ende:   Test-Vorgang F1 \(\d+ ms; DB 18–33 ms in 2 Befehlen, Verbindungsaufbau 3 ms, SaveChanges 2× 15 ms\)$");
     }
@@ -107,7 +109,8 @@ public class AblaufVorgangTests
         using (logger.Vorgang("Test-Vorgang G1"))
         {
             AblaufVorgang.DbVerbindungErfassen(Ms(0.2));
-            AblaufVorgang.DbBefehlErfassen(Ms(2), Ms(4));
+            AblaufVorgang.DbBefehlErfassen(Ms(2));
+            AblaufVorgang.DbBelegungErfassen(Ms(4));
         }
 
         logger.Zeilen[1].Should().EndWith("; DB 2–4 ms in 1 Befehl)");
@@ -121,10 +124,14 @@ public class AblaufVorgangTests
         using (logger.Vorgang("Test-Vorgang H1"))
         {
             using (logger.Vorgang("Test-Vorgang H2"))
-                AblaufVorgang.DbBefehlErfassen(Ms(10), Ms(10));
+            {
+                AblaufVorgang.DbBefehlErfassen(Ms(10));
+                AblaufVorgang.DbBelegungErfassen(Ms(10));
+            }
 
             // nach dem Ende des inneren zählt ein Befehl nur noch beim äußeren
-            AblaufVorgang.DbBefehlErfassen(Ms(1), Ms(1));
+            AblaufVorgang.DbBefehlErfassen(Ms(1));
+            AblaufVorgang.DbBelegungErfassen(Ms(1));
         }
 
         logger.Zeilen.Should().Contain(z => z.StartsWith("Ende:   Test-Vorgang H2") && z.EndsWith("; DB 10–10 ms in 1 Befehl)"));
@@ -136,7 +143,8 @@ public class AblaufVorgangTests
     {
         var logger = new SammelLogger();
 
-        AblaufVorgang.DbBefehlErfassen(Ms(10), Ms(10));
+        AblaufVorgang.DbBefehlErfassen(Ms(10));
+        AblaufVorgang.DbBelegungErfassen(Ms(10));
         using (logger.Vorgang("Test-Vorgang I1")) { }
 
         logger.Zeilen[1].Should().EndWith(" ms)");
@@ -156,7 +164,8 @@ public class AblaufVorgangTests
                 if (Interlocked.Increment(ref offen) == 2) beideOffen.SetResult();
                 await beideOffen.Task;  // beide Vorgänge sind gleichzeitig offen
                 await Task.Yield();     // Fortsetzung auf einem anderen Thread
-                AblaufVorgang.DbBefehlErfassen(Ms(ms), Ms(ms));
+                AblaufVorgang.DbBefehlErfassen(Ms(ms));
+                AblaufVorgang.DbBelegungErfassen(Ms(ms));
             }
         }
 
