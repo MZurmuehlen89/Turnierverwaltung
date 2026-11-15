@@ -7,6 +7,7 @@ using Fussballturnierverwaltung.Domain.Entitaeten.Regelwerke;
 using Fussballturnierverwaltung.Domain.Entitaeten.Simulation;
 using Fussballturnierverwaltung.Domain.Entitaeten.Spiele;
 using Fussballturnierverwaltung.Domain.Entitaeten.Stammdaten;
+using Fussballturnierverwaltung.Domain.Entitaeten.Turniere;
 using Fussballturnierverwaltung.Domain.Enums;
 using Microsoft.Extensions.Logging;
 
@@ -66,12 +67,7 @@ public class SimulationsService(
     private async Task<SimulationsErgebnis> SimulierenUndSpeichernAsync(
         int spielId, Random rng, CancellationToken ct, bool ueberschreiben = false)
     {
-        var spiel = await spielRepository.FindenNachIdFuerSimulationAsync(spielId, ct)
-            ?? throw new InvalidOperationException($"Spiel {spielId} nicht gefunden.");
-
-        if (spiel.Status == SpielStatus.Abgeschlossen && !ueberschreiben)
-            throw new InvalidOperationException(
-                $"Spiel #{spiel.Spielnummer} ist bereits abgeschlossen.");
+        var spiel = await SpielFuerSimulationLadenAsync(spielId, ueberschreiben, ct);
 
         // Entscheidungsverfahren nur für KO-Runden: Liga/Gruppenphase erlaubt Unentschieden
         bool istKoRunde = spiel.TurnierRunde?.Rundenart is
@@ -80,10 +76,6 @@ public class SimulationsService(
             ? ((spiel.TurnierRunde?.Regelwerk ?? spiel.TurnierRunde?.TurnierInstanz?.StandardRegelwerk)?.Entscheidungsverfahren
                 .OrderBy(v => v.Reihenfolge).ToList() ?? [])
             : [];
-
-        if (spiel.HeimMannschaft is null || spiel.AuswaertsMannschaft is null)
-            throw new InvalidOperationException(
-                $"Spiel #{spiel.Spielnummer} enthält Platzhalter und kann nicht simuliert werden.");
 
         // Issue #346: in K.-o.-Paarungen mit Hin- und Rückspiel entscheidet erst das Gesamtergebnis, ob
         // überhaupt ein Entscheidungsverfahren fällig ist — das Hinspiel läuft nie in die Verlängerung,
@@ -96,42 +88,18 @@ public class SimulationsService(
             throw new InvalidOperationException(
                 $"Spiel #{spiel.Spielnummer} ist ein Rückspiel, dessen Hinspiel noch kein Ergebnis hat.");
 
-        // Issue #352: auf neutralem Platz behält nur ein Gastgeber des Turniers seinen Heimvorteil.
-        IReadOnlyCollection<int> gastgeberIds = runde.NeutralerSpielort
-            ? await instanzRepository.GastgeberIdsAsync(spiel.TurnierInstanzId, ct)
-            : [];
-        var spielortvorteil = SimulationsEngine.SpielortvorteilErmitteln(
-            runde.NeutralerSpielort, spiel.HeimMannschaftId, spiel.AuswaertsMannschaftId, gastgeberIds);
+        var spielortvorteil = await SpielortvorteilErmittelnAsync(spiel, runde, ct);
 
         // Issue #171: Ereignisse werden unabhängig vom gewählten Modus immer berechnet und
         // gespeichert (In-Memory-Berechnung ist vernachlässigbar teuer) — sonst bleibt der
         // Spielverlauf leer, wenn ein schnellsimuliertes Spiel später im Detail betrachtet wird.
         var ergebnis = SimulationsEngine.Simulieren(
-            spiel.HeimMannschaft, spiel.AuswaertsMannschaft,
+            spiel.HeimMannschaft!, spiel.AuswaertsMannschaft!,
             istKoHinspiel || istKoRueckspiel ? [] : verfahren, ausfuehrlich: true, rng, spielortvorteil,
             runde.Ueberraschungsfaktor);
 
-        if (istKoRueckspiel && verfahren.Count > 0 &&
-            HinRueckspielWertung.EntscheidungsverfahrenNoetig(
-                HinRueckspielWertung.HinspielTore(hinspielErgebnis!, heim: true),
-                HinRueckspielWertung.HinspielTore(hinspielErgebnis!, heim: false),
-                ergebnis.HeimToreRegulaer, ergebnis.AuswaertsToreRegulaer,
-                runde.AuswaertstorRegelAktiv))
-        {
-            var (hv, gv, he, ge, art, extras, losGewinnerHeim) = SimulationsEngine.EntscheidungsverfahrenAnwenden(
-                spiel.HeimMannschaft, spiel.AuswaertsMannschaft, verfahren, ausfuehrlich: true, rng, spielortvorteil,
-                runde.Ueberraschungsfaktor);
-            ergebnis = ergebnis with
-            {
-                HeimToreVerlaengerung      = hv,
-                AuswaertsToreVerlaengerung = gv,
-                HeimElfmetertore           = he,
-                AuswaertsElfmetertore      = ge,
-                EntscheidungArt            = art,
-                Ereignisse                 = [.. ergebnis.Ereignisse, .. extras],
-                LosGewinnerHeim            = losGewinnerHeim,
-            };
-        }
+        if (istKoRueckspiel && verfahren.Count > 0)
+            ergebnis = RueckspielEntscheiden(ergebnis, spiel, verfahren, rng, spielortvorteil);
 
         await SpeichernAsync(spiel, ergebnis, ct);
 
@@ -144,6 +112,60 @@ public class SimulationsService(
             spiel.AuswaertsMannschaft.Name, ergebnis.EntscheidungArt);
 
         return ergebnis;
+    }
+
+    private async Task<Spiel> SpielFuerSimulationLadenAsync(int spielId, bool ueberschreiben, CancellationToken ct)
+    {
+        var spiel = await spielRepository.FindenNachIdFuerSimulationAsync(spielId, ct)
+            ?? throw new InvalidOperationException($"Spiel {spielId} nicht gefunden.");
+
+        if (spiel.Status == SpielStatus.Abgeschlossen && !ueberschreiben)
+            throw new InvalidOperationException(
+                $"Spiel #{spiel.Spielnummer} ist bereits abgeschlossen.");
+
+        if (spiel.HeimMannschaft is null || spiel.AuswaertsMannschaft is null)
+            throw new InvalidOperationException(
+                $"Spiel #{spiel.Spielnummer} enthält Platzhalter und kann nicht simuliert werden.");
+
+        return spiel;
+    }
+
+    private async Task<Spielortvorteil> SpielortvorteilErmittelnAsync(Spiel spiel, TurnierRunde runde, CancellationToken ct)
+    {
+        // Issue #352: auf neutralem Platz behält nur ein Gastgeber des Turniers seinen Heimvorteil.
+        IReadOnlyCollection<int> gastgeberIds = runde.NeutralerSpielort
+            ? await instanzRepository.GastgeberIdsAsync(spiel.TurnierInstanzId, ct)
+            : [];
+        return SimulationsEngine.SpielortvorteilErmitteln(
+            runde.NeutralerSpielort, spiel.HeimMannschaftId, spiel.AuswaertsMannschaftId, gastgeberIds);
+    }
+
+    private static SimulationsErgebnis RueckspielEntscheiden(
+        SimulationsErgebnis ergebnis, Spiel spiel, IReadOnlyList<EntscheidungsVerfahren> verfahren, Random rng,
+        Spielortvorteil spielortvorteil)
+    {
+        var runde = spiel.TurnierRunde;
+        var hinspielErgebnis = spiel.Hinspiel!.Ergebnis!;
+        if (!HinRueckspielWertung.EntscheidungsverfahrenNoetig(
+                HinRueckspielWertung.HinspielTore(hinspielErgebnis!, heim: true),
+                HinRueckspielWertung.HinspielTore(hinspielErgebnis!, heim: false),
+                ergebnis.HeimToreRegulaer, ergebnis.AuswaertsToreRegulaer,
+                runde.AuswaertstorRegelAktiv))
+            return ergebnis;
+
+            var (hv, gv, he, ge, art, extras, losGewinnerHeim) = SimulationsEngine.EntscheidungsverfahrenAnwenden(
+                spiel.HeimMannschaft!, spiel.AuswaertsMannschaft!, verfahren, ausfuehrlich: true, rng, spielortvorteil,
+                runde.Ueberraschungsfaktor);
+            return ergebnis with
+            {
+                HeimToreVerlaengerung      = hv,
+                AuswaertsToreVerlaengerung = gv,
+                HeimElfmetertore           = he,
+                AuswaertsElfmetertore      = ge,
+                EntscheidungArt            = art,
+                Ereignisse                 = [.. ergebnis.Ereignisse, .. extras],
+                LosGewinnerHeim            = losGewinnerHeim,
+            };
     }
 
     /// <summary>Simuliert die übergebenen Spiele in dieser Reihenfolge und löst danach einmal die Platzhalter
