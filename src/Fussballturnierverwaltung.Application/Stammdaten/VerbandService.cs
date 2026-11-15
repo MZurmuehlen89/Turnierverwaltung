@@ -16,7 +16,7 @@ public class VerbandService(IVerbandRepository repository, VerbandValidator vali
         var verband = new Verband
         {
             Name = eingabe.Name.Trim(),
-            Kurzname = eingabe.Kurzname.Trim(),
+            Kurzname = eingabe.Kurzname.Trim().ToUpperInvariant(),
             Logo = eingabe.Logo,
             RanglisteId = eingabe.RanglisteId,
             VereinsRanglisteId = eingabe.VereinsRanglisteId
@@ -32,7 +32,7 @@ public class VerbandService(IVerbandRepository repository, VerbandValidator vali
             ?? throw new InvalidOperationException($"Verband mit ID {id} nicht gefunden.");
         ValidationException.WerfenWennUngueltig(validator.Validieren(eingabe));
         verband.Name = eingabe.Name.Trim();
-        verband.Kurzname = eingabe.Kurzname.Trim();
+        verband.Kurzname = eingabe.Kurzname.Trim().ToUpperInvariant();
         verband.Logo = eingabe.Logo;
         verband.RanglisteId = eingabe.RanglisteId;
         verband.VereinsRanglisteId = eingabe.VereinsRanglisteId;

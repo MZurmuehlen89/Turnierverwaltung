@@ -13,7 +13,7 @@ public class SpielKonfiguration : IEntityTypeConfiguration<Spiel>
         builder.Property(s => s.Spielnummer).IsRequired();
         builder.Property(s => s.Status).IsRequired();
         builder.Property(s => s.IstRueckspiel).IsRequired();
-        builder.Property(s => s.Datum).HasColumnType("date");
+        builder.Property(s => s.Datum);
 
         // TurnierInstanzId: NoAction — Spiele werden über TurnierRunde (CASCADE) gelöscht,
         // wenn TurnierInstanz gelöscht wird. Der direkte FK vermeidet Multi-Cascade-Konflikt.

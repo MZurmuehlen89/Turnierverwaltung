@@ -12,7 +12,7 @@ public class RanglisteKonfiguration : IEntityTypeConfiguration<Rangliste>
         builder.HasKey(r => r.Id);
         builder.Property(r => r.Name).IsRequired().HasMaxLength(200);
         builder.Property(r => r.Quelle).HasMaxLength(500);
-        builder.Property(r => r.Datum).HasColumnType("date");
+        builder.Property(r => r.Datum);
 
         // Pokalsieger (#583): eine gelöschte Mannschaft hinterlässt keinen Pokalsieger.
         builder.HasOne(r => r.Pokalsieger)

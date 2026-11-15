@@ -284,7 +284,7 @@
                             <TextBox AutomationProperties.AutomationId="Verbaende.Kurzname"
                                      Text="{Binding VerbandEditor.Kurzname, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                                      views:Feldmarkierung.Meldungen="{Binding VerbandEditor.Fehler}" views:Feldmarkierung.Feld="Kurzname"
-                                     HorizontalAlignment="Stretch" Margin="0,0,0,12" />
+                                     CharacterCasing="Upper" HorizontalAlignment="Stretch" Margin="0,0,0,12" />
 
                             <!-- #572: etwa die FIFA-Weltrangliste, gefiltert nach Verband. -->
                             <TextBlock Text="Rangliste" FontSize="12" Margin="0,0,0,3" />

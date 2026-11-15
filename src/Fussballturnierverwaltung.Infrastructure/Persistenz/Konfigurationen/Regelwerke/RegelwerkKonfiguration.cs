@@ -12,8 +12,8 @@ public class RegelwerkKonfiguration : IEntityTypeConfiguration<Regelwerk>
         builder.HasKey(r => r.Id);
         builder.Property(r => r.Name).IsRequired().HasMaxLength(200);
         builder.Property(r => r.Beschreibung).HasMaxLength(1000);
-        builder.Property(r => r.GueltigVon).HasColumnType("date");
-        builder.Property(r => r.GueltigBis).HasColumnType("date");
+        builder.Property(r => r.GueltigVon);
+        builder.Property(r => r.GueltigBis);
 
         builder.HasOne(r => r.RankingRegelSet)
             .WithMany()

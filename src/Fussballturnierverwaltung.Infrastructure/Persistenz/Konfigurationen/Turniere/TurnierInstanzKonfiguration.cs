@@ -16,8 +16,8 @@ public class TurnierInstanzKonfiguration : IEntityTypeConfiguration<TurnierInsta
         builder.Property(t => t.SaisonOderJahr).IsRequired().HasMaxLength(20);
         builder.Property(t => t.Kategorie).IsRequired();
         builder.Property(t => t.Status).IsRequired();
-        builder.Property(t => t.Startdatum).HasColumnType("date");
-        builder.Property(t => t.Enddatum).HasColumnType("date");
+        builder.Property(t => t.Startdatum);
+        builder.Property(t => t.Enddatum);
 
         builder.Property(t => t.MannschaftsartFilter).IsRequired();
 

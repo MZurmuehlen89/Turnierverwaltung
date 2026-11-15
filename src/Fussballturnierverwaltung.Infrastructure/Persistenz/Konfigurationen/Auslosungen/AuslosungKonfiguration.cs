@@ -16,7 +16,7 @@ public class AuslosungKonfiguration : IEntityTypeConfiguration<Auslosung>
         builder.Property(a => a.Gruppenposition).IsRequired().HasDefaultValue(Gruppenposition.NachTopf);
         builder.Property(a => a.Status).IsRequired();
         builder.Property(a => a.IstAutomatisch).IsRequired();
-        builder.Property(a => a.Datum).HasColumnType("date");
+        builder.Property(a => a.Datum);
 
         // Primärer Cascade-Pfad für Auslosung: über TurnierInstanz
         builder.HasOne(a => a.TurnierInstanz)
