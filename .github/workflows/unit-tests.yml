@@ -45,6 +45,13 @@ jobs:
         with:
           dotnet-version: 10.0.x
 
+      # pg_dump/pg_restore für die Sicherungstests (#43). Das Runner-Image bringt nur ältere Client-Werkzeuge mit, und
+      # ein älteres pg_dump verweigert die Sicherung des neueren Servers im Dienst-Container.
+      - name: PostgreSQL-Werkzeuge 17
+        run: |
+          sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y
+          sudo apt-get install -y --no-install-recommends postgresql-client-17
+
       - name: Unit-Tests
         env:
           # Gesetzt heißt: Die Tests gegen PostgreSQL müssen laufen, statt sich zu überspringen

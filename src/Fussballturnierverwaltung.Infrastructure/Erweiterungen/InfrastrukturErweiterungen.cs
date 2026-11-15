@@ -38,6 +38,8 @@ public static class InfrastrukturErweiterungen
         services.AddSingleton(SeedBildQuelle.Eingebettet);
         services.AddScoped<SeedDatenService>();
         services.AddScoped<DatenbankWartungService>();
+        services.AddSingleton(_ => PostgresWerkzeuge.Standard());
+        services.AddScoped<DatenbankSicherungService>();
 
         // Stammdaten-Repositories
         services.AddScoped<IMannschaftRepository, MannschaftRepository>();

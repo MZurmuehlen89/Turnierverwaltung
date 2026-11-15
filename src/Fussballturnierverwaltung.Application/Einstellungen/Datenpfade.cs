@@ -15,6 +15,9 @@ public static class Datenpfade
 
     public static string Logs => Path.Combine(Basis, "logs");
 
+    /// <summary>Ablage der Datenbanksicherungen (#43).</summary>
+    public static string Sicherungen => Path.Combine(Basis, "sicherungen");
+
     public static string BasisErmitteln(string? ueberschreibung, string anwendungsdatenOrdner) =>
         string.IsNullOrWhiteSpace(ueberschreibung)
             ? Path.Combine(anwendungsdatenOrdner, "Turnierverwaltung")
