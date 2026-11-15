@@ -72,10 +72,7 @@ public class SimulationsService(
         // Entscheidungsverfahren nur für KO-Runden: Liga/Gruppenphase erlaubt Unentschieden
         bool istKoRunde = spiel.TurnierRunde?.Rundenart is
             Rundenart.KoRunde or Rundenart.Finale or Rundenart.SpielUmPlatzDrei;
-        var verfahren = istKoRunde
-            ? ((spiel.TurnierRunde?.Regelwerk ?? spiel.TurnierRunde?.TurnierInstanz?.StandardRegelwerk)?.Entscheidungsverfahren
-                .OrderBy(v => v.Reihenfolge).ToList() ?? [])
-            : [];
+        var verfahren = istKoRunde ? EntscheidungsverfahrenDerRunde(spiel.TurnierRunde!) : [];
 
         // Issue #346: in K.-o.-Paarungen mit Hin- und Rückspiel entscheidet erst das Gesamtergebnis, ob
         // überhaupt ein Entscheidungsverfahren fällig ist — das Hinspiel läuft nie in die Verlängerung,
@@ -140,32 +137,41 @@ public class SimulationsService(
             runde.NeutralerSpielort, spiel.HeimMannschaftId, spiel.AuswaertsMannschaftId, gastgeberIds);
     }
 
+    /// <summary>Die Entscheidungsverfahren der Runde in ihrer Reihenfolge — aus dem Regelwerk der Runde, sonst dem
+    /// Standard-Regelwerk des Turniers (AD-026).</summary>
+    private static List<EntscheidungsVerfahren> EntscheidungsverfahrenDerRunde(TurnierRunde runde)
+        => (runde.Regelwerk ?? runde.TurnierInstanz?.StandardRegelwerk)?.Entscheidungsverfahren
+               .OrderBy(v => v.Reihenfolge).ToList() ?? [];
+
+    /// <summary>Wendet die Entscheidungsverfahren auf ein K.-o.-Rückspiel an, wenn der Gesamtstand aus Hin- und
+    /// Rückspiel ausgeglichen ist (#346); sonst bleibt das Ergebnis der regulären Spielzeit.</summary>
     private static SimulationsErgebnis RueckspielEntscheiden(
         SimulationsErgebnis ergebnis, Spiel spiel, IReadOnlyList<EntscheidungsVerfahren> verfahren, Random rng,
         Spielortvorteil spielortvorteil)
     {
         var runde = spiel.TurnierRunde;
-        var hinspielErgebnis = spiel.Hinspiel!.Ergebnis!;
-        if (!HinRueckspielWertung.EntscheidungsverfahrenNoetig(
-                HinRueckspielWertung.HinspielTore(hinspielErgebnis!, heim: true),
-                HinRueckspielWertung.HinspielTore(hinspielErgebnis!, heim: false),
-                ergebnis.HeimToreRegulaer, ergebnis.AuswaertsToreRegulaer,
-                runde.AuswaertstorRegelAktiv))
+        var hinspiel = spiel.Hinspiel!.Ergebnis!;
+        bool noetig = HinRueckspielWertung.EntscheidungsverfahrenNoetig(
+            HinRueckspielWertung.HinspielTore(hinspiel, heim: true),
+            HinRueckspielWertung.HinspielTore(hinspiel, heim: false),
+            ergebnis.HeimToreRegulaer, ergebnis.AuswaertsToreRegulaer,
+            runde.AuswaertstorRegelAktiv);
+        if (!noetig)
             return ergebnis;
 
-            var (hv, gv, he, ge, art, extras, losGewinnerHeim) = SimulationsEngine.EntscheidungsverfahrenAnwenden(
-                spiel.HeimMannschaft!, spiel.AuswaertsMannschaft!, verfahren, ausfuehrlich: true, rng, spielortvorteil,
-                runde.Ueberraschungsfaktor);
-            return ergebnis with
-            {
-                HeimToreVerlaengerung      = hv,
-                AuswaertsToreVerlaengerung = gv,
-                HeimElfmetertore           = he,
-                AuswaertsElfmetertore      = ge,
-                EntscheidungArt            = art,
-                Ereignisse                 = [.. ergebnis.Ereignisse, .. extras],
-                LosGewinnerHeim            = losGewinnerHeim,
-            };
+        var (hv, gv, he, ge, art, extras, losGewinnerHeim) = SimulationsEngine.EntscheidungsverfahrenAnwenden(
+            spiel.HeimMannschaft!, spiel.AuswaertsMannschaft!, verfahren, ausfuehrlich: true, rng, spielortvorteil,
+            runde.Ueberraschungsfaktor);
+        return ergebnis with
+        {
+            HeimToreVerlaengerung      = hv,
+            AuswaertsToreVerlaengerung = gv,
+            HeimElfmetertore           = he,
+            AuswaertsElfmetertore      = ge,
+            EntscheidungArt            = art,
+            Ereignisse                 = [.. ergebnis.Ereignisse, .. extras],
+            LosGewinnerHeim            = losGewinnerHeim,
+        };
     }
 
     /// <summary>Simuliert die übergebenen Spiele in dieser Reihenfolge und löst danach einmal die Platzhalter
