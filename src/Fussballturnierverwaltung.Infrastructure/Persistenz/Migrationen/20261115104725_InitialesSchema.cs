@@ -13,14 +13,17 @@ namespace Fussballturnierverwaltung.Infrastructure.Persistenz.Migrationen
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
+            migrationBuilder.AlterDatabase()
+                .Annotation("Npgsql:CollationDefinition:deutsch", "de-DE,de-DE,icu,True");
+
             migrationBuilder.CreateTable(
                 name: "RankingRegeln",
                 columns: table => new
                 {
                     Id = table.Column<int>(type: "integer", nullable: false)
                         .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
-                    Name = table.Column<string>(type: "character varying(200)", maxLength: 200, nullable: false),
-                    Beschreibung = table.Column<string>(type: "character varying(500)", maxLength: 500, nullable: false),
+                    Name = table.Column<string>(type: "character varying(200)", maxLength: 200, nullable: false, collation: "deutsch"),
+                    Beschreibung = table.Column<string>(type: "character varying(500)", maxLength: 500, nullable: false, collation: "deutsch"),
                     Regelart = table.Column<int>(type: "integer", nullable: false),
                     Sortierrichtung = table.Column<int>(type: "integer", nullable: false)
                 },
@@ -35,8 +38,8 @@ namespace Fussballturnierverwaltung.Infrastructure.Persistenz.Migrationen
                 {
                     Id = table.Column<int>(type: "integer", nullable: false)
                         .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
-                    Name = table.Column<string>(type: "character varying(200)", maxLength: 200, nullable: false),
-                    Beschreibung = table.Column<string>(type: "character varying(500)", maxLength: 500, nullable: false),
+                    Name = table.Column<string>(type: "character varying(200)", maxLength: 200, nullable: false, collation: "deutsch"),
+                    Beschreibung = table.Column<string>(type: "character varying(500)", maxLength: 500, nullable: false, collation: "deutsch"),
                     DirektenVergleichWiederholen = table.Column<bool>(type: "boolean", nullable: false)
                 },
                 constraints: table =>
@@ -77,8 +80,8 @@ namespace Fussballturnierverwaltung.Infrastructure.Persistenz.Migrationen
                 {
                     Id = table.Column<int>(type: "integer", nullable: false)
                         .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
-                    Name = table.Column<string>(type: "character varying(200)", maxLength: 200, nullable: false),
-                    Beschreibung = table.Column<string>(type: "character varying(1000)", maxLength: 1000, nullable: false),
+                    Name = table.Column<string>(type: "character varying(200)", maxLength: 200, nullable: false, collation: "deutsch"),
+                    Beschreibung = table.Column<string>(type: "character varying(1000)", maxLength: 1000, nullable: false, collation: "deutsch"),
                     GueltigVon = table.Column<DateOnly>(type: "date", nullable: true),
                     GueltigBis = table.Column<DateOnly>(type: "date", nullable: true),
                     RankingRegelSetId = table.Column<int>(type: "integer", nullable: true)
@@ -145,7 +148,7 @@ namespace Fussballturnierverwaltung.Infrastructure.Persistenz.Migrationen
                         .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
                     TurnierInstanzId = table.Column<int>(type: "integer", nullable: false),
                     TurnierRundeId = table.Column<int>(type: "integer", nullable: false),
-                    Name = table.Column<string>(type: "character varying(200)", maxLength: 200, nullable: false),
+                    Name = table.Column<string>(type: "character varying(200)", maxLength: 200, nullable: false, collation: "deutsch"),
                     Datum = table.Column<DateOnly>(type: "date", nullable: true),
                     Auslosungsart = table.Column<int>(type: "integer", nullable: false),
                     Gruppenposition = table.Column<int>(type: "integer", nullable: false, defaultValue: 0),
@@ -165,7 +168,7 @@ namespace Fussballturnierverwaltung.Infrastructure.Persistenz.Migrationen
                         .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
                     AuslosungId = table.Column<int>(type: "integer", nullable: false),
                     Regelart = table.Column<int>(type: "integer", nullable: false),
-                    Beschreibung = table.Column<string>(type: "character varying(500)", maxLength: 500, nullable: false),
+                    Beschreibung = table.Column<string>(type: "character varying(500)", maxLength: 500, nullable: false, collation: "deutsch"),
                     IstAktiv = table.Column<bool>(type: "boolean", nullable: false)
                 },
                 constraints: table =>
@@ -186,7 +189,7 @@ namespace Fussballturnierverwaltung.Infrastructure.Persistenz.Migrationen
                     Id = table.Column<int>(type: "integer", nullable: false)
                         .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
                     AuslosungId = table.Column<int>(type: "integer", nullable: false),
-                    Name = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: false),
+                    Name = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: false, collation: "deutsch"),
                     Reihenfolge = table.Column<int>(type: "integer", nullable: false)
                 },
                 constraints: table =>
@@ -210,8 +213,8 @@ namespace Fussballturnierverwaltung.Infrastructure.Persistenz.Migrationen
                     PaarungsNummer = table.Column<int>(type: "integer", nullable: false),
                     HeimMannschaftId = table.Column<int>(type: "integer", nullable: true),
                     AuswaertsMannschaftId = table.Column<int>(type: "integer", nullable: true),
-                    HeimPlatzhalterName = table.Column<string>(type: "character varying(200)", maxLength: 200, nullable: true),
-                    AuswaertsPlatzhalterName = table.Column<string>(type: "character varying(200)", maxLength: 200, nullable: true),
+                    HeimPlatzhalterName = table.Column<string>(type: "character varying(200)", maxLength: 200, nullable: true, collation: "deutsch"),
+                    AuswaertsPlatzhalterName = table.Column<string>(type: "character varying(200)", maxLength: 200, nullable: true, collation: "deutsch"),
                     ZugeordneterTurnierBaumKnotenId = table.Column<int>(type: "integer", nullable: true),
                     IstFreilos = table.Column<bool>(type: "boolean", nullable: false)
                 },
@@ -232,9 +235,9 @@ namespace Fussballturnierverwaltung.Infrastructure.Persistenz.Migrationen
                 {
                     Id = table.Column<int>(type: "integer", nullable: false)
                         .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
-                    Name = table.Column<string>(type: "character varying(200)", maxLength: 200, nullable: false),
-                    Kurzname = table.Column<string>(type: "character varying(50)", maxLength: 50, nullable: false),
-                    FifaCode = table.Column<string>(type: "character varying(3)", maxLength: 3, nullable: false),
+                    Name = table.Column<string>(type: "character varying(200)", maxLength: 200, nullable: false, collation: "deutsch"),
+                    Kurzname = table.Column<string>(type: "character varying(50)", maxLength: 50, nullable: false, collation: "deutsch"),
+                    FifaCode = table.Column<string>(type: "character varying(3)", maxLength: 3, nullable: false, collation: "deutsch"),
                     Kontinent = table.Column<int>(type: "integer", nullable: false),
                     VerbandId = table.Column<int>(type: "integer", nullable: false),
                     Flagge = table.Column<byte[]>(type: "bytea", nullable: true),
@@ -251,8 +254,8 @@ namespace Fussballturnierverwaltung.Infrastructure.Persistenz.Migrationen
                 {
                     Id = table.Column<int>(type: "integer", nullable: false)
                         .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
-                    Name = table.Column<string>(type: "character varying(200)", maxLength: 200, nullable: false),
-                    Kurzname = table.Column<string>(type: "character varying(50)", maxLength: 50, nullable: false),
+                    Name = table.Column<string>(type: "character varying(200)", maxLength: 200, nullable: false, collation: "deutsch"),
+                    Kurzname = table.Column<string>(type: "character varying(50)", maxLength: 50, nullable: false, collation: "deutsch"),
                     Mannschaftsart = table.Column<int>(type: "integer", nullable: false),
                     LandId = table.Column<int>(type: "integer", nullable: false),
                     OffensivRating = table.Column<int>(type: "integer", nullable: false),
@@ -279,9 +282,9 @@ namespace Fussballturnierverwaltung.Infrastructure.Persistenz.Migrationen
                 {
                     Id = table.Column<int>(type: "integer", nullable: false)
                         .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
-                    Name = table.Column<string>(type: "character varying(200)", maxLength: 200, nullable: false),
+                    Name = table.Column<string>(type: "character varying(200)", maxLength: 200, nullable: false, collation: "deutsch"),
                     Datum = table.Column<DateOnly>(type: "date", nullable: false),
-                    Quelle = table.Column<string>(type: "character varying(500)", maxLength: 500, nullable: false),
+                    Quelle = table.Column<string>(type: "character varying(500)", maxLength: 500, nullable: false, collation: "deutsch"),
                     ProfigrenzeSpielklasse = table.Column<int>(type: "integer", nullable: true),
                     PokalsiegerId = table.Column<int>(type: "integer", nullable: true)
                 },
@@ -303,7 +306,7 @@ namespace Fussballturnierverwaltung.Infrastructure.Persistenz.Migrationen
                     Id = table.Column<int>(type: "integer", nullable: false)
                         .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
                     RanglisteId = table.Column<int>(type: "integer", nullable: false),
-                    Name = table.Column<string>(type: "character varying(200)", maxLength: 200, nullable: false),
+                    Name = table.Column<string>(type: "character varying(200)", maxLength: 200, nullable: false, collation: "deutsch"),
                     Spielklasse = table.Column<int>(type: "integer", nullable: false),
                     BisPlatz = table.Column<int>(type: "integer", nullable: false)
                 },
@@ -352,8 +355,8 @@ namespace Fussballturnierverwaltung.Infrastructure.Persistenz.Migrationen
                 {
                     Id = table.Column<int>(type: "integer", nullable: false)
                         .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
-                    Name = table.Column<string>(type: "character varying(200)", maxLength: 200, nullable: false),
-                    Kurzname = table.Column<string>(type: "character varying(20)", maxLength: 20, nullable: false),
+                    Name = table.Column<string>(type: "character varying(200)", maxLength: 200, nullable: false, collation: "deutsch"),
+                    Kurzname = table.Column<string>(type: "character varying(20)", maxLength: 20, nullable: false, collation: "deutsch"),
                     Logo = table.Column<byte[]>(type: "bytea", nullable: true),
                     RanglisteId = table.Column<int>(type: "integer", nullable: true),
                     VereinsRanglisteId = table.Column<int>(type: "integer", nullable: true)
@@ -380,10 +383,10 @@ namespace Fussballturnierverwaltung.Infrastructure.Persistenz.Migrationen
                 {
                     Id = table.Column<int>(type: "integer", nullable: false)
                         .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
-                    Name = table.Column<string>(type: "character varying(200)", maxLength: 200, nullable: false),
-                    Beschreibung = table.Column<string>(type: "character varying(2000)", maxLength: 2000, nullable: false),
-                    Variante = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: false),
-                    SaisonOderJahr = table.Column<string>(type: "character varying(20)", maxLength: 20, nullable: false),
+                    Name = table.Column<string>(type: "character varying(200)", maxLength: 200, nullable: false, collation: "deutsch"),
+                    Beschreibung = table.Column<string>(type: "character varying(2000)", maxLength: 2000, nullable: false, collation: "deutsch"),
+                    Variante = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: false, collation: "deutsch"),
+                    SaisonOderJahr = table.Column<string>(type: "character varying(20)", maxLength: 20, nullable: false, collation: "deutsch"),
                     Kategorie = table.Column<int>(type: "integer", nullable: false),
                     ZielMannschaftsanzahl = table.Column<int>(type: "integer", nullable: true),
                     Logo = table.Column<byte[]>(type: "bytea", nullable: true),
@@ -465,7 +468,7 @@ namespace Fussballturnierverwaltung.Infrastructure.Persistenz.Migrationen
                     StartZeitpunkt = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
                     EndZeitpunkt = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
                     ZufallsSeed = table.Column<int>(type: "integer", nullable: false),
-                    Beschreibung = table.Column<string>(type: "character varying(500)", maxLength: 500, nullable: true)
+                    Beschreibung = table.Column<string>(type: "character varying(500)", maxLength: 500, nullable: true, collation: "deutsch")
                 },
                 constraints: table =>
                 {
@@ -511,7 +514,7 @@ namespace Fussballturnierverwaltung.Infrastructure.Persistenz.Migrationen
                     Id = table.Column<int>(type: "integer", nullable: false)
                         .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
                     TurnierInstanzId = table.Column<int>(type: "integer", nullable: false),
-                    Name = table.Column<string>(type: "character varying(200)", maxLength: 200, nullable: false),
+                    Name = table.Column<string>(type: "character varying(200)", maxLength: 200, nullable: false, collation: "deutsch"),
                     Reihenfolge = table.Column<int>(type: "integer", nullable: false),
                     Rundenart = table.Column<int>(type: "integer", nullable: false),
                     EingangsMannschaftsanzahl = table.Column<int>(type: "integer", nullable: false),
@@ -522,7 +525,7 @@ namespace Fussballturnierverwaltung.Infrastructure.Persistenz.Migrationen
                     AuswaertstorRegelAktiv = table.Column<bool>(type: "boolean", nullable: false),
                     NeutralerSpielort = table.Column<bool>(type: "boolean", nullable: false, defaultValue: false),
                     Ueberraschungsfaktor = table.Column<int>(type: "integer", nullable: false, defaultValue: 0),
-                    KonfigurationJson = table.Column<string>(type: "text", nullable: true),
+                    KonfigurationJson = table.Column<string>(type: "text", nullable: true, collation: "deutsch"),
                     EingangUeberUebergangsregeln = table.Column<bool>(type: "boolean", nullable: false, defaultValue: false),
                     PaarungFestVorgegeben = table.Column<bool>(type: "boolean", nullable: false),
                     VorgegebeneAuslosungsart = table.Column<int>(type: "integer", nullable: true),
@@ -533,7 +536,7 @@ namespace Fussballturnierverwaltung.Infrastructure.Persistenz.Migrationen
                     StandardRanglisteId = table.Column<int>(type: "integer", nullable: true),
                     TitelverteidigerInTopf1 = table.Column<bool>(type: "boolean", nullable: false, defaultValue: false),
                     GegnerJeTopf = table.Column<int>(type: "integer", nullable: false, defaultValue: 2),
-                    KombinationstabelleJson = table.Column<string>(type: "text", nullable: true)
+                    KombinationstabelleJson = table.Column<string>(type: "text", nullable: true, collation: "deutsch")
                 },
                 constraints: table =>
                 {
@@ -598,9 +601,9 @@ namespace Fussballturnierverwaltung.Infrastructure.Persistenz.Migrationen
                     GruppenNummer = table.Column<int>(type: "integer", nullable: true),
                     Datum = table.Column<DateOnly>(type: "date", nullable: true),
                     HeimMannschaftId = table.Column<int>(type: "integer", nullable: true),
-                    HeimPlatzhalterName = table.Column<string>(type: "character varying(200)", maxLength: 200, nullable: true),
+                    HeimPlatzhalterName = table.Column<string>(type: "character varying(200)", maxLength: 200, nullable: true, collation: "deutsch"),
                     AuswaertsMannschaftId = table.Column<int>(type: "integer", nullable: true),
-                    AuswaertsPlatzhalterName = table.Column<string>(type: "character varying(200)", maxLength: 200, nullable: true),
+                    AuswaertsPlatzhalterName = table.Column<string>(type: "character varying(200)", maxLength: 200, nullable: true, collation: "deutsch"),
                     Status = table.Column<int>(type: "integer", nullable: false),
                     IstRueckspiel = table.Column<bool>(type: "boolean", nullable: false),
                     HinspielId = table.Column<int>(type: "integer", nullable: true),
@@ -662,7 +665,7 @@ namespace Fussballturnierverwaltung.Infrastructure.Persistenz.Migrationen
                     PlatzVon = table.Column<int>(type: "integer", nullable: false),
                     PlatzBis = table.Column<int>(type: "integer", nullable: false),
                     Art = table.Column<int>(type: "integer", nullable: false),
-                    Bezeichnung = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: false)
+                    Bezeichnung = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: false, collation: "deutsch")
                 },
                 constraints: table =>
                 {
@@ -715,7 +718,7 @@ namespace Fussballturnierverwaltung.Infrastructure.Persistenz.Migrationen
                     Minute = table.Column<int>(type: "integer", nullable: false),
                     EreignisArt = table.Column<int>(type: "integer", nullable: false),
                     MannschaftId = table.Column<int>(type: "integer", nullable: true),
-                    Beschreibung = table.Column<string>(type: "character varying(500)", maxLength: 500, nullable: false)
+                    Beschreibung = table.Column<string>(type: "character varying(500)", maxLength: 500, nullable: false, collation: "deutsch")
                 },
                 constraints: table =>
                 {
@@ -777,7 +780,7 @@ namespace Fussballturnierverwaltung.Infrastructure.Persistenz.Migrationen
                         .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
                     LostopfId = table.Column<int>(type: "integer", nullable: false),
                     MannschaftId = table.Column<int>(type: "integer", nullable: true),
-                    PlatzhalterName = table.Column<string>(type: "character varying(200)", maxLength: 200, nullable: true),
+                    PlatzhalterName = table.Column<string>(type: "character varying(200)", maxLength: 200, nullable: true, collation: "deutsch"),
                     UebergangsregelId = table.Column<int>(type: "integer", nullable: true),
                     Platzierung = table.Column<int>(type: "integer", nullable: true)
                 },

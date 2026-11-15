@@ -61,8 +61,20 @@ public class TurnierverwaltungDbContext : DbContext
     public DbSet<RanglistenEintrag> RanglistenEintraege => Set<RanglistenEintrag>();
     public DbSet<RanglistenAbschnitt> RanglistenAbschnitte => Set<RanglistenAbschnitt>();
 
+    // Deutsche Sortierung (ICU de-DE) für jede Textspalte (#49): Umlaute sortieren wie unter SQL Server („Österreich“
+    // vor „Polen“), und zwar unabhängig davon, mit welcher Sortierung die Datenbank angelegt wurde – das
+    // Einrichtungsskript setzt de-DE, eine von der App selbst angelegte Datenbank (GUI-Tests, Erststart) bekäme sonst
+    // die Voreinstellung des Servers. Deterministisch, also Gleichheit mit Groß/klein wie bisher in Stufe 1 geprüft.
+    public const string SORTIERUNG = "deutsch";
+
+    protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder)
+    {
+        configurationBuilder.Properties<string>().UseCollation(SORTIERUNG);
+    }
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
+        modelBuilder.HasCollation(SORTIERUNG, locale: "de-DE", provider: "icu", deterministic: true);
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(TurnierverwaltungDbContext).Assembly);
     }
 }

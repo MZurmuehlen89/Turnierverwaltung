@@ -13,7 +13,7 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Fussballturnierverwaltung.Infrastructure.Persistenz.Migrationen
 {
     [DbContext(typeof(TurnierverwaltungDbContext))]
-    [Migration("20261115102135_InitialesSchema")]
+    [Migration("20261115104725_InitialesSchema")]
     partial class InitialesSchema
     {
         /// <inheritdoc />
@@ -21,6 +21,7 @@ namespace Fussballturnierverwaltung.Infrastructure.Persistenz.Migrationen
         {
 #pragma warning disable 612, 618
             modelBuilder
+                .HasAnnotation("Npgsql:CollationDefinition:deutsch", "de-DE,de-DE,icu,True")
                 .HasAnnotation("ProductVersion", "10.0.15")
                 .HasAnnotation("Relational:MaxIdentifierLength", 63);
 
@@ -51,7 +52,8 @@ namespace Fussballturnierverwaltung.Infrastructure.Persistenz.Migrationen
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(200)
-                        .HasColumnType("character varying(200)");
+                        .HasColumnType("character varying(200)")
+                        .UseCollation("deutsch");
 
                     b.Property<int>("Status")
                         .HasColumnType("integer");
@@ -87,14 +89,16 @@ namespace Fussballturnierverwaltung.Infrastructure.Persistenz.Migrationen
 
                     b.Property<string>("AuswaertsPlatzhalterName")
                         .HasMaxLength(200)
-                        .HasColumnType("character varying(200)");
+                        .HasColumnType("character varying(200)")
+                        .UseCollation("deutsch");
 
                     b.Property<int?>("HeimMannschaftId")
                         .HasColumnType("integer");
 
                     b.Property<string>("HeimPlatzhalterName")
                         .HasMaxLength(200)
-                        .HasColumnType("character varying(200)");
+                        .HasColumnType("character varying(200)")
+                        .UseCollation("deutsch");
 
                     b.Property<bool>("IstFreilos")
                         .HasColumnType("boolean");
@@ -132,7 +136,8 @@ namespace Fussballturnierverwaltung.Infrastructure.Persistenz.Migrationen
                     b.Property<string>("Beschreibung")
                         .IsRequired()
                         .HasMaxLength(500)
-                        .HasColumnType("character varying(500)");
+                        .HasColumnType("character varying(500)")
+                        .UseCollation("deutsch");
 
                     b.Property<bool>("IstAktiv")
                         .HasColumnType("boolean");
@@ -161,7 +166,8 @@ namespace Fussballturnierverwaltung.Infrastructure.Persistenz.Migrationen
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(100)
-                        .HasColumnType("character varying(100)");
+                        .HasColumnType("character varying(100)")
+                        .UseCollation("deutsch");
 
                     b.Property<int>("Reihenfolge")
                         .HasColumnType("integer");
@@ -190,7 +196,8 @@ namespace Fussballturnierverwaltung.Infrastructure.Persistenz.Migrationen
 
                     b.Property<string>("PlatzhalterName")
                         .HasMaxLength(200)
-                        .HasColumnType("character varying(200)");
+                        .HasColumnType("character varying(200)")
+                        .UseCollation("deutsch");
 
                     b.Property<int?>("Platzierung")
                         .HasColumnType("integer");
@@ -223,7 +230,8 @@ namespace Fussballturnierverwaltung.Infrastructure.Persistenz.Migrationen
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(200)
-                        .HasColumnType("character varying(200)");
+                        .HasColumnType("character varying(200)")
+                        .UseCollation("deutsch");
 
                     b.Property<int?>("PokalsiegerId")
                         .HasColumnType("integer");
@@ -234,7 +242,8 @@ namespace Fussballturnierverwaltung.Infrastructure.Persistenz.Migrationen
                     b.Property<string>("Quelle")
                         .IsRequired()
                         .HasMaxLength(500)
-                        .HasColumnType("character varying(500)");
+                        .HasColumnType("character varying(500)")
+                        .UseCollation("deutsch");
 
                     b.HasKey("Id");
 
@@ -257,7 +266,8 @@ namespace Fussballturnierverwaltung.Infrastructure.Persistenz.Migrationen
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(200)
-                        .HasColumnType("character varying(200)");
+                        .HasColumnType("character varying(200)")
+                        .UseCollation("deutsch");
 
                     b.Property<int>("RanglisteId")
                         .HasColumnType("integer");
@@ -365,12 +375,14 @@ namespace Fussballturnierverwaltung.Infrastructure.Persistenz.Migrationen
                     b.Property<string>("Beschreibung")
                         .IsRequired()
                         .HasMaxLength(500)
-                        .HasColumnType("character varying(500)");
+                        .HasColumnType("character varying(500)")
+                        .UseCollation("deutsch");
 
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(200)
-                        .HasColumnType("character varying(200)");
+                        .HasColumnType("character varying(200)")
+                        .UseCollation("deutsch");
 
                     b.Property<int>("Regelart")
                         .HasColumnType("integer");
@@ -394,7 +406,8 @@ namespace Fussballturnierverwaltung.Infrastructure.Persistenz.Migrationen
                     b.Property<string>("Beschreibung")
                         .IsRequired()
                         .HasMaxLength(500)
-                        .HasColumnType("character varying(500)");
+                        .HasColumnType("character varying(500)")
+                        .UseCollation("deutsch");
 
                     b.Property<bool>("DirektenVergleichWiederholen")
                         .HasColumnType("boolean");
@@ -402,7 +415,8 @@ namespace Fussballturnierverwaltung.Infrastructure.Persistenz.Migrationen
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(200)
-                        .HasColumnType("character varying(200)");
+                        .HasColumnType("character varying(200)")
+                        .UseCollation("deutsch");
 
                     b.HasKey("Id");
 
@@ -447,7 +461,8 @@ namespace Fussballturnierverwaltung.Infrastructure.Persistenz.Migrationen
                     b.Property<string>("Beschreibung")
                         .IsRequired()
                         .HasMaxLength(1000)
-                        .HasColumnType("character varying(1000)");
+                        .HasColumnType("character varying(1000)")
+                        .UseCollation("deutsch");
 
                     b.Property<DateOnly?>("GueltigBis")
                         .HasColumnType("date");
@@ -458,7 +473,8 @@ namespace Fussballturnierverwaltung.Infrastructure.Persistenz.Migrationen
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(200)
-                        .HasColumnType("character varying(200)");
+                        .HasColumnType("character varying(200)")
+                        .UseCollation("deutsch");
 
                     b.Property<int?>("RankingRegelSetId")
                         .HasColumnType("integer");
@@ -480,7 +496,8 @@ namespace Fussballturnierverwaltung.Infrastructure.Persistenz.Migrationen
 
                     b.Property<string>("Beschreibung")
                         .HasMaxLength(500)
-                        .HasColumnType("character varying(500)");
+                        .HasColumnType("character varying(500)")
+                        .UseCollation("deutsch");
 
                     b.Property<DateTime?>("EndZeitpunkt")
                         .HasColumnType("timestamp with time zone");
@@ -514,7 +531,8 @@ namespace Fussballturnierverwaltung.Infrastructure.Persistenz.Migrationen
 
                     b.Property<string>("AuswaertsPlatzhalterName")
                         .HasMaxLength(200)
-                        .HasColumnType("character varying(200)");
+                        .HasColumnType("character varying(200)")
+                        .UseCollation("deutsch");
 
                     b.Property<int?>("AuswaertsQuellErgebnis")
                         .HasColumnType("integer");
@@ -533,7 +551,8 @@ namespace Fussballturnierverwaltung.Infrastructure.Persistenz.Migrationen
 
                     b.Property<string>("HeimPlatzhalterName")
                         .HasMaxLength(200)
-                        .HasColumnType("character varying(200)");
+                        .HasColumnType("character varying(200)")
+                        .UseCollation("deutsch");
 
                     b.Property<int?>("HeimQuellErgebnis")
                         .HasColumnType("integer");
@@ -592,7 +611,8 @@ namespace Fussballturnierverwaltung.Infrastructure.Persistenz.Migrationen
                     b.Property<string>("Beschreibung")
                         .IsRequired()
                         .HasMaxLength(500)
-                        .HasColumnType("character varying(500)");
+                        .HasColumnType("character varying(500)")
+                        .UseCollation("deutsch");
 
                     b.Property<int>("EreignisArt")
                         .HasColumnType("integer");
@@ -677,7 +697,8 @@ namespace Fussballturnierverwaltung.Infrastructure.Persistenz.Migrationen
                     b.Property<string>("FifaCode")
                         .IsRequired()
                         .HasMaxLength(3)
-                        .HasColumnType("character varying(3)");
+                        .HasColumnType("character varying(3)")
+                        .UseCollation("deutsch");
 
                     b.Property<byte[]>("Flagge")
                         .HasColumnType("bytea");
@@ -688,12 +709,14 @@ namespace Fussballturnierverwaltung.Infrastructure.Persistenz.Migrationen
                     b.Property<string>("Kurzname")
                         .IsRequired()
                         .HasMaxLength(50)
-                        .HasColumnType("character varying(50)");
+                        .HasColumnType("character varying(50)")
+                        .UseCollation("deutsch");
 
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(200)
-                        .HasColumnType("character varying(200)");
+                        .HasColumnType("character varying(200)")
+                        .UseCollation("deutsch");
 
                     b.Property<int?>("RanglisteId")
                         .HasColumnType("integer");
@@ -733,7 +756,8 @@ namespace Fussballturnierverwaltung.Infrastructure.Persistenz.Migrationen
                     b.Property<string>("Kurzname")
                         .IsRequired()
                         .HasMaxLength(50)
-                        .HasColumnType("character varying(50)");
+                        .HasColumnType("character varying(50)")
+                        .UseCollation("deutsch");
 
                     b.Property<int>("LandId")
                         .HasColumnType("integer");
@@ -747,7 +771,8 @@ namespace Fussballturnierverwaltung.Infrastructure.Persistenz.Migrationen
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(200)
-                        .HasColumnType("character varying(200)");
+                        .HasColumnType("character varying(200)")
+                        .UseCollation("deutsch");
 
                     b.Property<int>("OffensivRating")
                         .HasColumnType("integer");
@@ -773,7 +798,8 @@ namespace Fussballturnierverwaltung.Infrastructure.Persistenz.Migrationen
                     b.Property<string>("Kurzname")
                         .IsRequired()
                         .HasMaxLength(20)
-                        .HasColumnType("character varying(20)");
+                        .HasColumnType("character varying(20)")
+                        .UseCollation("deutsch");
 
                     b.Property<byte[]>("Logo")
                         .HasColumnType("bytea");
@@ -781,7 +807,8 @@ namespace Fussballturnierverwaltung.Infrastructure.Persistenz.Migrationen
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(200)
-                        .HasColumnType("character varying(200)");
+                        .HasColumnType("character varying(200)")
+                        .UseCollation("deutsch");
 
                     b.Property<int?>("RanglisteId")
                         .HasColumnType("integer");
@@ -914,7 +941,8 @@ namespace Fussballturnierverwaltung.Infrastructure.Persistenz.Migrationen
                     b.Property<string>("Bezeichnung")
                         .IsRequired()
                         .HasMaxLength(100)
-                        .HasColumnType("character varying(100)");
+                        .HasColumnType("character varying(100)")
+                        .UseCollation("deutsch");
 
                     b.Property<int>("PlatzBis")
                         .HasColumnType("integer");
@@ -967,7 +995,8 @@ namespace Fussballturnierverwaltung.Infrastructure.Persistenz.Migrationen
                     b.Property<string>("Beschreibung")
                         .IsRequired()
                         .HasMaxLength(2000)
-                        .HasColumnType("character varying(2000)");
+                        .HasColumnType("character varying(2000)")
+                        .UseCollation("deutsch");
 
                     b.Property<DateOnly?>("Enddatum")
                         .HasColumnType("date");
@@ -987,12 +1016,14 @@ namespace Fussballturnierverwaltung.Infrastructure.Persistenz.Migrationen
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(200)
-                        .HasColumnType("character varying(200)");
+                        .HasColumnType("character varying(200)")
+                        .UseCollation("deutsch");
 
                     b.Property<string>("SaisonOderJahr")
                         .IsRequired()
                         .HasMaxLength(20)
-                        .HasColumnType("character varying(20)");
+                        .HasColumnType("character varying(20)")
+                        .UseCollation("deutsch");
 
                     b.Property<int?>("StandardRegelwerkId")
                         .HasColumnType("integer");
@@ -1009,7 +1040,8 @@ namespace Fussballturnierverwaltung.Infrastructure.Persistenz.Migrationen
                     b.Property<string>("Variante")
                         .IsRequired()
                         .HasMaxLength(100)
-                        .HasColumnType("character varying(100)");
+                        .HasColumnType("character varying(100)")
+                        .UseCollation("deutsch");
 
                     b.Property<int?>("VerbandId")
                         .HasColumnType("integer");
@@ -1065,10 +1097,12 @@ namespace Fussballturnierverwaltung.Infrastructure.Persistenz.Migrationen
                         .HasColumnType("integer");
 
                     b.Property<string>("KombinationstabelleJson")
-                        .HasColumnType("text");
+                        .HasColumnType("text")
+                        .UseCollation("deutsch");
 
                     b.Property<string>("KonfigurationJson")
-                        .HasColumnType("text");
+                        .HasColumnType("text")
+                        .UseCollation("deutsch");
 
                     b.Property<bool>("MitRueckspiel")
                         .HasColumnType("boolean");
@@ -1076,7 +1110,8 @@ namespace Fussballturnierverwaltung.Infrastructure.Persistenz.Migrationen
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(200)
-                        .HasColumnType("character varying(200)");
+                        .HasColumnType("character varying(200)")
+                        .UseCollation("deutsch");
 
                     b.Property<bool>("NeutralerSpielort")
                         .ValueGeneratedOnAdd()
