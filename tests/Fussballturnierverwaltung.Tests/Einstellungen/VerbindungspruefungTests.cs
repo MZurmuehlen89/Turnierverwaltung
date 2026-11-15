@@ -26,6 +26,26 @@ public class VerbindungspruefungTests
             .Should().Be("Die Datenbank „turniere“ gibt es nicht, und „helfer“ darf keine anlegen.");
 
     [Fact]
+    public void FehlendeRechte_NenntDatenbank() =>
+        Verbindungspruefung.Ursache(Postgres(PostgresErrorCodes.InsufficientPrivilege), _ziel)
+            .Should().Be("„helfer“ fehlen Rechte an der Datenbank „turniere“ (anlegen oder ändern).");
+
+    [Theory]
+    [InlineData(PostgresErrorCodes.InvalidPassword)]
+    [InlineData(PostgresErrorCodes.InvalidCatalogName)]
+    [InlineData(PostgresErrorCodes.InsufficientPrivilege)]
+    public void VerbindungsfehlerFinden_ZugangsfehlerAuchAlsInnereAusnahme(string sqlState)
+    {
+        var innen = Postgres(sqlState);
+
+        Verbindungspruefung.VerbindungsfehlerFinden(new InvalidOperationException("außen", innen)).Should().BeSameAs(innen);
+    }
+
+    [Fact]
+    public void VerbindungsfehlerFinden_AndererServerfehler_IstKeinVerbindungsfehler() =>
+        Verbindungspruefung.VerbindungsfehlerFinden(Postgres(PostgresErrorCodes.SyntaxError)).Should().BeNull();
+
+    [Fact]
     public void Dienst_NichtErreichbar() =>
         Verbindungspruefung.Ursache(
                 new NpgsqlException("Failed to connect", new SocketException((int)SocketError.ConnectionRefused)), _ziel)

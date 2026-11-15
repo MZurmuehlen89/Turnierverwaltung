@@ -35,8 +35,13 @@ public static class Verbindungspruefung
         var ohneDatenbank = new NpgsqlConnectionStringBuilder(builder.ConnectionString) { Database = "postgres" };
         try
         {
-            await OeffnenAsync(ohneDatenbank.ConnectionString, ct);
-            return null;
+            await using var verbindung = new NpgsqlConnection(ohneDatenbank.ConnectionString);
+            await verbindung.OpenAsync(ct);
+            await using var recht = new NpgsqlCommand(
+                "SELECT rolcreatedb OR rolsuper FROM pg_roles WHERE rolname = current_user", verbindung);
+            return await recht.ExecuteScalarAsync(ct) is true
+                ? null
+                : Ursache(new PostgresException("", "FATAL", "FATAL", PostgresErrorCodes.InvalidCatalogName), builder);
         }
         catch (Exception ex) when (ex is NpgsqlException or TimeoutException)
         {
@@ -59,7 +64,8 @@ public static class Verbindungspruefung
             if (aktuell is PostgresException postgres)
                 return postgres.SqlState is PostgresErrorCodes.InvalidPassword
                     or PostgresErrorCodes.InvalidAuthorizationSpecification
-                    or PostgresErrorCodes.InvalidCatalogName ? postgres : null;
+                    or PostgresErrorCodes.InvalidCatalogName
+                    or PostgresErrorCodes.InsufficientPrivilege ? postgres : null;
             if (aktuell is NpgsqlException or TimeoutException) return aktuell;
         }
         return null;
@@ -71,6 +77,8 @@ public static class Verbindungspruefung
             => $"Anmeldung als „{ziel.Username}“ abgelehnt: Kennwort falsch oder fehlt.",
         PostgresException { SqlState: PostgresErrorCodes.InvalidCatalogName }
             => $"Die Datenbank „{ziel.Database}“ gibt es nicht, und „{ziel.Username}“ darf keine anlegen.",
+        PostgresException { SqlState: PostgresErrorCodes.InsufficientPrivilege }
+            => $"„{ziel.Username}“ fehlen Rechte an der Datenbank „{ziel.Database}“ (anlegen oder ändern).",
         PostgresException postgres => postgres.MessageText,
         _ when ex is TimeoutException || ex.InnerException is SocketException or TimeoutException
             => $"Keine Verbindung zu {ziel.Host}:{ziel.Port} – läuft der PostgreSQL-Dienst?",

@@ -48,11 +48,12 @@ await using (var tx = await pg.BeginTransactionAsync())
     await AusfuehrenAsync(pg, "SET LOCAL session_replication_role = replica");
     foreach (var tabelle in tabellen)
         await TabelleKopierenAsync(sql, pg, tabelle);
+    // In derselben Transaktion: Kollidieren zwei Kürzel nach dem Großschreiben, bleibt das Ziel unverändert.
+    await KurznamenGrossschreibenAsync(pg);
     await tx.CommitAsync();
 }
 
 await FolgenNachziehenAsync(pg, tabellen);
-await KurznamenGrossschreibenAsync(pg);
 var abweichungen = await ZeilenAbgleichenAsync(sql, pg, tabellen);
 Console.WriteLine($"Fertig in {gesamt.ElapsedMilliseconds} ms, {tabellen.Count} Tabellen, {abweichungen} Abweichung(en).");
 return abweichungen == 0 ? 0 : 1;

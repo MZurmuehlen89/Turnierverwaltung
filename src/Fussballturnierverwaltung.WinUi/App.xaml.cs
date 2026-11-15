@@ -184,7 +184,6 @@ public partial class App : global::Microsoft.UI.Xaml.Application
         // "Turnierdurchführung" — zwingend Singleton, da NavigationService bei jeder Navigation den Scope
         // disposed und ein Scoped-Service die Auswahl beim Menüwechsel sofort verlieren würde.
         builder.Services.AddSingleton<AusgewaehlteTurnierInstanzService>();
-        builder.Services.AddSingleton<EinstellungenService>();
         builder.Services.AddSingleton(zufallsquelle);
         builder.Services.AddSingleton<ThemeService>();
         builder.Services.AddSingleton<IDialogService, DialogService>();
@@ -230,6 +229,7 @@ public partial class App : global::Microsoft.UI.Xaml.Application
                 Exit();
                 return false;
             }
+            einstellung.GespeicherteUebernehmen();
         }
     }
 
@@ -254,8 +254,9 @@ public partial class App : global::Microsoft.UI.Xaml.Application
             verbindungsfehler, new NpgsqlConnectionStringBuilder(einstellung.Verbindungszeichenfolge()));
         // Ohne Hauptfenster ist das Startfenster das letzte – sein Schließen darf die App nicht schon beenden.
         DispatcherShutdownMode = DispatcherShutdownMode.OnExplicitShutdown;
+        using var scope = _host.Services.CreateScope();
         var fenster = new VerbindungsFenster(
-            _host.Services.GetRequiredService<VerbindungsFormularViewModel>(), ursache,
+            scope.ServiceProvider.GetRequiredService<VerbindungsFormularViewModel>(), ursache,
             _host.Services.GetRequiredService<ThemeService>().AktuellerModus);
         fenster.Activate();
         return await fenster.ErgebnisAsync;
@@ -263,8 +264,7 @@ public partial class App : global::Microsoft.UI.Xaml.Application
 
     private void FehlerMeldenUndBeenden(Exception fehler)
     {
-        using var scope = _host.Services.CreateScope();
-        var (server, datenbank) = scope.ServiceProvider.GetRequiredService<DatenbankWartungService>().Verbindungsziel();
+        var (server, datenbank) = VerbindungszielOderUnbekannt();
         NativeMeldung.FehlerAnzeigen(
             "Turnierverwaltung – Datenbankfehler",
             $"Die Datenbank konnte nicht geöffnet oder eingerichtet werden.\n\n"
@@ -273,5 +273,20 @@ public partial class App : global::Microsoft.UI.Xaml.Application
             + $"Details stehen im Log:\n{Datenpfade.Logs}\n\n"
             + "Die Anwendung wird beendet.");
         Exit();
+    }
+
+    // Die Meldung darf nicht selbst scheitern, etwa wenn schon der Aufbau des DbContext der Fehler war.
+    private (string Server, string Datenbank) VerbindungszielOderUnbekannt()
+    {
+        try
+        {
+            using var scope = _host.Services.CreateScope();
+            return scope.ServiceProvider.GetRequiredService<DatenbankWartungService>().Verbindungsziel();
+        }
+        catch (Exception ex)
+        {
+            Log.Warning(ex, "Verbindungsziel für die Fehlermeldung nicht ermittelbar.");
+            return ("(unbekannt)", "(unbekannt)");
+        }
     }
 }

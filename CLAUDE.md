@@ -22,7 +22,9 @@ Note: Console, WPF, and an Avalonia feasibility spike previously existed alongsi
 3. **Infrastructure**: EF Core configuration in `Persistenz/Konfigurationen/`, repository implementation, migration
 4. **WinUi**: ViewModel + View pair, registered in DI, wired into navigation — see `src/Fussballturnierverwaltung.WinUi/CLAUDE.md` for the exact pattern and its pitfalls
 
-**DI registration** lives in the WinUi startup (see `src/Fussballturnierverwaltung.WinUi/CLAUDE.md`) and `InfrastrukturErweiterungen.cs` (Infrastructure). All services are `Scoped` except `EinstellungenService` which is `Singleton` (reads/writes a JSON file, holds no DbContext).
+**DI registration** lives in the WinUi startup (see `src/Fussballturnierverwaltung.WinUi/CLAUDE.md`) and `InfrastrukturErweiterungen.cs` (Infrastructure). All services are `Scoped` except `EinstellungenService` (reads/writes a JSON file, holds no DbContext) and
+`Verbindungseinstellung` (#49: caches the connection string for the whole run; the start window switches it via
+`GespeicherteUebernehmen`), which are `Singleton` – both registered in `AddInfrastruktur`.
 
 **Data folder**: settings (`einstellungen.json`) and logs (`logs\`) live under `%APPDATA%\Turnierverwaltung`. The environment variable `TURNIERVERWALTUNG_DATENPFAD` redirects that folder (meant for automated GUI tests, #518/#494). Always get these paths from `Datenpfade` (Application/Einstellungen), never build them from `SpecialFolder.ApplicationData` yourself.
 

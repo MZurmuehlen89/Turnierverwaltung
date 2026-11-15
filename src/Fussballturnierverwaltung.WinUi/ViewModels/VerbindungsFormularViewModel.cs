@@ -39,9 +39,11 @@ public partial class VerbindungsFormularViewModel : ObservableObject
     public bool IstGesperrt => _einstellung.IstVorgegeben;
     public bool IstBearbeitbar => !IstGesperrt;
 
-    public string KennwortHinweis => _gespeichert.KennwortVerschluesselt is null
-        ? "Kein Kennwort gespeichert – PostgreSQL sucht es in seiner Kennwortdatei (pgpass.conf)."
-        : "Gespeichert (verschlüsselt). Leer lassen = unverändert.";
+    public string KennwortHinweis =>
+        IstGesperrt ? "Von der Vorgabe bestimmt."
+        : _gespeichert.KennwortVerschluesselt is null
+            ? "Kein Kennwort gespeichert – PostgreSQL sucht es in seiner Kennwortdatei (pgpass.conf)."
+            : "Gespeichert (verschlüsselt). Leer lassen = unverändert.";
 
     /// <summary>Darf übernommen werden: etwas geändert, gültig, nicht gesperrt und keine Prüfung im Gange.</summary>
     public bool KannUebernehmen => IstGeaendert && Fehler.Count == 0 && !IstGesperrt && !Laeuft;

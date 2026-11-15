@@ -1,3 +1,4 @@
+using System.Security.Cryptography;
 using Fussballturnierverwaltung.Application.Einstellungen;
 using Microsoft.Extensions.Configuration;
 using Npgsql;
@@ -9,8 +10,8 @@ namespace Fussballturnierverwaltung.Infrastructure.Persistenz;
 /// GUI-Tests mit ihrer eigenen Testdatenbank), sonst gilt die Einstellung aus <c>einstellungen.json</c>.</summary>
 public class Verbindungseinstellung(EinstellungenService einstellungen, IConfiguration konfiguration)
 {
-    // Einmal je Programmlauf: Speichern einer neuen Verbindung startet die App neu, und so liest nicht jeder
-    // DbContext die Einstellungsdatei und entschlüsselt das Kennwort.
+    // Einmal je Programmlauf: Speichern auf der Seite startet die App neu (scheitert der Neustart, bleibt es bis dahin
+    // bei der alten Verbindung), und so liest nicht jeder DbContext die Einstellungsdatei und entschlüsselt das Kennwort.
     private string? _verbindungszeichenfolge;
 
     private string? Vorgabe => konfiguration.GetConnectionString("Standard");
@@ -31,9 +32,10 @@ public class Verbindungseinstellung(EinstellungenService einstellungen, IConfigu
         var alle = einstellungen.Laden();
         alle.Datenbank = MitKennwort(verbindung, alle.Datenbank.KennwortVerschluesselt, neuesKennwort);
         einstellungen.Speichern(alle);
-        // Das Startfenster arbeitet ohne Neustart weiter und braucht danach die neue Verbindung.
-        _verbindungszeichenfolge = null;
     }
+
+    /// <summary>Ab jetzt die gespeicherte Verbindung verwenden – für das Startfenster, das ohne Neustart weiterläuft.</summary>
+    public void GespeicherteUebernehmen() => _verbindungszeichenfolge = null;
 
     /// <summary>Zeichenfolge für eine noch nicht gespeicherte Eingabe, etwa zum Prüfen vor dem Speichern.</summary>
     public string ZeichenfolgeFuerEingabe(DatenbankVerbindung verbindung, string? neuesKennwort) =>
@@ -51,9 +53,23 @@ public class Verbindungseinstellung(EinstellungenService einstellungen, IConfigu
             Username = verbindung.Benutzer
         };
         // Ohne Kennwort sucht Npgsql es in der Kennwortdatei von PostgreSQL (pgpass.conf).
-        if (verbindung.KennwortVerschluesselt is { } verschluesselt)
-            builder.Password = Kennwortschutz.Entschluesseln(verschluesselt);
+        if (verbindung.KennwortVerschluesselt is { } verschluesselt && Lesbar(verschluesselt) is { } kennwort)
+            builder.Password = kennwort;
         return builder.ConnectionString;
+    }
+
+    // Ein Kennwort, das dieser Windows-Benutzer nicht entschlüsseln kann (anderer Benutzer, kopierte Datei), zählt wie
+    // keins: Die Anmeldung scheitert dann mit einer verständlichen Ursache, und das Startfenster nimmt ein neues an.
+    private static string? Lesbar(string verschluesselt)
+    {
+        try
+        {
+            return Kennwortschutz.Entschluesseln(verschluesselt);
+        }
+        catch (Exception ex) when (ex is CryptographicException or FormatException or PlatformNotSupportedException)
+        {
+            return null;
+        }
     }
 
     public static DatenbankVerbindung AusZeichenfolge(string zeichenfolge)

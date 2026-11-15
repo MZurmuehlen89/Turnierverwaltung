@@ -30,6 +30,15 @@ public class VerbindungseinstellungTests
         builder.Password.Should().BeNull("ohne Kennwort sucht Npgsql es in pgpass.conf");
     }
 
+    // Review-Fund #49: ein Kennwort, das dieser Benutzer nicht entschlüsseln kann, darf den Start nicht abstürzen lassen
+    [Fact]
+    public void Zusammensetzen_UnlesbaresKennwort_LaesstPasswordWeg()
+    {
+        var builder = new NpgsqlConnectionStringBuilder(Verbindungseinstellung.Zusammensetzen(Verbindung("kein-base64!")));
+
+        builder.Password.Should().BeNull("dann greift pgpass.conf oder das Startfenster fragt nach einem neuen");
+    }
+
     [Fact]
     public void AusZeichenfolge_LiestWerteOhneKennwort()
     {
