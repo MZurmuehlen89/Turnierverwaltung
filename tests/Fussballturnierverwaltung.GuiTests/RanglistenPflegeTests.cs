@@ -171,7 +171,7 @@ public sealed class RanglistenPflegeTests(TurnierverwaltungApp app, TestDatenban
         seite.Editor.Auswaehlen(name);
         seite.Editor.Loeschen(bestaetigen: true);
         seite.Editor.NichtMehrGelistetAbwarten(name).Should().BeTrue("die Rangliste ist gelöscht");
-        (await datenbank.WertLesenAsync<int>("SELECT COUNT(*) FROM Ranglisten WHERE Name = @name", ("@name", name)))
+        (await datenbank.WertLesenAsync<int>("SELECT COUNT(*) FROM \"Ranglisten\" WHERE \"Name\" = @name", ("@name", name)))
             .Should().Be(0);
     }
 
@@ -185,16 +185,16 @@ public sealed class RanglistenPflegeTests(TurnierverwaltungApp app, TestDatenban
 
     private Task<IReadOnlyList<string>> GespeicherteReihenfolgeAsync(string rangliste) => datenbank.SpalteLesenAsync(
         """
-        SELECT m.Name FROM RanglistenEintraege e
-        JOIN Ranglisten r ON r.Id = e.RanglisteId JOIN Mannschaften m ON m.Id = e.MannschaftId
-        WHERE r.Name = @name ORDER BY e.Rang
+        SELECT m."Name" FROM "RanglistenEintraege" e
+        JOIN "Ranglisten" r ON r."Id" = e."RanglisteId" JOIN "Mannschaften" m ON m."Id" = e."MannschaftId"
+        WHERE r."Name" = @name ORDER BY e."Rang"
         """,
         ("@name", rangliste));
 
     private Task<IReadOnlyList<string>> GespeicherteAbschnitteAsync(string rangliste) => datenbank.SpalteLesenAsync(
         """
-        SELECT CONCAT(a.Name, ' ', a.Spielklasse, ' ', a.BisPlatz) FROM RanglistenAbschnitte a
-        JOIN Ranglisten r ON r.Id = a.RanglisteId WHERE r.Name = @name ORDER BY a.BisPlatz
+        SELECT CONCAT(a."Name", ' ', a."Spielklasse", ' ', a."BisPlatz") FROM "RanglistenAbschnitte" a
+        JOIN "Ranglisten" r ON r."Id" = a."RanglisteId" WHERE r."Name" = @name ORDER BY a."BisPlatz"
         """,
         ("@name", rangliste));
 
@@ -202,7 +202,7 @@ public sealed class RanglistenPflegeTests(TurnierverwaltungApp app, TestDatenban
     private async Task<string> GespeicherterPokalsiegerAsync(string rangliste) =>
         (await datenbank.SpalteLesenAsync(
             """
-            SELECT m.Name FROM Ranglisten r JOIN Mannschaften m ON m.Id = r.PokalsiegerId WHERE r.Name = @name
+            SELECT m."Name" FROM "Ranglisten" r JOIN "Mannschaften" m ON m."Id" = r."PokalsiegerId" WHERE r."Name" = @name
             """,
             ("@name", rangliste))).SingleOrDefault() ?? string.Empty;
 }

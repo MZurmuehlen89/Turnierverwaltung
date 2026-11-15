@@ -78,6 +78,25 @@ public sealed class AppSession : IDisposable
         }
     }
 
+    /// <summary>Waits for a top-level window of the application with exactly this title — e.g. the real main window
+    /// after a start-up window (such as a connection dialog) has closed.</summary>
+    public Window WaitForWindow(string title, TimeSpan timeout)
+    {
+        var application = FlaUI.Core.Application.Attach(_process.Id);
+        return Wait.UntilFound(
+            () =>
+            {
+                if (_process.HasExited)
+                    throw new InvalidOperationException($"The application exited (exit code {_process.ExitCode}).");
+                return application.GetAllTopLevelWindows(Automation).FirstOrDefault(w => w.Title == title);
+            },
+            timeout,
+            $"window '{title}'");
+    }
+
+    /// <summary>Waits until the application has exited on its own.</summary>
+    public bool WaitForExit(TimeSpan timeout) => _process.WaitForExit(timeout);
+
     /// <summary>Saves a PNG of the main window, e.g. as evidence for a failed test.</summary>
     public void CaptureScreenshot(string path) => Capture.Element(MainWindow).ToFile(path);
 

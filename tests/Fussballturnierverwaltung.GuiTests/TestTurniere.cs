@@ -9,8 +9,8 @@ internal static class TestTurniere
     public static Task<int> QuotenEntfernenAsync(TestDatenbank datenbank, string turnier) =>
         datenbank.AusfuehrenAsync(
             """
-            DELETE q FROM LandesQuoten q JOIN TurnierInstanzen t ON t.Id = q.TurnierInstanzId WHERE t.Name = @turnier;
-            DELETE q FROM VerbandsQuoten q JOIN TurnierInstanzen t ON t.Id = q.TurnierInstanzId WHERE t.Name = @turnier;
+            DELETE FROM "LandesQuoten" q USING "TurnierInstanzen" t WHERE t."Id" = q."TurnierInstanzId" AND t."Name" = @turnier;
+            DELETE FROM "VerbandsQuoten" q USING "TurnierInstanzen" t WHERE t."Id" = q."TurnierInstanzId" AND t."Name" = @turnier;
             """,
             ("@turnier", turnier));
 
@@ -19,8 +19,8 @@ internal static class TestTurniere
     public static Task<int> StandardRanglisteEntfernenAsync(TestDatenbank datenbank, string turnier) =>
         datenbank.AusfuehrenAsync(
             """
-            UPDATE r SET StandardRanglisteId = NULL
-            FROM TurnierRunden r JOIN TurnierInstanzen t ON t.Id = r.TurnierInstanzId WHERE t.Name = @turnier;
+            UPDATE "TurnierRunden" r SET "StandardRanglisteId" = NULL
+            FROM "TurnierInstanzen" t WHERE t."Id" = r."TurnierInstanzId" AND t."Name" = @turnier;
             """,
             ("@turnier", turnier));
 }

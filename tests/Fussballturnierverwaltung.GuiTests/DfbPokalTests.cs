@@ -56,13 +56,13 @@ public sealed class DfbPokalTests(TurnierverwaltungApp app, TestDatenbank datenb
     private async Task<Dictionary<string, int>> SpielklassenAsync() =>
         (await datenbank.SpalteLesenAsync(
             """
-            SELECT m.Name + '|' + CAST((SELECT TOP 1 a.Spielklasse FROM RanglistenAbschnitte a
-                                        WHERE a.RanglisteId = e.RanglisteId AND a.BisPlatz >= e.Rang
-                                        ORDER BY a.BisPlatz) AS nvarchar(10))
-            FROM RanglistenEintraege e
-            JOIN Ranglisten r ON r.Id = e.RanglisteId
-            JOIN Mannschaften m ON m.Id = e.MannschaftId
-            WHERE r.Name = @pyramide
+            SELECT m."Name" || '|' || (SELECT a."Spielklasse" FROM "RanglistenAbschnitte" a
+                                       WHERE a."RanglisteId" = e."RanglisteId" AND a."BisPlatz" >= e."Rang"
+                                       ORDER BY a."BisPlatz" LIMIT 1)::text
+            FROM "RanglistenEintraege" e
+            JOIN "Ranglisten" r ON r."Id" = e."RanglisteId"
+            JOIN "Mannschaften" m ON m."Id" = e."MannschaftId"
+            WHERE r."Name" = @pyramide
             """,
             ("@pyramide", PYRAMIDE)))
         .Select(zeile => zeile.Split('|'))
@@ -72,14 +72,14 @@ public sealed class DfbPokalTests(TurnierverwaltungApp app, TestDatenbank datenb
     private Task<IReadOnlyList<string>> TopfAsync(string turnier, string runde, int topf) =>
         datenbank.SpalteLesenAsync(
             """
-            SELECT COALESCE(m.Name, e.PlatzhalterName)
-            FROM LostopfEintraege e
-            JOIN Lostoepfe l ON l.Id = e.LostopfId
-            JOIN Auslosungen a ON a.Id = l.AuslosungId
-            JOIN TurnierRunden r ON r.Id = a.TurnierRundeId
-            JOIN TurnierInstanzen t ON t.Id = r.TurnierInstanzId
-            LEFT JOIN Mannschaften m ON m.Id = e.MannschaftId
-            WHERE t.Name = @turnier AND r.Name = @runde AND l.Reihenfolge = @topf
+            SELECT COALESCE(m."Name", e."PlatzhalterName")
+            FROM "LostopfEintraege" e
+            JOIN "Lostoepfe" l ON l."Id" = e."LostopfId"
+            JOIN "Auslosungen" a ON a."Id" = l."AuslosungId"
+            JOIN "TurnierRunden" r ON r."Id" = a."TurnierRundeId"
+            JOIN "TurnierInstanzen" t ON t."Id" = r."TurnierInstanzId"
+            LEFT JOIN "Mannschaften" m ON m."Id" = e."MannschaftId"
+            WHERE t."Name" = @turnier AND r."Name" = @runde AND l."Reihenfolge" = @topf
             """,
             ("@turnier", turnier), ("@runde", runde), ("@topf", topf));
 }

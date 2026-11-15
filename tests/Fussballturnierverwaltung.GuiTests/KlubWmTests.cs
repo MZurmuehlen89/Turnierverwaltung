@@ -49,16 +49,16 @@ public sealed class KlubWmTests(TurnierverwaltungApp app, TestDatenbank datenban
     private async Task<Dictionary<string, string>> VerbandJeTopfVereinAsync(string turnier) =>
         (await datenbank.SpalteLesenAsync(
             """
-            SELECT m.Name + '|' + v.Kurzname
-            FROM LostopfEintraege e
-            JOIN Lostoepfe l ON l.Id = e.LostopfId
-            JOIN Auslosungen a ON a.Id = l.AuslosungId
-            JOIN TurnierRunden r ON r.Id = a.TurnierRundeId
-            JOIN TurnierInstanzen t ON t.Id = r.TurnierInstanzId
-            JOIN Mannschaften m ON m.Id = e.MannschaftId
-            JOIN Laender la ON la.Id = m.LandId
-            JOIN Verbaende v ON v.Id = la.VerbandId
-            WHERE t.Name = @turnier AND r.Name = @runde
+            SELECT m."Name" || '|' || v."Kurzname"
+            FROM "LostopfEintraege" e
+            JOIN "Lostoepfe" l ON l."Id" = e."LostopfId"
+            JOIN "Auslosungen" a ON a."Id" = l."AuslosungId"
+            JOIN "TurnierRunden" r ON r."Id" = a."TurnierRundeId"
+            JOIN "TurnierInstanzen" t ON t."Id" = r."TurnierInstanzId"
+            JOIN "Mannschaften" m ON m."Id" = e."MannschaftId"
+            JOIN "Laender" la ON la."Id" = m."LandId"
+            JOIN "Verbaende" v ON v."Id" = la."VerbandId"
+            WHERE t."Name" = @turnier AND r."Name" = @runde
             """,
             ("@turnier", turnier), ("@runde", RUNDE)))
         .Select(zeile => zeile.Split('|'))

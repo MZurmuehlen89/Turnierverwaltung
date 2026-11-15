@@ -26,8 +26,8 @@ internal static class TestRanglisten
         {
             var vereine = await datenbank.SpalteLesenAsync(
                 """
-                SELECT TOP (@anzahl) m.Name FROM Mannschaften m JOIN Laender l ON l.Id = m.LandId
-                WHERE l.Name = @land AND m.Mannschaftsart = @art ORDER BY m.Id
+                SELECT m."Name" FROM "Mannschaften" m JOIN "Laender" l ON l."Id" = m."LandId"
+                WHERE l."Name" = @land AND m."Mannschaftsart" = @art ORDER BY m."Id" LIMIT @anzahl
                 """,
                 ("@anzahl", anzahl), ("@land", land), ("@art", VEREIN));
             vereine.Should().HaveCount(anzahl, $"der Seed hat mindestens {anzahl} Vereine aus {land}");
@@ -55,14 +55,14 @@ internal static class TestRanglisten
     {
         string name = $"GuiTest {art} {Guid.NewGuid().ToString("N")[..8]}";
         int id = await datenbank.WertLesenAsync<int>(
-            "INSERT INTO Ranglisten (Name, Datum, Quelle) OUTPUT INSERTED.Id VALUES (@name, '2026-01-01', N'GUI-Test')",
+            "INSERT INTO \"Ranglisten\" (\"Name\", \"Datum\", \"Quelle\") VALUES (@name, '2026-01-01', 'GUI-Test') RETURNING \"Id\"",
             ("@name", name));
         for (int rang = 1; rang <= mannschaften.Count; rang++)
         {
             int eingefuegt = await datenbank.AusfuehrenAsync(
                 """
-                INSERT INTO RanglistenEintraege (RanglisteId, MannschaftId, Rang, Punkte)
-                SELECT @id, Id, @rang, 0 FROM Mannschaften WHERE Name = @mannschaft AND Mannschaftsart = @art
+                INSERT INTO "RanglistenEintraege" ("RanglisteId", "MannschaftId", "Rang", "Punkte")
+                SELECT @id, "Id", @rang, 0 FROM "Mannschaften" WHERE "Name" = @mannschaft AND "Mannschaftsart" = @art
                 """,
                 ("@id", id), ("@rang", rang), ("@mannschaft", mannschaften[rang - 1]), ("@art", mannschaftsart));
             eingefuegt.Should().Be(1, $"'{mannschaften[rang - 1]}' gibt es im Seed genau einmal");

@@ -21,7 +21,7 @@ public sealed class DatenbankwartungTests(TurnierverwaltungApp app, TestDatenban
     [Fact]
     public async Task Pruefen_AufDerFrischenDatenbank_ErgaenztNichts()
     {
-        int eingespielt = await datenbank.WertLesenAsync<int>("SELECT COUNT(*) FROM __EFMigrationsHistory");
+        int eingespielt = await datenbank.WertLesenAsync<int>("SELECT COUNT(*) FROM \"__EFMigrationsHistory\"");
 
         var ergebnis = _seite.PruefenUndErgaenzen();
 
@@ -31,6 +31,16 @@ public sealed class DatenbankwartungTests(TurnierverwaltungApp app, TestDatenban
         _seite.Migrationsstand.Should().Be($"{eingespielt} eingespielt, keine ausstehend");
     }
 
+    // #49, AK2: Die GUI-Tests geben die Verbindung per Umgebungsvariable vor – die Karte zeigt sie, lässt sie aber
+    // nicht ändern.
+    [Fact]
+    public void Verbindung_VonDerTestumgebungVorgegeben_IstGesperrt()
+    {
+        _seite.Datenbank.Should().Be(datenbank.Name);
+        _seite.VerbindungGesperrt.Should().BeTrue("eine Vorgabe von außen ist in der App nicht änderbar");
+        _seite.VerbindungSpeichernMoeglich.Should().BeFalse();
+    }
+
     [Fact]
     public async Task Pruefen_ErgaenztEinGeloeschtesSeedRegelwerk()
     {
@@ -38,7 +48,7 @@ public sealed class DatenbankwartungTests(TurnierverwaltungApp app, TestDatenban
         vorher.Anzahl.Should().Be(1, "der Seed enthält das Regelwerk genau einmal");
         (await RegelwerkVerwendungenAsync()).Should().Be(0, "das Regelwerk darf von keiner Runde oder Instanz benutzt werden");
 
-        await datenbank.AusfuehrenAsync("DELETE FROM Regelwerke WHERE Name = @name", ("@name", UNBENUTZTES_REGELWERK));
+        await datenbank.AusfuehrenAsync("DELETE FROM \"Regelwerke\" WHERE \"Name\" = @name", ("@name", UNBENUTZTES_REGELWERK));
         (await RegelwerkZaehlenAsync()).Anzahl.Should().Be(0, "Ausgangslage: das Regelwerk fehlt");
 
         var ergebnis = _seite.PruefenUndErgaenzen();
@@ -53,15 +63,15 @@ public sealed class DatenbankwartungTests(TurnierverwaltungApp app, TestDatenban
     private sealed record RegelwerkStand(int Anzahl, int Punkteregeln, int Entscheidungsverfahren);
 
     private async Task<RegelwerkStand> RegelwerkZaehlenAsync() => new(
-        await RegelwerkWertAsync("SELECT COUNT(*) FROM Regelwerke WHERE Name = @name"),
+        await RegelwerkWertAsync("SELECT COUNT(*) FROM \"Regelwerke\" WHERE \"Name\" = @name"),
         await RegelwerkWertAsync(
-            "SELECT COUNT(*) FROM PunkteRegeln p JOIN Regelwerke r ON r.Id = p.RegelwerkId WHERE r.Name = @name"),
+            "SELECT COUNT(*) FROM \"PunkteRegeln\" p JOIN \"Regelwerke\" r ON r.\"Id\" = p.\"RegelwerkId\" WHERE r.\"Name\" = @name"),
         await RegelwerkWertAsync(
-            "SELECT COUNT(*) FROM Entscheidungsverfahren e JOIN Regelwerke r ON r.Id = e.RegelwerkId WHERE r.Name = @name"));
+            "SELECT COUNT(*) FROM \"Entscheidungsverfahren\" e JOIN \"Regelwerke\" r ON r.\"Id\" = e.\"RegelwerkId\" WHERE r.\"Name\" = @name"));
 
     private Task<int> RegelwerkVerwendungenAsync() => RegelwerkWertAsync("""
-        SELECT (SELECT COUNT(*) FROM TurnierRunden t JOIN Regelwerke r ON r.Id = t.RegelwerkId WHERE r.Name = @name)
-             + (SELECT COUNT(*) FROM TurnierInstanzen i JOIN Regelwerke r ON r.Id = i.StandardRegelwerkId WHERE r.Name = @name)
+        SELECT (SELECT COUNT(*) FROM "TurnierRunden" t JOIN "Regelwerke" r ON r."Id" = t."RegelwerkId" WHERE r."Name" = @name)
+             + (SELECT COUNT(*) FROM "TurnierInstanzen" i JOIN "Regelwerke" r ON r."Id" = i."StandardRegelwerkId" WHERE r."Name" = @name)
         """);
 
     private Task<int> RegelwerkWertAsync(string sql) => datenbank.WertLesenAsync<int>(sql, ("@name", UNBENUTZTES_REGELWERK));

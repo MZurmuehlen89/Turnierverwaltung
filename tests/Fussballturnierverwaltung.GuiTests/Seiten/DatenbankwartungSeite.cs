@@ -28,10 +28,22 @@ public sealed class DatenbankwartungSeite
             "frische Datenbankwartung ohne Protokoll");
     }
 
+    private static readonly string[] _verbindungsfelder =
+        ["Verbindung.Server", "Verbindung.Port", "Verbindung.Datenbank", "Verbindung.Benutzer", "Verbindung.Kennwort"];
+
+    /// <summary>Datenbank im Feld der Karte „Verbindung“ (#49).</summary>
     public string Datenbank => Wait.UntilFound(
-        () => _fenster.TextOf("Datenbankwartung.Datenbank") is { Length: > 0 } text ? text : null,
+        () => _fenster.FindById("Verbindung.Datenbank").Patterns.Value.Pattern.Value.ValueOrDefault is { Length: > 0 } text
+            ? text : null,
         Wait.DefaultTimeout,
-        "Datenbankname im Status");
+        "Datenbankname in der Verbindungskarte");
+
+    /// <summary>Alle Verbindungsfelder gesperrt und der Hinweis auf die Vorgabe von außen sichtbar (#49).</summary>
+    public bool VerbindungGesperrt =>
+        _fenster.TryFindById("Verbindung.Vorgabe") is not null
+        && _verbindungsfelder.All(id => !_fenster.FindById(id).IsEnabled);
+
+    public bool VerbindungSpeichernMoeglich => _fenster.FindById("Befehlsleiste.VerbindungSpeichern").IsEnabled;
 
     /// <summary>Etwa „87 eingespielt, keine ausstehend“; nach einer Prüfung lädt die Seite den Stand neu.</summary>
     public string Migrationsstand => Wait.UntilFound(

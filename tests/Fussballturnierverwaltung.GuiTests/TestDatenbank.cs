@@ -1,4 +1,4 @@
-using Microsoft.Data.SqlClient;
+using Npgsql;
 
 namespace Fussballturnierverwaltung.GuiTests;
 
@@ -9,7 +9,7 @@ public sealed class TestDatenbank : IAsyncDisposable
 {
     public TestDatenbank()
     {
-        Name = $"Fussballturnierverwaltung_GuiTest_{DateTime.Now:yyyyMMdd_HHmmss}_{Guid.NewGuid().ToString("N")[..6]}";
+        Name = $"turnierverwaltung_guitest_{DateTime.Now:yyyyMMdd_HHmmss}_{Guid.NewGuid().ToString("N")[..6]}";
         LaufOrdner = Path.Combine(GuiTestUmgebung.ArtefaktOrdner, "laeufe", Name);
         Directory.CreateDirectory(LaufOrdner);
     }
@@ -25,7 +25,7 @@ public sealed class TestDatenbank : IAsyncDisposable
     /// (#538). Werte nur über Parameter, nie in den SQL-Text.</summary>
     public async Task<T> WertLesenAsync<T>(string sql, params (string Name, object Wert)[] parameter)
     {
-        await using var verbindung = new SqlConnection(Verbindung);
+        await using var verbindung = new NpgsqlConnection(Verbindung);
         await verbindung.OpenAsync();
         await using var befehl = Befehl(verbindung, sql, parameter);
         return (T)Convert.ChangeType((await befehl.ExecuteScalarAsync())!, typeof(T));
@@ -34,7 +34,7 @@ public sealed class TestDatenbank : IAsyncDisposable
     /// <summary>Liest die erste Spalte aller Zeilen als Text (#560).</summary>
     public async Task<IReadOnlyList<string>> SpalteLesenAsync(string sql, params (string Name, object Wert)[] parameter)
     {
-        await using var verbindung = new SqlConnection(Verbindung);
+        await using var verbindung = new NpgsqlConnection(Verbindung);
         await verbindung.OpenAsync();
         await using var befehl = Befehl(verbindung, sql, parameter);
         await using var leser = await befehl.ExecuteReaderAsync();
@@ -48,7 +48,7 @@ public sealed class TestDatenbank : IAsyncDisposable
     /// herzustellen (#538).</summary>
     public async Task<int> AusfuehrenAsync(string sql, params (string Name, object Wert)[] parameter)
     {
-        await using var verbindung = new SqlConnection(Verbindung);
+        await using var verbindung = new NpgsqlConnection(Verbindung);
         await verbindung.OpenAsync();
         await using var befehl = Befehl(verbindung, sql, parameter);
         return await befehl.ExecuteNonQueryAsync();
@@ -56,21 +56,17 @@ public sealed class TestDatenbank : IAsyncDisposable
 
     public async ValueTask DisposeAsync()
     {
-        await using var verbindung = new SqlConnection(Verbindungstext("master"));
+        // Die eigenen Pool-Verbindungen dieses Testprozesses freigeben; noch offene Verbindungen der App trennt FORCE.
+        NpgsqlConnection.ClearAllPools();
+        await using var verbindung = new NpgsqlConnection(Verbindungstext("postgres"));
         await verbindung.OpenAsync();
         await using var befehl = verbindung.CreateCommand();
-        // Name wird oben selbst erzeugt (nur Buchstaben, Ziffern, Unterstriche) – keine Fremdeingabe im SQL
-        befehl.CommandText = $"""
-            IF DB_ID(N'{Name}') IS NOT NULL
-            BEGIN
-                ALTER DATABASE [{Name}] SET SINGLE_USER WITH ROLLBACK IMMEDIATE;
-                DROP DATABASE [{Name}];
-            END
-            """;
+        // Name wird oben selbst erzeugt (nur Kleinbuchstaben, Ziffern, Unterstriche) – keine Fremdeingabe im SQL
+        befehl.CommandText = $"DROP DATABASE IF EXISTS \"{Name}\" WITH (FORCE)";
         await befehl.ExecuteNonQueryAsync();
     }
 
-    private static SqlCommand Befehl(SqlConnection verbindung, string sql, (string Name, object Wert)[] parameter)
+    private static NpgsqlCommand Befehl(NpgsqlConnection verbindung, string sql, (string Name, object Wert)[] parameter)
     {
         var befehl = verbindung.CreateCommand();
         befehl.CommandText = sql;
@@ -80,5 +76,5 @@ public sealed class TestDatenbank : IAsyncDisposable
     }
 
     private static string Verbindungstext(string datenbank) =>
-        $"Server={GuiTestUmgebung.SqlServer};Database={datenbank};Trusted_Connection=True;TrustServerCertificate=True;";
+        new NpgsqlConnectionStringBuilder(GuiTestUmgebung.Grundverbindung) { Database = datenbank }.ConnectionString;
 }

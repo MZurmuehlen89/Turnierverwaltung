@@ -29,8 +29,8 @@ internal static class QuotenTurnier
     public static async Task<HashSet<string>> VereineAsync(TestDatenbank datenbank, string land) =>
         [.. await datenbank.SpalteLesenAsync(
             """
-            SELECT m.Name FROM Mannschaften m JOIN Laender l ON l.Id = m.LandId
-            WHERE l.Name = @land AND m.Mannschaftsart = 0
+            SELECT m."Name" FROM "Mannschaften" m JOIN "Laender" l ON l."Id" = m."LandId"
+            WHERE l."Name" = @land AND m."Mannschaftsart" = 0
             """,
             ("@land", land))];
 }
@@ -76,23 +76,23 @@ public sealed class KontingentBefuellenTests(TurnierverwaltungApp app, TestDaten
     private Task<IReadOnlyList<string>> ZweiteSpielklasseAsync() =>
         datenbank.SpalteLesenAsync(
             """
-            SELECT m.Name FROM Laender l
-            JOIN RanglistenEintraege e ON e.RanglisteId = l.RanglisteId
-            JOIN Mannschaften m ON m.Id = e.MannschaftId
-            WHERE l.Name = 'Deutschland'
-              AND e.Rang > (SELECT MAX(a.BisPlatz) FROM RanglistenAbschnitte a WHERE a.RanglisteId = l.RanglisteId AND a.Spielklasse = 1)
-              AND e.Rang <= (SELECT MAX(a.BisPlatz) FROM RanglistenAbschnitte a WHERE a.RanglisteId = l.RanglisteId AND a.Spielklasse = 2)
+            SELECT m."Name" FROM "Laender" l
+            JOIN "RanglistenEintraege" e ON e."RanglisteId" = l."RanglisteId"
+            JOIN "Mannschaften" m ON m."Id" = e."MannschaftId"
+            WHERE l."Name" = 'Deutschland'
+              AND e."Rang" > (SELECT MAX(a."BisPlatz") FROM "RanglistenAbschnitte" a WHERE a."RanglisteId" = l."RanglisteId" AND a."Spielklasse" = 1)
+              AND e."Rang" <= (SELECT MAX(a."BisPlatz") FROM "RanglistenAbschnitte" a WHERE a."RanglisteId" = l."RanglisteId" AND a."Spielklasse" = 2)
             """);
 
     private Task<IReadOnlyList<string>> InDenToepfenAsync(string turnier) =>
         datenbank.SpalteLesenAsync(
             """
-            SELECT m.Name FROM LostopfEintraege le
-            JOIN Lostoepfe l ON l.Id = le.LostopfId
-            JOIN Auslosungen a ON a.Id = l.AuslosungId
-            JOIN TurnierInstanzen t ON t.Id = a.TurnierInstanzId
-            JOIN Mannschaften m ON m.Id = le.MannschaftId
-            WHERE t.Name = @turnier
+            SELECT m."Name" FROM "LostopfEintraege" le
+            JOIN "Lostoepfe" l ON l."Id" = le."LostopfId"
+            JOIN "Auslosungen" a ON a."Id" = l."AuslosungId"
+            JOIN "TurnierInstanzen" t ON t."Id" = a."TurnierInstanzId"
+            JOIN "Mannschaften" m ON m."Id" = le."MannschaftId"
+            WHERE t."Name" = @turnier
             """,
             ("@turnier", turnier));
 }
