@@ -178,6 +178,7 @@ public partial class App : global::Microsoft.UI.Xaml.Application
         builder.Services.AddTransient<ImportExportViewModel>();
         builder.Services.AddTransient<DatenbankwartungViewModel>();
         builder.Services.AddTransient<VerbindungsFormularViewModel>();
+        builder.Services.AddTransient<SicherungViewModel>();
 
         // Navigation & Hauptfenster
         // AusgewaehlteTurnierInstanzService (#299) haelt die Instanzauswahl geteilt zwischen "Turniere" und

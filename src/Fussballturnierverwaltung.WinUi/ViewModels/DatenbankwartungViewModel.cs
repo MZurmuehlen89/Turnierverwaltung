@@ -13,7 +13,8 @@ namespace Fussballturnierverwaltung.WinUi.ViewModels;
 /// <summary>Issue #370: Seite "Datenbankwartung" — zeigt den Migrationsstand und führt per Hand denselben
 /// Ablauf wie beim App-Start aus (Migrationen einspielen + fehlende Stammdaten ergänzen). Ergebnis als
 /// Protokoll auf der Seite statt Dialog/Erfolgsmeldung. Ort für das spätere Zurücksetzen (#371).
-/// Seit #49 auch die Verbindung zu PostgreSQL: Speichern prüft sie und startet das Programm neu.</summary>
+/// Seit #49 auch die Verbindung zu PostgreSQL: Speichern prüft sie und startet das Programm neu.
+/// Seit #43 Sichern und Wiederherstellen auf Knopfdruck (Kind-ViewModel <see cref="SicherungViewModel"/>).</summary>
 public partial class DatenbankwartungViewModel : ViewModelBase, IRibbonAware
 {
     private readonly DatenbankWartungService _wartung;
@@ -38,6 +39,10 @@ public partial class DatenbankwartungViewModel : ViewModelBase, IRibbonAware
     public VerbindungsFormularViewModel Verbindung { get; }
     public AsyncRelayCommand VerbindungSpeichernBefehl { get; }
     public RelayCommand VerbindungAbbrechenBefehl { get; }
+
+    // ── Sicherung (#43) ───────────────────────────────────────────────────────
+
+    public SicherungViewModel Sicherung { get; }
 
     // ── Ablaufprotokoll (#413) ────────────────────────────────────────────────
 
@@ -92,18 +97,38 @@ public partial class DatenbankwartungViewModel : ViewModelBase, IRibbonAware
                     Header = "Prüfen / ergänzen", AutomationId = "Befehlsleiste.PruefenErgaenzen", Befehl = PruefenBefehl, IconGlyph = ""
                 },
             ]
-        }
+        },
+        new RibbonGruppe
+        {
+            Header = "Sicherung",
+            Aktionen =
+            [
+                new RibbonAktion
+                {
+                    Header = "Sichern", AutomationId = "Befehlsleiste.Sichern", Befehl = Sicherung.SichernBefehl, IconGlyph = ""
+                },
+                new RibbonAktion
+                {
+                    Header = "Wiederherstellen", AutomationId = "Befehlsleiste.Wiederherstellen", Befehl = Sicherung.WiederherstellenBefehl, IconGlyph = ""
+                },
+                new RibbonAktion
+                {
+                    Header = "Ordner öffnen", AutomationId = "Befehlsleiste.SicherungsordnerOeffnen", Befehl = Sicherung.OrdnerOeffnenBefehl, IconGlyph = ""
+                },
+            ]
+        },
     ];
 
     public DatenbankwartungViewModel(
         DatenbankWartungService wartung, Ablaufprotokoll ablaufprotokoll, EinstellungenService einstellungenService,
-        VerbindungsFormularViewModel verbindung)
+        VerbindungsFormularViewModel verbindung, SicherungViewModel sicherung)
     {
         _wartung = wartung;
         _ablaufprotokoll = ablaufprotokoll;
         LogOrdner = einstellungenService.LogPfad;
         PruefenBefehl = new AsyncRelayCommand(PruefenUndErgaenzenAsync, () => !IstLadend);
         Verbindung = verbindung;
+        Sicherung = sicherung;
         VerbindungSpeichernBefehl = new AsyncRelayCommand(VerbindungSpeichernAsync, () => Verbindung.KannUebernehmen);
         VerbindungAbbrechenBefehl = new RelayCommand(Verbindung.Laden, () => Verbindung.IstGeaendert && !Verbindung.Laeuft);
         Verbindung.PropertyChanged += (_, e) =>
@@ -116,7 +141,11 @@ public partial class DatenbankwartungViewModel : ViewModelBase, IRibbonAware
         };
     }
 
-    public override async Task AktivierenAsync() => await StatusLadenAsync();
+    public override async Task AktivierenAsync()
+    {
+        Sicherung.Laden();
+        await StatusLadenAsync();
+    }
 
     protected override void OnPropertyChanged(PropertyChangedEventArgs e)
     {
@@ -175,6 +204,6 @@ public partial class DatenbankwartungViewModel : ViewModelBase, IRibbonAware
     private async Task VerbindungSpeichernAsync()
     {
         if (await Verbindung.UebernehmenAsync())
-            Verbindung.Fehlermeldung = AppNeustart.Ausfuehren();
+            Verbindung.Fehlermeldung = AppNeustart.Ausfuehren("die Verbindung ist gespeichert.");
     }
 }

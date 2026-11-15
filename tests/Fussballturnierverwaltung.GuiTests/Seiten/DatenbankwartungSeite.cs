@@ -1,4 +1,5 @@
 using FlaUI.Core.AutomationElements;
+using FlaUI.Core.Definitions;
 using GuiTest.Framework;
 
 namespace Fussballturnierverwaltung.GuiTests.Seiten;
@@ -64,5 +65,54 @@ public sealed class DatenbankwartungSeite
         return new WartungsErgebnis(
             [.. _fenster.FindAllById("Datenbankwartung.ProtokollZeile").Select(z => z.NameOrEmpty())],
             _fenster.TextOf(FEHLERMELDUNG));
+    }
+
+    // ── Sicherung (#43) ────────────────────────────────
+
+    private const string SICHERN = "Befehlsleiste.Sichern";
+    private const string WIEDERHERSTELLEN = "Befehlsleiste.Wiederherstellen";
+    private const string SICHERUNG_FEHLER = "Sicherung.Fehlermeldung";
+    public const string RUECKFRAGE_WIEDERHERSTELLEN = "Datenbank wiederherstellen?";
+
+    // pg_dump einer frischen Testdatenbank dauert Sekunden, auf dem CI-Runner mehr
+    private static readonly TimeSpan _sicherungszeit = TimeSpan.FromSeconds(60);
+
+    /// <summary>Der Hinweis „Noch keine Sicherung“ steht da (nur sichtbar, wenn die Liste leer ist).</summary>
+    public bool KeineSicherungAngezeigt => _fenster.TryFindById("Sicherung.KeineSicherung") is not null;
+
+    /// <summary>Dateinamen der Sicherungen, neueste zuerst.</summary>
+    public IReadOnlyList<string> Sicherungen =>
+        [.. Sicherungsliste.FindAllChildren(cf => cf.ByControlType(ControlType.ListItem)).Select(z => z.NameOrEmpty())];
+
+    public string SicherungsFehlermeldung => _fenster.TextOf(SICHERUNG_FEHLER);
+
+    public bool WiederherstellenMoeglich => _fenster.FindById(WIEDERHERSTELLEN).IsEnabled;
+
+    private AutomationElement Sicherungsliste => _fenster.FindById("Sicherung.Liste");
+
+    /// <summary>Sichert und wartet, bis die Liste eine Sicherung mehr zeigt oder ein Fehler dasteht und „Sichern“
+    /// wieder freigegeben ist (die Karte sperrt ihre Befehle, solange sie arbeitet).</summary>
+    public void Sichern()
+    {
+        var vorher = Sicherungen.Count;
+        _fenster.ActivateById(SICHERN);
+        Wait.Until(
+            () => (Sicherungen.Count > vorher || _fenster.TryFindById(SICHERUNG_FEHLER) is not null)
+                  && _fenster.FindById(SICHERN).IsEnabled,
+            _sicherungszeit,
+            "Ergebnis von 'Sichern'");
+    }
+
+    public void SicherungAuswaehlen(string name) =>
+        Wait.UntilFound(() => Sicherungsliste.FindItem(z => z.NameOrEmpty() == name), Wait.DefaultTimeout,
+                $"Sicherung '{name}'")
+            .Patterns.SelectionItem.Pattern.Select();
+
+    /// <summary>Löst „Wiederherstellen“ aus und bricht die Rückfrage ab.</summary>
+    public void WiederherstellenAbbrechen()
+    {
+        _fenster.ActivateById(WIEDERHERSTELLEN);
+        Dialog.WaitFor(_fenster, RUECKFRAGE_WIEDERHERSTELLEN).Close();
+        Wait.Until(() => Dialog.FindOpen(_fenster).Count == 0, Wait.DefaultTimeout, "Rückfrage geschlossen");
     }
 }
