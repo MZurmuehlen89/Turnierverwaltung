@@ -17,7 +17,20 @@ public class VerbindungspruefungTests
     [InlineData(PostgresErrorCodes.InvalidPassword)]
     [InlineData(PostgresErrorCodes.InvalidAuthorizationSpecification)]
     public void Anmeldung_Abgelehnt(string sqlState) =>
-        Verbindungspruefung.Ursache(Postgres(sqlState), _ziel)
+        Verbindungspruefung.Ursache(Postgres(sqlState), _ziel, pgPassword: null)
+            .Should().Be("Anmeldung als „helfer“ abgelehnt: Kennwort falsch oder fehlt.");
+
+    [Fact]
+    public void Anmeldung_Abgelehnt_OhneKennwort_PgPasswordGesetzt_NenntVariable() =>
+        Verbindungspruefung.Ursache(Postgres(PostgresErrorCodes.InvalidPassword), _ziel, pgPassword: "alt")
+            .Should().Be("Anmeldung als „helfer“ abgelehnt: Kennwort falsch oder fehlt. Die Umgebungsvariable "
+                         + "PGPASSWORD ist gesetzt und hat Vorrang vor der Kennwortdatei (pgpass.conf).");
+
+    // Mit Kennwort in der Verbindung spielt PGPASSWORD keine Rolle
+    [Fact]
+    public void Anmeldung_Abgelehnt_MitKennwort_PgPasswordGesetzt_OhneHinweis() =>
+        Verbindungspruefung.Ursache(Postgres(PostgresErrorCodes.InvalidPassword),
+                new NpgsqlConnectionStringBuilder(_ziel.ConnectionString) { Password = "geheim" }, pgPassword: "alt")
             .Should().Be("Anmeldung als „helfer“ abgelehnt: Kennwort falsch oder fehlt.");
 
     [Fact]

@@ -71,10 +71,21 @@ public static class Verbindungspruefung
         return null;
     }
 
-    public static string Ursache(Exception ex, NpgsqlConnectionStringBuilder ziel) => ex switch
+    public static string Ursache(Exception ex, NpgsqlConnectionStringBuilder ziel) =>
+        Ursache(ex, ziel, Environment.GetEnvironmentVariable(PG_PASSWORD));
+
+    private const string PG_PASSWORD = "PGPASSWORD";
+
+    /// <param name="pgPassword">Wert der Umgebungsvariable PGPASSWORD. Npgsql nimmt sie ohne Kennwort in der Verbindung
+    /// vor der Kennwortdatei – ein veraltetes oder fremdes Kennwort darin führt sonst ohne Erklärung zur Ablehnung
+    /// (so geschehen auf dem CI-Runner, #49).</param>
+    public static string Ursache(Exception ex, NpgsqlConnectionStringBuilder ziel, string? pgPassword) => ex switch
     {
         PostgresException { SqlState: PostgresErrorCodes.InvalidPassword or PostgresErrorCodes.InvalidAuthorizationSpecification }
-            => $"Anmeldung als „{ziel.Username}“ abgelehnt: Kennwort falsch oder fehlt.",
+            => $"Anmeldung als „{ziel.Username}“ abgelehnt: Kennwort falsch oder fehlt."
+               + (string.IsNullOrEmpty(ziel.Password) && !string.IsNullOrEmpty(pgPassword)
+                   ? $" Die Umgebungsvariable {PG_PASSWORD} ist gesetzt und hat Vorrang vor der Kennwortdatei (pgpass.conf)."
+                   : ""),
         PostgresException { SqlState: PostgresErrorCodes.InvalidCatalogName }
             => $"Die Datenbank „{ziel.Database}“ gibt es nicht, und „{ziel.Username}“ darf keine anlegen.",
         PostgresException { SqlState: PostgresErrorCodes.InsufficientPrivilege }

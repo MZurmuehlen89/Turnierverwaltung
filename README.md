@@ -108,7 +108,8 @@ Voraussetzungen: Windows 10/11, .NET 10 SDK, PostgreSQL 15 oder neuer (getestet 
 Installation von PostgreSQL legt das Einrichtungsskript die Anmeldung `turnierverwaltung` und die Datenbank an und
 trägt das Kennwort in die Kennwortdatei von PostgreSQL ein (`%APPDATA%\postgresql\pgpass.conf`). Andere Server,
 Ports oder Zugangsdaten stellt man in der App ein (Seite „Datenbankwartung“, Karte „Verbindung“; kommt beim Start
-keine Verbindung zustande, öffnet sich dieselbe Eingabe als Startfenster).
+keine Verbindung zustande, öffnet sich dieselbe Eingabe als Startfenster). Eine gesetzte Umgebungsvariable
+`PGPASSWORD` hat Vorrang vor der Kennwortdatei – ist kein Kennwort in der App hinterlegt, meldet sich die App mit ihr an.
 
 ```bash
 # PostgreSQL einrichten (fragt nach dem Kennwort des Administrators „postgres“)
