@@ -66,9 +66,12 @@ jobs:
           Start-Service postgresql-x64-17
           ./build/PostgreSQL-Einrichten.ps1
 
-      # Bricht früh ab, wenn die App sich nicht anmelden kann – sonst scheitert jeder GUI-Test einzeln am Start (#49)
+      # Bricht früh ab, wenn die App sich nicht anmelden kann – sonst scheitert jeder GUI-Test einzeln am Start (#49).
+      # Das Image setzt PGPASSWORD (Admin-Kennwort) als Maschinenvariable; sie hätte bei psql und Npgsql Vorrang vor
+      # pgpass.conf (belegt im zweiten Lauf, 28P01) – deshalb hier und im GUI-Testschritt für den Prozess entfernt.
       - name: Anmeldung der App prüfen
         run: |
+          Remove-Item Env:PGPASSWORD -ErrorAction SilentlyContinue
           foreach ($ebene in 'Process', 'User', 'Machine') {
               "PGPASSWORD ($ebene) gesetzt: $([bool][Environment]::GetEnvironmentVariable('PGPASSWORD', $ebene))"
           }
@@ -88,6 +91,7 @@ jobs:
           # Über eine Umgebungsvariable statt direkt eingesetzt, damit die Eingabe nicht als Skriptcode läuft
           XUNIT_ARGUMENTE: ${{ inputs.xunit_argumente }}
         run: |
+          Remove-Item Env:PGPASSWORD -ErrorAction SilentlyContinue
           $filter = @($env:XUNIT_ARGUMENTE -split '\s+' | Where-Object { $_ })
           ./build/GuiTests-Ausfuehren.ps1 @filter `
               -result-trx "$env:ERGEBNISSE\gui-tests.trx" `
