@@ -6,7 +6,7 @@ version: 2
 updates:
   - package-ecosystem: nuget
     # Projektverzeichnisse einzeln: über „/“ und die .slnx fand Dependabot im ersten Lauf nur das Testprojekt
-    # (EF Core InMemory auf 10.0.14, SqlServer/Design in Infrastructure blieben auf 10.0.13). „/“ bleibt für die
+    # (EF Core InMemory auf 10.0.14, SqlServer/Design in Infrastructure blieben auf 10.0.13; SQL Server entfiel mit #49). „/“ bleibt für die
     # Analyzer in Directory.Build.props. tools/ wird bewusst nicht aktualisiert.
     directories:
       - /
@@ -21,13 +21,15 @@ updates:
       prefix: chore
       include: scope
     groups:
-      # EF Core, Microsoft.Extensions und Pkcs kommen aus demselben .NET-Release und hängen voneinander ab: getrennt
-      # scheiterte EF Core 10.0.14 an Logging.Abstractions 10.0.13 (NU1605, Downgrade) – deshalb eine Gruppe
+      # EF Core, Microsoft.Extensions und ProtectedData kommen aus demselben .NET-Release und hängen voneinander ab:
+      # getrennt scheiterte EF Core 10.0.14 an Logging.Abstractions 10.0.13 (NU1605, Downgrade) – deshalb eine Gruppe.
+      # Npgsql (EF-Provider und ADO-Treiber der GUI-Tests, #49) folgt der Hauptversion von EF Core und kommt mit.
       dotnet:
         patterns:
           - "Microsoft.EntityFrameworkCore*"
           - "Microsoft.Extensions*"
-          - "System.Security.Cryptography.Pkcs"
+          - "System.Security.Cryptography.ProtectedData"
+          - "Npgsql*"
         update-types: [minor, patch]
       windows-sdk:
         patterns: ["Microsoft.WindowsAppSDK", "Microsoft.Windows.SDK*"]
@@ -51,7 +53,8 @@ updates:
         exclude-patterns:
           - "Microsoft.EntityFrameworkCore*"
           - "Microsoft.Extensions*"
-          - "System.Security.Cryptography.Pkcs"
+          - "System.Security.Cryptography.ProtectedData"
+          - "Npgsql*"
           - "Microsoft.WindowsAppSDK"
           - "Microsoft.Windows.SDK*"
           - "SonarAnalyzer.CSharp"
@@ -63,11 +66,11 @@ updates:
           - "Microsoft.NET.Test.Sdk"
           - "NetArchTest*"
         update-types: [minor, patch]
-    # Pkcs ist nur ein Sicherheits-Pin über dem transitiven Pkcs aus SqlClient (#493) und folgt der EF-Core-Linie:
-    # 11.0 brächte nichts außer System.Formats.Asn1 11.0 in die App (Nutzerentscheid 11.11.2026, #646–#648).
-    # Patches 10.0.x kommen weiter über die Gruppe dotnet. Mit dem Wechsel auf EF Core 11 diese Ausnahme entfernen.
+    # ProtectedData (Kennwort der Datenbankverbindung, #49) folgt wie früher Pkcs der EF-Core-Linie (Nutzerentscheid
+    # 11.11.2026, #646–#648): Patches 10.0.x kommen über die Gruppe dotnet, die Hauptversion zieht erst mit EF Core 11
+    # nach. Mit dem Wechsel auf EF Core 11 diese Ausnahme entfernen.
     ignore:
-      - dependency-name: "System.Security.Cryptography.Pkcs"
+      - dependency-name: "System.Security.Cryptography.ProtectedData"
         update-types: ["version-update:semver-major"]
 
   - package-ecosystem: github-actions

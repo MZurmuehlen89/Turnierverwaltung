@@ -1,5 +1,5 @@
-# GUI-Tests (#525) auf dem GitHub-Runner windows-2025: Desktop-Sitzung für UI Automation, SQL Server LocalDB statt
-# des lokalen SQL Servers. Seit das Repo öffentlich ist, kosten Actions-Minuten nichts (#636): Der Komplettlauf
+# GUI-Tests (#525) auf dem GitHub-Runner windows-2025: Desktop-Sitzung für UI Automation, das vorinstallierte
+# PostgreSQL des Runners (#49). Seit das Repo öffentlich ist, kosten Actions-Minuten nichts (#636): Der Komplettlauf
 # startet bei jedem Push und Pull Request wie die Unit-Tests, manuell lässt er sich mit Filter starten.
 # Kein self-hosted Runner (#609 verworfen): Ein Fremd-PR kann den Workflow ändern und so eigenen Code auf dem
 # Runner-Rechner ausführen.
@@ -55,14 +55,16 @@ jobs:
           catch { "Auflösung nicht änderbar: $($_.Exception.Message)" }
           "nachher: $([System.Windows.Forms.Screen]::PrimaryScreen.Bounds)"
 
-      - name: LocalDB starten
+      # Der Runner bringt PostgreSQL mit, der Dienst ist aber abgeschaltet (Image-Readme: postgresql-x64-17, Anmeldung
+      # postgres/root). Eingerichtet wird wie auf einem Entwicklerrechner: Anmeldung „turnierverwaltung“ mit Kennwort in
+      # pgpass.conf des Runner-Benutzers – die App und die Testdatenbank finden es dort.
+      - name: PostgreSQL starten und einrichten
+        env:
+          PGPASSWORD: root
         run: |
-          sqllocaldb start MSSQLLocalDB
-          sqllocaldb info MSSQLLocalDB
-
-      # Hält fest, welche Abfrage auf eine Speicherzuteilung wartet; ausgewertet im Schritt Datenbank-Wartezeiten (#631)
-      - name: Speicherzuteilungen aufzeichnen
-        run: ./build/Datenbank-Wartezeiten.ps1 -AufzeichnungStarten
+          Set-Service postgresql-x64-17 -StartupType Manual
+          Start-Service postgresql-x64-17
+          ./build/PostgreSQL-Einrichten.ps1
 
       - name: Framework-Tests
         run: >
@@ -73,7 +75,6 @@ jobs:
 
       - name: GUI-Tests
         env:
-          TURNIERVERWALTUNG_GUITEST_SERVER: (localdb)\MSSQLLocalDB
           # Über eine Umgebungsvariable statt direkt eingesetzt, damit die Eingabe nicht als Skriptcode läuft
           XUNIT_ARGUMENTE: ${{ inputs.xunit_argumente }}
         run: |
@@ -89,11 +90,6 @@ jobs:
               $pfad = Join-Path $env:ERGEBNISSE $datei
               if (Test-Path $pfad) { Get-Content $pfad | Add-Content $env:GITHUB_STEP_SUMMARY }
           }
-
-      # Worauf der SQL Server gewartet hat – erklärt Stillstände einzelner Zugriffe von mehreren Sekunden (#631)
-      - name: Datenbank-Wartezeiten
-        if: always()
-        run: ./build/Datenbank-Wartezeiten.ps1
 
       - name: Ergebnisse hochladen
         if: always()

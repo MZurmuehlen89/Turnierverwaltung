@@ -5,8 +5,8 @@
 .DESCRIPTION
     Die GUI-Tests steuern die echte App per UI Automation. Dafür wird die App ungepackt und eigenständig
     (WindowsPackageType=None, WindowsAppSDKSelfContained=true) nach artifacts/guitest gebaut – getrennt vom
-    normalen MSIX-/F5-Build, der unberührt bleibt. Jeder Lauf bekommt eine eigene Datenbank auf dem lokalen
-    SQL Server, die am Ende wieder gelöscht wird; Datenpfad, Logs und Belege fehlgeschlagener Tests liegen
+    normalen MSIX-/F5-Build, der unberührt bleibt. Jeder Lauf bekommt eine eigene Datenbank im lokalen
+    PostgreSQL (Anmeldung aus build/PostgreSQL-Einrichten.ps1), die am Ende wieder gelöscht wird; Datenpfad, Logs und Belege fehlgeschlagener Tests liegen
     unter artifacts/guitest/laeufe/<Lauf>.
 
     Während des Laufs Maus und Tastatur nicht benutzen: Die Tests klicken im Fenster der App.
