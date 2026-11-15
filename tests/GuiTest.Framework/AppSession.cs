@@ -98,7 +98,7 @@ public sealed class AppSession : IDisposable
     public bool WaitForExit(TimeSpan timeout) => _process.WaitForExit(timeout);
 
     /// <summary>Saves a PNG of the main window, e.g. as evidence for a failed test.</summary>
-    public void CaptureScreenshot(string path) => Capture.Element(MainWindow).ToFile(path);
+    public void CaptureScreenshot(string path) => Capture.Element(CurrentMainWindow()).ToFile(path);
 
     public void Dispose()
     {
@@ -112,16 +112,27 @@ public sealed class AppSession : IDisposable
         if (_process.HasExited) return;
         try
         {
-            MainWindow.Close();
+            CurrentMainWindow().Close();
         }
-        catch (Exception e) when (e is COMException or ElementNotAvailableException or MethodNotSupportedException)
+        catch (Exception e) when (e is COMException or ElementNotAvailableException or ArgumentException)
         {
-            // Window already gone or not responding — the kill below takes over. MethodNotSupported: the first window
-            // was a start-up window that has closed meanwhile, its element no longer offers the window pattern.
+            // Window already gone or not responding, or the process exited just now (ArgumentException from the
+            // attach) — the kill below takes over.
         }
 
         if (!_process.WaitForExit(_options.ShutdownTimeout))
             Kill(_process.Id);
+    }
+
+    /// <summary>The application's main window as of now. <see cref="MainWindow"/> is the first window — when that was a
+    /// start-up window that has closed meanwhile, its element no longer offers the window pattern (Close threw
+    /// MethodNotSupportedException, then the shutdown waited for the timeout and killed the app, #49).</summary>
+    private Window CurrentMainWindow()
+    {
+        // A fresh attach, so the process' main window handle is read anew. Not disposed: FlaUI's Application closes the
+        // app on dispose (CloseOnDispose), like in WaitForWindow
+        var application = FlaUI.Core.Application.Attach(_process.Id);
+        return application.GetMainWindow(Automation, TimeSpan.Zero) ?? MainWindow;
     }
 
     private static Window WaitForMainWindow(Process process, UIA3Automation automation, TimeSpan timeout)
