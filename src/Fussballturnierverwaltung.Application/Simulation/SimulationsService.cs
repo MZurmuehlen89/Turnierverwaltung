@@ -13,6 +13,9 @@ using Microsoft.Extensions.Logging;
 
 namespace Fussballturnierverwaltung.Application.Simulation;
 
+// S107: sechs Abhängigkeiten, aber eine Verantwortung (Spiele würfeln und speichern); Zufallsquelle und Logger
+// sind Querschnitt, ein eigener Dienst nur für den Simulationslauf brächte keine Trennung (#503).
+#pragma warning disable S107
 public class SimulationsService(
     ISpielRepository spielRepository,
     ITurnierInstanzRepository instanzRepository,
@@ -20,6 +23,7 @@ public class SimulationsService(
     ISimulationsLaufRepository laufRepository,
     Zufallsquelle zufallsquelle,
     ILogger<SimulationsService> logger)
+#pragma warning restore S107
 {
     public Task<IReadOnlyList<SimulationsLauf>> LaeufeAbrufenAsync(
         int turnierInstanzId, CancellationToken ct = default)
@@ -47,7 +51,6 @@ public class SimulationsService(
     /// <summary>Simuliert ein einzelnes Spiel und speichert das Ergebnis.</summary>
     public async Task<SimulationsErgebnis> SpielSimulierenAsync(
         int spielId,
-        SimulationsModus modus,
         Random? rng = null,
         CancellationToken ct = default,
         bool ueberschreiben = false)
@@ -221,7 +224,6 @@ public class SimulationsService(
     /// </summary>
     public async Task<int> SpieleSimulierenAsync(
         IReadOnlyCollection<int> spielIds,
-        SimulationsModus modus,
         int? seed = null,
         CancellationToken ct = default)
     {
@@ -254,7 +256,6 @@ public class SimulationsService(
     public async Task<int> SpieltageSimulierenAsync(
         int turnierRundeId,
         int spieltag,
-        SimulationsModus modus,
         int? seed = null,
         CancellationToken ct = default)
     {
@@ -280,7 +281,6 @@ public class SimulationsService(
     public async Task<int> GruppeSimulierenAsync(
         int turnierRundeId,
         IReadOnlyCollection<int> gruppenTeamIds,
-        SimulationsModus modus,
         int? seed = null,
         CancellationToken ct = default)
     {
@@ -307,7 +307,6 @@ public class SimulationsService(
         int turnierRundeId,
         int spieltag,
         IReadOnlyCollection<int> gruppenTeamIds,
-        SimulationsModus modus,
         int? seed = null,
         CancellationToken ct = default)
     {
@@ -340,7 +339,6 @@ public class SimulationsService(
     public async Task<int> RundenHaelfteSimulierenAsync(
         int turnierRundeId,
         bool istRueckrunde,
-        SimulationsModus modus,
         int? seed = null,
         CancellationToken ct = default)
     {
@@ -381,7 +379,6 @@ public class SimulationsService(
     /// </summary>
     public async Task<int> RundeSimulierenAsync(
         int turnierRundeId,
-        SimulationsModus modus,
         int? seed = null,
         CancellationToken ct = default)
     {

@@ -66,7 +66,7 @@ public class SimulationsServiceHinRueckspielTests
         SetupAnlegen(ctx);
         var service = SimulationsDienste.Service(ctx, new Zufallsquelle());
 
-        await service.RundeSimulierenAsync(1, SimulationsModus.SchnellSimulation, seed: 346);
+        await service.RundeSimulierenAsync(1, seed: 346);
 
         var spiele = ctx.Spiele.Include(s => s.Ergebnis).Where(s => s.TurnierRundeId == 1).ToList();
         spiele.Should().OnlyContain(s => s.Ergebnis != null);
@@ -121,7 +121,7 @@ public class SimulationsServiceHinRueckspielTests
         ctx.SaveChanges();
         var service = SimulationsDienste.Service(ctx, new Zufallsquelle());
 
-        await service.RundeSimulierenAsync(1, SimulationsModus.SchnellSimulation, seed: 386);
+        await service.RundeSimulierenAsync(1, seed: 386);
 
         // Paarung N = N-tes Hinspiel; den Gesamtsieger trägt dessen Rückspiel (Ids 2 und 4).
         var sieger = ctx.Spiele.Include(s => s.Ergebnis).Where(s => s.Id == 2 || s.Id == 4)
@@ -140,7 +140,7 @@ public class SimulationsServiceHinRueckspielTests
         SetupAnlegen(ctx);
         var service = SimulationsDienste.Service(ctx, new Zufallsquelle());
 
-        int anzahl = await service.RundenHaelfteSimulierenAsync(1, istRueckrunde: false, SimulationsModus.SchnellSimulation, seed: 387);
+        int anzahl = await service.RundenHaelfteSimulierenAsync(1, istRueckrunde: false, seed: 387);
 
         anzahl.Should().Be(PAARUNGEN);
         var spiele = ctx.Spiele.Include(s => s.Ergebnis).Where(s => s.TurnierRundeId == 1).ToList();
@@ -155,9 +155,9 @@ public class SimulationsServiceHinRueckspielTests
         SetupAnlegen(ctx);
         var service = SimulationsDienste.Service(ctx, new Zufallsquelle());
         // Nur das Hinspiel der ersten Paarung ist gespielt.
-        await service.SpielSimulierenAsync(1, SimulationsModus.SchnellSimulation, new Random(387));
+        await service.SpielSimulierenAsync(1, new Random(387));
 
-        int anzahl = await service.RundenHaelfteSimulierenAsync(1, istRueckrunde: true, SimulationsModus.SchnellSimulation, seed: 387);
+        int anzahl = await service.RundenHaelfteSimulierenAsync(1, istRueckrunde: true, seed: 387);
 
         anzahl.Should().Be(1, "nur das Rückspiel mit gespieltem Hinspiel ist simulierbar");
         var spiele = ctx.Spiele.Include(s => s.Ergebnis).Where(s => s.TurnierRundeId == 1).ToList();

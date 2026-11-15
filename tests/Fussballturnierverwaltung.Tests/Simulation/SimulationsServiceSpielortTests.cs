@@ -55,7 +55,7 @@ public class SimulationsServiceSpielortTests
         await using var ctx = SimulationsDienste.NeuerContext();
         SetupAnlegen(ctx, neutral, gastIstGastgeber);
 
-        await SimulationsDienste.Service(ctx, new Zufallsquelle()).RundeSimulierenAsync(1, SimulationsModus.SchnellSimulation, seed: 352);
+        await SimulationsDienste.Service(ctx, new Zufallsquelle()).RundeSimulierenAsync(1, seed: 352);
 
         var ergebnisse = ctx.SpielErgebnisse.ToList();
         ergebnisse.Should().HaveCount(SPIELE);

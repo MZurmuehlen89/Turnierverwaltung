@@ -107,7 +107,7 @@ public class SimulationsServiceTests
         KoRundeAnlegen(ctx, paarungen: 10);
         ctx.SaveChanges();
 
-        await SimulationsDienste.Service(ctx, new Zufallsquelle()).RundeSimulierenAsync(1, SimulationsModus.SchnellSimulation, seed: 629);
+        await SimulationsDienste.Service(ctx, new Zufallsquelle()).RundeSimulierenAsync(1, seed: 629);
 
         var spiele = SpieleMitErgebnis(ctx);
         spiele.Sum(s => s.Ergebnis!.HeimToreRegulaer + s.Ergebnis.AuswaertsToreRegulaer).Should().BeGreaterThan(0);
@@ -129,9 +129,9 @@ public class SimulationsServiceTests
         KoRundeAnlegen(ctx, paarungen: 2);
         ctx.SaveChanges();
         var service = SimulationsDienste.Service(ctx, new Zufallsquelle());
-        await service.SpielSimulierenAsync(3, SimulationsModus.SchnellSimulation, new Random(1));
+        await service.SpielSimulierenAsync(3, new Random(1));
 
-        int anzahl = await service.SpieleSimulierenAsync([4, 2, 1, 3], SimulationsModus.SchnellSimulation, seed: 629);
+        int anzahl = await service.SpieleSimulierenAsync([4, 2, 1, 3], seed: 629);
 
         anzahl.Should().Be(3, "das abgeschlossene Hinspiel 3 wird übersprungen");
         SpieleMitErgebnis(ctx).Should().OnlyContain(s => s.Ergebnis != null);
@@ -147,12 +147,12 @@ public class SimulationsServiceTests
         KoRundeAnlegen(ctx, paarungen: 1);
         ctx.SaveChanges();
         var service = SimulationsDienste.Service(ctx, new Zufallsquelle());
-        await service.SpielSimulierenAsync(1, SimulationsModus.SchnellSimulation, new Random(1));
+        await service.SpielSimulierenAsync(1, new Random(1));
 
-        var nochmal = () => service.SpielSimulierenAsync(1, SimulationsModus.SchnellSimulation, new Random(2));
+        var nochmal = () => service.SpielSimulierenAsync(1, new Random(2));
         await nochmal.Should().ThrowAsync<InvalidOperationException>().WithMessage("*bereits abgeschlossen*");
 
-        var neu = await service.SpielSimulierenAsync(1, SimulationsModus.SchnellSimulation, new Random(2), ueberschreiben: true);
+        var neu = await service.SpielSimulierenAsync(1, new Random(2), ueberschreiben: true);
 
         var spiel = SpieleMitErgebnis(ctx).Single(s => s.Id == 1);
         spiel.Ergebnis!.HeimToreRegulaer.Should().Be(neu.HeimToreRegulaer);
@@ -170,7 +170,7 @@ public class SimulationsServiceTests
         KoRundeAnlegen(ctx, paarungen: 60, auswaertstorRegel: true);
         ctx.SaveChanges();
 
-        await SimulationsDienste.Service(ctx, new Zufallsquelle()).RundeSimulierenAsync(1, SimulationsModus.SchnellSimulation, seed: 629);
+        await SimulationsDienste.Service(ctx, new Zufallsquelle()).RundeSimulierenAsync(1, seed: 629);
 
         var spiele = SpieleMitErgebnis(ctx);
         var arten = new List<EntscheidungArt>();
@@ -224,13 +224,13 @@ public class SimulationsServiceTests
         int[] gruppeA = [1, 2, 3, 4], gruppeB = [5, 6, 7, 8];
         int[] Gespielt() => [.. SpieleMitErgebnis(ctx).Where(s => s.Ergebnis != null).Select(s => s.Id)];
 
-        (await service.SpieltagInGruppeSimulierenAsync(1, 1, gruppeA, SimulationsModus.SchnellSimulation, seed: 1)).Should().Be(2);
+        (await service.SpieltagInGruppeSimulierenAsync(1, 1, gruppeA, seed: 1)).Should().Be(2);
         Gespielt().Should().Equal(1, 2);
 
-        (await service.GruppeSimulierenAsync(1, gruppeB, SimulationsModus.SchnellSimulation, seed: 2)).Should().Be(4);
+        (await service.GruppeSimulierenAsync(1, gruppeB, seed: 2)).Should().Be(4);
         Gespielt().Should().Equal(1, 2, 5, 6, 7, 8);
 
-        (await service.SpieltageSimulierenAsync(1, 2, SimulationsModus.SchnellSimulation, seed: 3)).Should().Be(2);
+        (await service.SpieltageSimulierenAsync(1, 2, seed: 3)).Should().Be(2);
         Gespielt().Should().Equal(1, 2, 3, 4, 5, 6, 7, 8);
     }
 }

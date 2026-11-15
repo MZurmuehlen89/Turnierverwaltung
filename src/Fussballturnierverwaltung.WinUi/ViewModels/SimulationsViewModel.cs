@@ -380,7 +380,7 @@ public partial class SimulationsViewModel : ViewModelBase, IRibbonAware
         {
             using var vorgang = _logger.Vorgang($"Simulation: Turnierspiel simulieren (Spiel {spielId})", "Spiel wird simuliert …");
             await _simulationsService.SpielSimulierenAsync(
-                spielId, SimulationsModus.AusfuehrlicheSimulation, ueberschreiben: ueberschreiben);
+                spielId, ueberschreiben: ueberschreiben);
 
             if (rundeId.HasValue) await SpieleNeuLadenAsync(rundeId.Value, spielId);
 
