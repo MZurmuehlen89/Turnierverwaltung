@@ -115,6 +115,48 @@ includes `suggestion` findings, `-Regel S3776,S138` lists the locations.
   `ErrorLog`; `Directory.Build.props` blanks the `ErrorLog` around that target, otherwise an incremental build
   overwrites the WinUi SARIF file with an empty analysis.
 
+## Definition of Done (#665)
+
+Two levels: the **issue criteria** say whether the problem is solved (different for every issue), the **general
+DoD** says whether the work is properly finished (the same for every issue). An issue is closed only when both hold.
+
+### Issue criteria
+
+Written into the issue body as a section `## Kriterien` **before the code** (after the blocking/staleness check;
+for effort `hard` together with the plan recap). Numbered K1, K2 …; behind each one, in brackets, the test that pins
+it down (unit test class or GUI scenario) — or why there is none. Effort `simple`: one or two lines are enough.
+A criterion found during the work is added and marked as *nachgetragen*.
+
+| Issue type | Criteria |
+|---|---|
+| Feature with UI | Given/When/Then, including the states *before/in between* (placeholders, not yet drawn, old data, empty rounds); test per criterion, unit tests shown red locally first, GUI counter-check on a throwaway `ci/<nr>-gegenprobe` branch (#591) |
+| Feature without UI / improvement | Given/When/Then, unit test per criterion |
+| Bug | reproduction (given/when → wrong result), expected behaviour, cause proven (no candidate fixes), regression test shown red before the fix |
+| Refactoring | target structure named; behaviour unchanged (existing tests green without modification); measured values before/after (complexity, lines) |
+| Performance | measured value before, target value, measured value after (in the issue) |
+| Documentation / chore | what lies where afterwards |
+
+### General DoD
+
+Checked off in the closing comment as a block `**Definition of Done**`, each point *erfüllt*, *entfällt* or skipped
+with a reason:
+
+1. **Criteria** — every issue criterion is met, each with its test (or the stated reason there is none).
+2. **Build and unit tests** green, no pending model changes (enforced by the commit hook).
+3. **Code review** — `/code-review high` on the unpushed changes, findings fixed or skipped with a reason
+   (documentation-only pushes excepted).
+4. **GUI tests** — the full run on the push/PR is green; new UI behaviour has a GUI scenario or is listed as a gap.
+5. **Manual gaps** — whatever the GUI tests cannot see (visuals, paths without scenario, real database) has been
+   named and confirmed by the user, or there is none.
+6. **Code quality** — Clean Code rules above followed in touched code, no new analyzer warnings there; every new
+   `RibbonAktion` has a verified `IconGlyph`.
+7. **Documentation** — affected `CLAUDE.md` files, GUI coverage (#529), milestone description and seed checked and
+   updated.
+8. **Follow-ups** — every known follow-up topic exists as its own issue (prefix, labels, phase), not only as a
+   sentence in the comment.
+9. **Closing comment** — commit hashes, deviations from the issue text, reasons for non-obvious decisions, this
+   DoD block.
+
 ## Claude Code Hooks (#586)
 
 Workflow rules that used to live only in memory are enforced by hooks in `.claude/settings.json` (scripts in
