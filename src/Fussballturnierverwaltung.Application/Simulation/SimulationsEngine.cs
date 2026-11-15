@@ -181,7 +181,38 @@ public static class SimulationsEngine
         switch (verfahren)
         {
             case VerfahrenArt.VerlaengerungKlassisch:
+                return VerlaengerungSimulieren(heim, auswaerts, rng, ausfuehrlich, spielortvorteil, ueberraschungsfaktor);
+
+            case VerfahrenArt.GoldenGoal:
+                return GoldenGoalSimulieren(heim, auswaerts, rng, ausfuehrlich, spielortvorteil, ueberraschungsfaktor);
+
+            case VerfahrenArt.SilverGoal:
+                return SilverGoalSimulieren(heim, auswaerts, rng, ausfuehrlich, spielortvorteil, ueberraschungsfaktor);
+
+            case VerfahrenArt.Elfmeterschiessen:
             {
+                var (he, ge, extras) = ElfmeterschiessenSimulieren(heim, auswaerts, rng, ausfuehrlich);
+                return (he - ge, EntscheidungArt.Elfmeterschiessen, null, null, he, ge, extras);
+            }
+
+            case VerfahrenArt.Losentscheid:
+                return (rng.Next(2) == 0 ? 1 : -1, EntscheidungArt.Losentscheid, null, null, null, null, []);
+
+            case VerfahrenArt.Muenzwurf:
+                return (rng.Next(2) == 0 ? 1 : -1, EntscheidungArt.Muenzwurf, null, null, null, null, []);
+
+            default:
+                return (0, EntscheidungArt.RegulaereSpielzeit, null, null, null, null, []);
+        }
+    }
+
+    private static (int Result, EntscheidungArt Art,
+                    int? HV, int? GV, int? HE, int? GE,
+                    IReadOnlyList<SimuliertesEreignis> Extras)
+        VerlaengerungSimulieren(
+            Mannschaft heim, Mannschaft auswaerts,
+            Random rng, bool ausfuehrlich, Spielortvorteil spielortvorteil, int ueberraschungsfaktor)
+    {
                 double hL = BerechneErwartetesTore(heim, auswaerts, istHeim: true,  spielortvorteil, ueberraschungsfaktor) * (30.0 / 90.0);
                 double gL = BerechneErwartetesTore(auswaerts, heim, istHeim: false, spielortvorteil, ueberraschungsfaktor) * (30.0 / 90.0);
                 int hv = ZiehePoisson(hL, rng);
@@ -190,10 +221,15 @@ public static class SimulationsEngine
                     ? EreignisseGenerieren(hv, gv, rng, 91, 120)
                     : (IReadOnlyList<SimuliertesEreignis>)[];
                 return (hv - gv, EntscheidungArt.Verlaengerung, hv, gv, null, null, extras);
-            }
+    }
 
-            case VerfahrenArt.GoldenGoal:
-            {
+    private static (int Result, EntscheidungArt Art,
+                    int? HV, int? GV, int? HE, int? GE,
+                    IReadOnlyList<SimuliertesEreignis> Extras)
+        GoldenGoalSimulieren(
+            Mannschaft heim, Mannschaft auswaerts,
+            Random rng, bool ausfuehrlich, Spielortvorteil spielortvorteil, int ueberraschungsfaktor)
+    {
                 // Simuliere bis zum ersten Tor (max. 30 Min.)
                 double hProbPerMin = BerechneErwartetesTore(heim, auswaerts, istHeim: true,  spielortvorteil, ueberraschungsfaktor) / 90.0;
                 double gProbPerMin = BerechneErwartetesTore(auswaerts, heim, istHeim: false, spielortvorteil, ueberraschungsfaktor) / 90.0;
@@ -214,10 +250,15 @@ public static class SimulationsEngine
                     }
                 }
                 return (hv - gv, EntscheidungArt.GoldenGoal, hv, gv, null, null, extras);
-            }
+    }
 
-            case VerfahrenArt.SilverGoal:
-            {
+    private static (int Result, EntscheidungArt Art,
+                    int? HV, int? GV, int? HE, int? GE,
+                    IReadOnlyList<SimuliertesEreignis> Extras)
+        SilverGoalSimulieren(
+            Mannschaft heim, Mannschaft auswaerts,
+            Random rng, bool ausfuehrlich, Spielortvorteil spielortvorteil, int ueberraschungsfaktor)
+    {
                 // Silbernes Tor: Führt ein Team nach der ersten Verlängerungshälfte (15 Min.), endet
                 // das Spiel sofort; bei Gleichstand wird die zweite Hälfte (weitere 15 Min.) gespielt.
                 double hL15 = BerechneErwartetesTore(heim, auswaerts, istHeim: true,  spielortvorteil, ueberraschungsfaktor) * (15.0 / 90.0);
@@ -239,23 +280,6 @@ public static class SimulationsEngine
                     extras = [.. extras, .. EreignisseGenerieren(hv2, gv2, rng, 106, 120)];
 
                 return (hv2 - gv2, EntscheidungArt.Verlaengerung, hv1 + hv2, gv1 + gv2, null, null, extras);
-            }
-
-            case VerfahrenArt.Elfmeterschiessen:
-            {
-                var (he, ge, extras) = ElfmeterschiessenSimulieren(heim, auswaerts, rng, ausfuehrlich);
-                return (he - ge, EntscheidungArt.Elfmeterschiessen, null, null, he, ge, extras);
-            }
-
-            case VerfahrenArt.Losentscheid:
-                return (rng.Next(2) == 0 ? 1 : -1, EntscheidungArt.Losentscheid, null, null, null, null, []);
-
-            case VerfahrenArt.Muenzwurf:
-                return (rng.Next(2) == 0 ? 1 : -1, EntscheidungArt.Muenzwurf, null, null, null, null, []);
-
-            default:
-                return (0, EntscheidungArt.RegulaereSpielzeit, null, null, null, null, []);
-        }
     }
 
     // ── Elfmeterschießen ──────────────────────────────────────────────────
