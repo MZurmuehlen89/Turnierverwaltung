@@ -142,6 +142,18 @@ public class SimulationsEngineEreignisTests
     }
 
     [Fact]
+    public void Halbzeitstand_GasttorInMinute45ZaehltMit()
+    {
+        var zufall = new VorgegebenerZufall(
+            [0.5, 0.0, 0.5, 0.0, /* Torminuten */ 0.5, 0.49, .. _torstilOhneKonter, .. _torstilOhneKonter],
+            danach: 0.0);
+
+        var e = Simulieren(zufall);
+
+        (e.HalbzeitHeimTore, e.HalbzeitAuswaertsTore).Should().Be(Stand(0, 1));
+    }
+
+    [Fact]
     public void Ereignisse_NachMinuteSortiert()
     {
         // Heimtor in Minute 80, Gasttor in Minute 10.

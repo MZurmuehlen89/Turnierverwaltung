@@ -73,7 +73,8 @@ public class SimulationsEngineEntscheidungTests
     [Fact]
     public void Verlaengerung_HeimtorEntscheidet()
     {
-        var zufall = new VorgegebenerZufall([0.53, 0.0, /* Gast */ 0.0]);
+        // Gastwert 0,71 knapp unter e^-λ: mit der Heimstärke des Gasts (λ = 0,65) fiele ein Tor.
+        var zufall = new VorgegebenerZufall([0.53, 0.0, /* Gast */ 0.71]);
 
         var e = Anwenden(zufall, false, VerfahrenArt.VerlaengerungKlassisch, VerfahrenArt.Elfmeterschiessen);
 
