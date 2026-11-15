@@ -19,8 +19,9 @@ public class VerbandKonfiguration : IEntityTypeConfiguration<Verband>
             .HasForeignKey(v => v.RanglisteId)
             .OnDelete(DeleteBehavior.SetNull);
 
-        // Zweiter Verweis auf dieselbe Tabelle: SQL Server erlaubt kein zweites ON DELETE SET NULL (mehrfache
-        // Löschpfade), RanglisteRepository.LoeschenAsync löst den Verweis deshalb selbst (#574).
+        // Zweiter Verweis auf dieselbe Tabelle: SQL Server erlaubte kein zweites ON DELETE SET NULL (mehrfache
+        // Löschpfade), RanglisteRepository.LoeschenAsync löst den Verweis deshalb selbst (#574). Mit PostgreSQL (#49)
+        // unverändert, weil die Löschlogik darauf aufbaut.
         builder.HasOne(v => v.VereinsRangliste)
             .WithMany()
             .HasForeignKey(v => v.VereinsRanglisteId)

@@ -202,7 +202,7 @@ public partial class App : global::Microsoft.UI.Xaml.Application
     }
 
     /// <summary>Issue #370: legt die Datenbank bei Bedarf an, spielt fehlende Migrationen ein und ergänzt fehlende
-    /// Stammdaten. Schlägt das fehl (z. B. SQL Server nicht erreichbar), gibt es noch kein Hauptfenster und damit
+    /// Stammdaten. Schlägt das fehl (z. B. PostgreSQL nicht erreichbar), gibt es noch kein Hauptfenster und damit
     /// keinen ContentDialog — daher native Meldung und sauberes Beenden statt Absturz.</summary>
     private async Task<bool> DatenbankVorbereitenAsync()
     {
@@ -223,7 +223,7 @@ public partial class App : global::Microsoft.UI.Xaml.Application
                 $"Die Datenbank konnte nicht geöffnet oder eingerichtet werden.\n\n"
                 + $"Server: {server}\nDatenbank: {datenbank}\n\n"
                 + $"Ursache: {ex.GetBaseException().Message}\n\n"
-                + $"Bitte prüfen, ob der SQL Server läuft und erreichbar ist. Details stehen im Log:\n{logOrdner}\n\n"
+                + $"Bitte prüfen, ob der PostgreSQL-Dienst läuft und erreichbar ist. Details stehen im Log:\n{logOrdner}\n\n"
                 + "Die Anwendung wird beendet.");
             Exit();
             return false;

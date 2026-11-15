@@ -27,9 +27,7 @@ public static class InfrastrukturErweiterungen
         // DB-Anteil je Vorgang im Ablaufprotokoll (#49) — Singleton aus demselben Grund: der Zustand hängt je Befehl/Verbindung/Kontext an der Instanz.
         services.AddSingleton<DbAnteilErfassung>();
         services.AddDbContext<TurnierverwaltungDbContext>((sp, options) =>
-            options.UseSqlServer(
-                    configuration.GetConnectionString("Standard"),
-                    sql => sql.MigrationsAssembly(typeof(TurnierverwaltungDbContext).Assembly.FullName))
+            options.UseNpgsql(configuration.GetConnectionString("Standard"))
                 .AddInterceptors(sp.GetRequiredService<DbZugriffsDiagnose>(), sp.GetRequiredService<DbAnteilErfassung>()));
 
         services.AddSingleton(SeedBildQuelle.Eingebettet);

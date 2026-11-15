@@ -13,7 +13,7 @@ public class TurnierBaumKnotenKonfiguration : IEntityTypeConfiguration<TurnierBa
         builder.Property(k => k.Runde).IsRequired();
 
         // NoAction statt Cascade: TurnierBaum ↔ TurnierBaumKnoten sind bidirektional verknüpft
-        // (WurzelKnotenId in TurnierBaum). SQL Server lehnt CASCADE bei Zyklen ab.
+        // (WurzelKnotenId in TurnierBaum). SQL Server lehnte CASCADE bei Zyklen ab; mit PostgreSQL (#49) unverändert.
         // Die Anwendungsschicht ist für die korrekte Löschreihenfolge verantwortlich.
         builder.HasOne(k => k.TurnierBaum)
             .WithMany(b => b.Knoten)

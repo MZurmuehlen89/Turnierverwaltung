@@ -18,7 +18,8 @@ public class TurnierGastgeberKonfiguration : IEntityTypeConfiguration<TurnierGas
             .OnDelete(DeleteBehavior.Cascade);
 
         // Restrict statt Cascade: Mannschaft → TurnierInstanz (Titelverteidiger, SetNull) → TurnierGastgeber
-        // wäre sonst ein zweiter Kaskadenpfad, den SQL Server ablehnt — analog Spiel → Mannschaft.
+        // wäre sonst ein zweiter Kaskadenpfad, den SQL Server ablehnte — analog Spiel → Mannschaft. Mit PostgreSQL (#49)
+        // unverändert.
         builder.HasOne(g => g.Mannschaft)
             .WithMany()
             .HasForeignKey(g => g.MannschaftId)

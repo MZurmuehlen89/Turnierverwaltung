@@ -2,6 +2,7 @@ using Fussballturnierverwaltung.Infrastructure.Persistenz;
 using Fussballturnierverwaltung.Infrastructure.Seed;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using Npgsql;
 
 namespace Fussballturnierverwaltung.Infrastructure.Wartung;
 
@@ -37,8 +38,9 @@ public class DatenbankWartungService
     /// Fehlermeldungen, wenn der Server gar nicht erreichbar ist.</summary>
     public (string Server, string Datenbank) Verbindungsziel()
     {
-        var verbindung = _context.Database.GetDbConnection();
-        return (verbindung.DataSource, verbindung.Database);
+        // DataSource liefert bei Npgsql „tcp://host:port“ – für die Anzeige Host und Port getrennt lesen.
+        var verbindung = new NpgsqlConnectionStringBuilder(_context.Database.GetConnectionString());
+        return ($"{verbindung.Host}:{verbindung.Port}", verbindung.Database ?? "");
     }
 
     public async Task<DatenbankStatus> StatusAbrufenAsync(CancellationToken ct = default)

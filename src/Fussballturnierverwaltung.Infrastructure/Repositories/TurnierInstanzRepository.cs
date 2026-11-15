@@ -167,8 +167,8 @@ public class TurnierInstanzRepository(TurnierverwaltungDbContext context)
 
     // Löscht in der richtigen Reihenfolge:
     //   1. TurnierBaum (zirkuläre Knoten-Refs → Knoten → Baum)
-    //   2. Spiele (non-nullable TurnierInstanzId mit NoAction; SQL Server erlaubt keinen
-    //      zweiten Cascade-Pfad neben TurnierInstanz→TurnierRunde→Spiel)
+    //   2. Spiele (non-nullable TurnierInstanzId mit NoAction; SQL Server erlaubte keinen
+    //      zweiten Cascade-Pfad neben TurnierInstanz→TurnierRunde→Spiel, mit PostgreSQL (#49) unverändert)
     //   3. TurnierInstanz (cascadet TurnierRunden)
     public async Task LoeschenMitSpielen(int id, CancellationToken ct = default)
     {
