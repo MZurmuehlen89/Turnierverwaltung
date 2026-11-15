@@ -1,4 +1,5 @@
 using Fussballturnierverwaltung.Application.Auslosungen;
+using Fussballturnierverwaltung.Application.Einstellungen;
 using Fussballturnierverwaltung.Application.Ranglisten;
 using Fussballturnierverwaltung.Application.Simulation;
 using Fussballturnierverwaltung.Application.Turnierbaum;
@@ -12,6 +13,7 @@ using Fussballturnierverwaltung.Infrastructure.Wartung;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace Fussballturnierverwaltung.Infrastructure.Erweiterungen;
 
@@ -26,8 +28,11 @@ public static class InfrastrukturErweiterungen
         services.AddSingleton<DbZugriffsDiagnose>();
         // DB-Anteil je Vorgang im Ablaufprotokoll (#49) — Singleton aus demselben Grund: der Zustand hängt je Befehl/Verbindung/Kontext an der Instanz.
         services.AddSingleton<DbAnteilErfassung>();
+        // Verbindung aus den Einstellungen, eine Vorgabe aus der Konfiguration hat Vorrang (GUI-Tests, #49).
+        services.TryAddSingleton<EinstellungenService>();
+        services.AddSingleton(sp => new Verbindungseinstellung(sp.GetRequiredService<EinstellungenService>(), configuration));
         services.AddDbContext<TurnierverwaltungDbContext>((sp, options) =>
-            options.UseNpgsql(configuration.GetConnectionString("Standard"))
+            options.UseNpgsql(sp.GetRequiredService<Verbindungseinstellung>().Verbindungszeichenfolge())
                 .AddInterceptors(sp.GetRequiredService<DbZugriffsDiagnose>(), sp.GetRequiredService<DbAnteilErfassung>()));
 
         services.AddSingleton(SeedBildQuelle.Eingebettet);
