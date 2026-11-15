@@ -1,3 +1,4 @@
+using System.Globalization;
 using Fussballturnierverwaltung.Application.Stammdaten;
 using Fussballturnierverwaltung.Domain.Entitaeten.Stammdaten;
 using Fussballturnierverwaltung.Domain.Enums;
@@ -32,7 +33,11 @@ public class MannschaftRepository(TurnierverwaltungDbContext context)
     // werfen ihn deshalb nach dem Kleinschreiben weg; EF übersetzt Replace in die Abfrage, InMemory rechnet es in .NET.
     private const string KOMBINIERENDER_PUNKT = "\u0307";
 
-    private static string Vergleichsform(string text) => text.Trim().ToLower().Replace(KOMBINIERENDER_PUNKT, "");
+    // Ausdrücklich de-DE wie die Kollation der Datenbank, nicht die Kultur des Rechners (unter tr-TR würde „I“ zu „ı“).
+    // Nicht invariant: ToLowerInvariant lässt „İ“ stehen, dann fehlen die Treffer wieder (belegt per Test, #49).
+    private static readonly CultureInfo _deutsch = CultureInfo.GetCultureInfo("de-DE");
+
+    private static string Vergleichsform(string text) => text.Trim().ToLower(_deutsch).Replace(KOMBINIERENDER_PUNKT, "");
 
     public async Task<IReadOnlyList<Mannschaft>> SuchenAsync(string suchbegriff, CancellationToken ct = default)
     {
