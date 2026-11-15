@@ -16,14 +16,12 @@ namespace Fussballturnierverwaltung.Tests.Simulation;
 /// </summary>
 public class SimulationsEngineEreignisTests
 {
-    private static readonly double[] _torstilOhneKonter = [0.0, 0.5, 0.0];
-
     private static SimulationsErgebnis Simulieren(
         VorgegebenerZufall zufall, bool ausfuehrlich = true, Mannschaft? heim = null, Mannschaft? gast = null,
         params VerfahrenArt[] verfahren) =>
         SimulationsEngine.Simulieren(
             heim ?? HeimTeam(), gast ?? GastTeam(),
-            [.. verfahren.Select((art, i) => Verfahren(art, rang: i + 1))], ausfuehrlich, zufall);
+            VerfahrenKette(verfahren), ausfuehrlich, zufall);
 
     // ── Torerwartung und Poisson-Ziehung ──────────────────────────────────
 
@@ -58,16 +56,16 @@ public class SimulationsEngineEreignisTests
             .HeimToreRegulaer.Should().Be(tore);
     }
 
-    [Theory]
-    // λ = 5 (e^-λ = 0,00674): 0,5^7 · 0,9 = 0,00703 liegt darüber, · 0,9 = 0,00633 darunter → 8 Tore.
-    [InlineData(new[] { 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.9, 0.9 }, 8)]
-    public void Torerwartung_HoechstensFuenf(double[] werte, int tore)
+    [Fact]
+    public void Torerwartung_HoechstensFuenf()
     {
+        // λ = 5 (e^-λ = 0,00674): 0,5^7 · 0,9 = 0,00703 liegt darüber, · 0,9 = 0,00633 darunter → 8 Tore.
+        double[] werte = [0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.9, 0.9];
         var uebermaechtig = Team(1, off: 100, mid: 100, def: 100, heim: 100);
         var chancenlos = Team(2, off: 0, mid: 0, def: 0, ausw: 100);
 
         Simulieren(new VorgegebenerZufall(werte, danach: 0.0), ausfuehrlich: false, uebermaechtig, chancenlos)
-            .HeimToreRegulaer.Should().Be(tore);
+            .HeimToreRegulaer.Should().Be(8);
     }
 
     [Theory]
@@ -129,7 +127,7 @@ public class SimulationsEngineEreignisTests
         var zufall = new VorgegebenerZufall(
         [
             0.5, 0.0, 0.5, 0.0,
-            /* Torminuten */ 0.49, 0.5, .. _torstilOhneKonter, .. _torstilOhneKonter,
+            /* Torminuten */ 0.49, 0.5, .. TorstilOhneKonter, .. TorstilOhneKonter,
             /* Gelb Heim 1, Gast 0 */ 0.5, 0.0, 0.0, /* Minute */ 0.1,
             /* keine roten */ 0.0, 0.0
         ]);
@@ -145,7 +143,7 @@ public class SimulationsEngineEreignisTests
     public void Halbzeitstand_GasttorInMinute45ZaehltMit()
     {
         var zufall = new VorgegebenerZufall(
-            [0.5, 0.0, 0.5, 0.0, /* Torminuten */ 0.5, 0.49, .. _torstilOhneKonter, .. _torstilOhneKonter],
+            [0.5, 0.0, 0.5, 0.0, /* Torminuten */ 0.5, 0.49, .. TorstilOhneKonter, .. TorstilOhneKonter],
             danach: 0.0);
 
         var e = Simulieren(zufall);
@@ -158,7 +156,7 @@ public class SimulationsEngineEreignisTests
     {
         // Heimtor in Minute 80, Gasttor in Minute 10.
         var zufall = new VorgegebenerZufall(
-            [0.5, 0.0, 0.5, 0.0, /* Torminuten */ 0.88, 0.1, .. _torstilOhneKonter, .. _torstilOhneKonter],
+            [0.5, 0.0, 0.5, 0.0, /* Torminuten */ 0.88, 0.1, .. TorstilOhneKonter, .. TorstilOhneKonter],
             danach: 0.0);
 
         var e = Simulieren(zufall);

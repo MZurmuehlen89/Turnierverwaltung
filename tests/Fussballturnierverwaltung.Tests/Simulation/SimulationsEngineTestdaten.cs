@@ -17,6 +17,13 @@ internal static class SimulationsEngineTestdaten
     public static EntscheidungsVerfahren Verfahren(VerfahrenArt art, int rang = 1) =>
         new() { VerfahrenArt = art, Reihenfolge = rang };
 
+    /// <summary>Verfahren in der angegebenen Reihenfolge, Rang 1, 2, …</summary>
+    public static EntscheidungsVerfahren[] VerfahrenKette(params VerfahrenArt[] arten) =>
+        [.. arten.Select((art, i) => Verfahren(art, rang: i + 1))];
+
+    /// <summary>Zufallswerte einer Torbeschreibung bei <see cref="VorgegebenerZufall"/>: Stil, kein Konter, Zone.</summary>
+    public static readonly double[] TorstilOhneKonter = [0.0, 0.5, 0.0];
+
     // Gleich starke Teams, deren Torerwartung allein am Ortsfaktor hängt: das Heimteam spielt daheim mit 100 %
     // (λ = 1,95), das Gastteam auswärts mit 50 % (λ = 0,975). So fällt eine vertauschte Heim-/Gastseite auf.
     public static Mannschaft HeimTeam() => Team(1, heim: 100, ausw: 50);

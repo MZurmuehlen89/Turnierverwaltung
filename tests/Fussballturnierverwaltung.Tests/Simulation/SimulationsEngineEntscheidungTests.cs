@@ -27,7 +27,7 @@ public class SimulationsEngineEntscheidungTests
                     IReadOnlyList<SimuliertesEreignis> Ereignisse, bool? LosGewinnerHeim)
         Anwenden(VorgegebenerZufall zufall, bool ausfuehrlich, Mannschaft heim, Mannschaft gast, params VerfahrenArt[] arten) =>
         SimulationsEngine.EntscheidungsverfahrenAnwenden(
-            heim, gast, [.. arten.Select((art, i) => Verfahren(art, rang: i + 1))], ausfuehrlich, zufall);
+            heim, gast, VerfahrenKette(arten), ausfuehrlich, zufall);
 
     // ── Reihenfolge der Verfahren ─────────────────────────────────────────
 
@@ -256,14 +256,13 @@ public class SimulationsEngineEntscheidungTests
     {
         // 1:1 in der ersten Hälfte (Minuten 91 und 105), 1:0 in der zweiten (Minute 106); Karten bleiben aus.
         // Reihenfolge: Tore der ersten Hälfte, deren Minuten und Ereignisse, dann die zweite Hälfte.
-        double[] torstilOhneKonter = [0.0, 0.5, 0.0];
         double[] ohneKarten = [0.0, 0.0, 0.0, 0.0];
         var zufall = new VorgegebenerZufall(
         [
             0.73, 0.0, 0.86, 0.0,
-            /* Minuten */ 0.0, 0.9999, .. torstilOhneKonter, .. torstilOhneKonter, .. ohneKarten,
+            /* Minuten */ 0.0, 0.9999, .. TorstilOhneKonter, .. TorstilOhneKonter, .. ohneKarten,
             /* zweite Hälfte */ 0.73, 0.0, 0.0,
-            /* Minute */ 0.0, .. torstilOhneKonter, .. ohneKarten
+            /* Minute */ 0.0, .. TorstilOhneKonter, .. ohneKarten
         ]);
 
         var e = Anwenden(zufall, true, VerfahrenArt.SilverGoal);
@@ -280,9 +279,11 @@ public class SimulationsEngineEntscheidungTests
     [InlineData(80, 0.751, false)]
     [InlineData(60, 0.709, true)]   // 73 % − 10 · 0,2 % = 71 %
     [InlineData(60, 0.711, false)]
-    [InlineData(200, 0.919, true)]  // gedeckelt bei 92 %
+    // Deckel 50–92 %: bei gültigen Ratings (1–100, MannschaftValidator) nicht erreichbar, schützt nur vor
+    // ungültigen Daten – daher Ratings außerhalb des Bereichs.
+    [InlineData(200, 0.919, true)]
     [InlineData(200, 0.921, false)]
-    [InlineData(-200, 0.499, true)] // mindestens 50 %
+    [InlineData(-200, 0.499, true)]
     [InlineData(-200, 0.501, false)]
     public void Elfmeter_HeimSchiesstMitEigenemRating(int offensiv, double wurf, bool trifft)
     {
