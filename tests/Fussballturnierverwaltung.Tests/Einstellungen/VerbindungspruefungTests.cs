@@ -26,6 +26,12 @@ public class VerbindungspruefungTests
             .Should().Be("Anmeldung als „helfer“ abgelehnt: Kennwort falsch oder fehlt. Die Umgebungsvariable "
                          + "PGPASSWORD ist gesetzt und hat Vorrang vor der Kennwortdatei (pgpass.conf).");
 
+    // 28000 (pg_hba, Rolle fehlt) liegt nicht am Kennwort – der Hinweis würde in die Irre führen
+    [Fact]
+    public void Anmeldung_NichtZugelassen_PgPasswordGesetzt_OhneHinweis() =>
+        Verbindungspruefung.Ursache(Postgres(PostgresErrorCodes.InvalidAuthorizationSpecification), _ziel, pgPassword: "alt")
+            .Should().Be("Anmeldung als „helfer“ abgelehnt: Kennwort falsch oder fehlt.");
+
     // Mit Kennwort in der Verbindung spielt PGPASSWORD keine Rolle
     [Fact]
     public void Anmeldung_Abgelehnt_MitKennwort_PgPasswordGesetzt_OhneHinweis() =>

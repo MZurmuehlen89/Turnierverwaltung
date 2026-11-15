@@ -83,7 +83,8 @@ public static class Verbindungspruefung
     {
         PostgresException { SqlState: PostgresErrorCodes.InvalidPassword or PostgresErrorCodes.InvalidAuthorizationSpecification }
             => $"Anmeldung als „{ziel.Username}“ abgelehnt: Kennwort falsch oder fehlt."
-               + (string.IsNullOrEmpty(ziel.Password) && !string.IsNullOrEmpty(pgPassword)
+               + (ex is PostgresException { SqlState: PostgresErrorCodes.InvalidPassword }
+                  && string.IsNullOrEmpty(ziel.Password) && !string.IsNullOrEmpty(pgPassword)
                    ? $" Die Umgebungsvariable {PG_PASSWORD} ist gesetzt und hat Vorrang vor der Kennwortdatei (pgpass.conf)."
                    : ""),
         PostgresException { SqlState: PostgresErrorCodes.InvalidCatalogName }

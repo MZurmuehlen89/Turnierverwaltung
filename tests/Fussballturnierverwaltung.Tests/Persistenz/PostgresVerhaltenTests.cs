@@ -1,3 +1,4 @@
+using System.Globalization;
 using FluentAssertions;
 using Fussballturnierverwaltung.Domain.Entitaeten.Stammdaten;
 using Fussballturnierverwaltung.Infrastructure.Persistenz;
@@ -67,6 +68,25 @@ public sealed class PostgresVerhaltenTests(PostgresDatenbank datenbank) : IClass
 
         gefunden.Should().NotBeNull();
         gefunden!.Name.Should().Be("İstanbul Başakşehir");
+    }
+
+    // Die Rechnerkultur darf den Abgleich nicht ändern: unter tr-TR schreibt .NET „I“ klein als „ı“, PostgreSQL als „i“
+    [Fact]
+    public async Task FindenNachName_GrossgeschriebenUnterTuerkischerKultur_WirdGefunden()
+    {
+        datenbank.VerfuegbarOderUeberspringen();
+        await TuerkischeMannschaftAnlegenAsync();
+        await using var lesen = datenbank.NeuerContext();
+        var vorher = CultureInfo.CurrentCulture;
+        CultureInfo.CurrentCulture = CultureInfo.GetCultureInfo("tr-TR");
+        try
+        {
+            (await new MannschaftRepository(lesen).FindenNachNameAsync("ISTANBUL BAŞAKŞEHIR")).Should().NotBeNull();
+        }
+        finally
+        {
+            CultureInfo.CurrentCulture = vorher;
+        }
     }
 
     [Theory]
