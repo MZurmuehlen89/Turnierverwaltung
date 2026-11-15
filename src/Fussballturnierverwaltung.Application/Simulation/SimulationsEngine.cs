@@ -12,6 +12,9 @@ public static class SimulationsEngine
 {
     // ── Öffentliche Eintrittspunkte ────────────────────────────────────────
 
+    // S107: die beiden letzten Parameter haben Standardwerte; sie zu einem Wert zu bündeln hieße, alle Aufrufer
+    // und Engine-Tests umzustellen – intern laufen die vier Angaben als Paarung (#503).
+#pragma warning disable S107
     public static SimulationsErgebnis Simulieren(
         Mannschaft heim,
         Mannschaft auswaerts,
@@ -20,12 +23,11 @@ public static class SimulationsEngine
         Random rng,
         Spielortvorteil spielortvorteil = Spielortvorteil.Heim,
         int ueberraschungsfaktor = 0)
+#pragma warning restore S107
     {
-        double heimLambda = BerechneErwartetesTore(heim, auswaerts, istHeim: true,  spielortvorteil, ueberraschungsfaktor);
-        double gastLambda = BerechneErwartetesTore(auswaerts, heim, istHeim: false, spielortvorteil, ueberraschungsfaktor);
-
-        int heimTore = ZiehePoisson(heimLambda, rng);
-        int gastTore = ZiehePoisson(gastLambda, rng);
+        var paarung = new Paarung(heim, auswaerts, spielortvorteil, ueberraschungsfaktor);
+        int heimTore = ZiehePoisson(paarung.HeimTorerwartung, rng);
+        int gastTore = ZiehePoisson(paarung.GastTorerwartung, rng);
 
         // Ereignisse für Regulärzeit
         var ereignisse = ausfuehrlich
@@ -41,7 +43,7 @@ public static class SimulationsEngine
         {
             IReadOnlyList<SimuliertesEreignis> extras;
             (heimVerl, gastVerl, heimElf, gastElf, entscheidung, extras, losGewinnerHeim) =
-                EntscheidungsverfahrenAnwenden(heim, auswaerts, verfahren, ausfuehrlich, rng, spielortvorteil, ueberraschungsfaktor);
+                VerfahrenKetteAnwenden(paarung, verfahren, ausfuehrlich, rng);
             ereignisse = [.. ereignisse, .. extras];
         }
 
@@ -70,12 +72,21 @@ public static class SimulationsEngine
     /// <c>LosGewinnerHeim</c> ist nur bei Losentscheid/Münzwurf gesetzt — dort geben die Tore den Sieger
     /// nicht her (Issue #383).
     /// </summary>
+#pragma warning disable S107 // wie bei Simulieren: Standardwerte, Bündeln hieße alle Aufrufer umstellen
     public static (int? HeimVerl, int? GastVerl, int? HeimElf, int? GastElf,
                    EntscheidungArt Art, IReadOnlyList<SimuliertesEreignis> Ereignisse, bool? LosGewinnerHeim)
         EntscheidungsverfahrenAnwenden(
             Mannschaft heim, Mannschaft auswaerts,
             IReadOnlyList<EntscheidungsVerfahren> verfahren, bool ausfuehrlich, Random rng,
             Spielortvorteil spielortvorteil = Spielortvorteil.Heim, int ueberraschungsfaktor = 0)
+#pragma warning restore S107
+        => VerfahrenKetteAnwenden(
+            new Paarung(heim, auswaerts, spielortvorteil, ueberraschungsfaktor), verfahren, ausfuehrlich, rng);
+
+    private static (int? HeimVerl, int? GastVerl, int? HeimElf, int? GastElf,
+                    EntscheidungArt Art, IReadOnlyList<SimuliertesEreignis> Ereignisse, bool? LosGewinnerHeim)
+        VerfahrenKetteAnwenden(
+            Paarung paarung, IReadOnlyList<EntscheidungsVerfahren> verfahren, bool ausfuehrlich, Random rng)
     {
         int? heimVerl = null, gastVerl = null, heimElf = null, gastElf = null;
         var entscheidung = EntscheidungArt.RegulaereSpielzeit;
@@ -84,7 +95,7 @@ public static class SimulationsEngine
         foreach (var v in verfahren.OrderBy(v => v.Reihenfolge))
         {
             var (result, art, hv, gv, he, ge, extraEreignisse) =
-                VerfahrenSimulieren(v.VerfahrenArt, heim, auswaerts, rng, ausfuehrlich, spielortvorteil, ueberraschungsfaktor);
+                VerfahrenSimulieren(v.VerfahrenArt, paarung, rng, ausfuehrlich);
 
             entscheidung = art;
             // Verlängerungstore aus einem früheren Schritt (z.B. VerlaengerungKlassisch)
@@ -171,116 +182,100 @@ public static class SimulationsEngine
 
     // ── Verfahren bei Gleichstand ──────────────────────────────────────────
 
-    private static (int Result, EntscheidungArt Art,
-                    int? HV, int? GV, int? HE, int? GE,
-                    IReadOnlyList<SimuliertesEreignis> Extras)
-        VerfahrenSimulieren(
-            VerfahrenArt verfahren, Mannschaft heim, Mannschaft auswaerts,
-            Random rng, bool ausfuehrlich, Spielortvorteil spielortvorteil, int ueberraschungsfaktor)
+    /// <summary>Die beiden Mannschaften samt Rahmen des Spiels — jedes Verfahren braucht alle vier Angaben.</summary>
+    private sealed record Paarung(
+        Mannschaft Heim, Mannschaft Auswaerts, Spielortvorteil Spielortvorteil, int Ueberraschungsfaktor)
     {
-        switch (verfahren)
+        public double HeimTorerwartung =>
+            BerechneErwartetesTore(Heim, Auswaerts, istHeim: true, Spielortvorteil, Ueberraschungsfaktor);
+
+        public double GastTorerwartung =>
+            BerechneErwartetesTore(Auswaerts, Heim, istHeim: false, Spielortvorteil, Ueberraschungsfaktor);
+    }
+
+    /// <summary>Ausgang eines einzelnen Verfahrens. <see cref="Vorsprung"/> &gt; 0: Heimsieg, &lt; 0: Gastsieg,
+    /// 0: weiter mit dem nächsten Verfahren der Kette.</summary>
+    private sealed record Verfahrensausgang(
+        int Vorsprung, EntscheidungArt Art,
+        int? HeimVerl, int? GastVerl, int? HeimElf, int? GastElf,
+        IReadOnlyList<SimuliertesEreignis> Ereignisse);
+
+    private static Verfahrensausgang VerfahrenSimulieren(
+        VerfahrenArt verfahren, Paarung paarung, Random rng, bool ausfuehrlich)
+        => verfahren switch
         {
-            case VerfahrenArt.VerlaengerungKlassisch:
-                return VerlaengerungSimulieren(heim, auswaerts, rng, ausfuehrlich, spielortvorteil, ueberraschungsfaktor);
+            VerfahrenArt.VerlaengerungKlassisch => VerlaengerungSimulieren(paarung, rng, ausfuehrlich),
+            VerfahrenArt.GoldenGoal             => GoldenGoalSimulieren(paarung, rng, ausfuehrlich),
+            VerfahrenArt.SilverGoal             => SilverGoalSimulieren(paarung, rng, ausfuehrlich),
+            VerfahrenArt.Elfmeterschiessen      => ElfmeterschiessenAusgang(paarung, rng, ausfuehrlich),
+            VerfahrenArt.Losentscheid           => LosAusgang(EntscheidungArt.Losentscheid, rng),
+            VerfahrenArt.Muenzwurf              => LosAusgang(EntscheidungArt.Muenzwurf, rng),
+            _ => new(0, EntscheidungArt.RegulaereSpielzeit, null, null, null, null, [])
+        };
 
-            case VerfahrenArt.GoldenGoal:
-                return GoldenGoalSimulieren(heim, auswaerts, rng, ausfuehrlich, spielortvorteil, ueberraschungsfaktor);
+    private static Verfahrensausgang VerlaengerungSimulieren(Paarung paarung, Random rng, bool ausfuehrlich)
+    {
+        int hv = ZiehePoisson(paarung.HeimTorerwartung * (30.0 / 90.0), rng);
+        int gv = ZiehePoisson(paarung.GastTorerwartung * (30.0 / 90.0), rng);
+        var ereignisse = ausfuehrlich ? EreignisseGenerieren(hv, gv, rng, 91, 120) : [];
+        return new(hv - gv, EntscheidungArt.Verlaengerung, hv, gv, null, null, ereignisse);
+    }
 
-            case VerfahrenArt.SilverGoal:
-                return SilverGoalSimulieren(heim, auswaerts, rng, ausfuehrlich, spielortvorteil, ueberraschungsfaktor);
+    /// <summary>Minute für Minute bis zum ersten Tor, höchstens 30 Minuten.</summary>
+    private static Verfahrensausgang GoldenGoalSimulieren(Paarung paarung, Random rng, bool ausfuehrlich)
+    {
+        double heimJeMinute = paarung.HeimTorerwartung / 90.0;
+        double gastJeMinute = paarung.GastTorerwartung / 90.0;
+        for (int minute = 91; minute <= 120; minute++)
+        {
+            bool h = rng.NextDouble() < heimJeMinute;
+            bool g = rng.NextDouble() < gastJeMinute;
+            if (!h && !g) continue;
 
-            case VerfahrenArt.Elfmeterschiessen:
-            {
-                var (he, ge, extras) = ElfmeterschiessenSimulieren(heim, auswaerts, rng, ausfuehrlich);
-                return (he - ge, EntscheidungArt.Elfmeterschiessen, null, null, he, ge, extras);
-            }
-
-            case VerfahrenArt.Losentscheid:
-                return (rng.Next(2) == 0 ? 1 : -1, EntscheidungArt.Losentscheid, null, null, null, null, []);
-
-            case VerfahrenArt.Muenzwurf:
-                return (rng.Next(2) == 0 ? 1 : -1, EntscheidungArt.Muenzwurf, null, null, null, null, []);
-
-            default:
-                return (0, EntscheidungArt.RegulaereSpielzeit, null, null, null, null, []);
+            // Treffen beide in derselben Minute, entscheidet das Los, wer zuerst traf — bis #629 zählte
+            // stets das Heimtor.
+            bool heimTrifft = h && (!g || rng.Next(2) == 0);
+            IReadOnlyList<SimuliertesEreignis> ereignisse = ausfuehrlich
+                ? [new(minute, EreignisArt.GoldenGoal, heimTrifft, "Golden Goal")]
+                : [];
+            return heimTrifft
+                ? new(1,  EntscheidungArt.GoldenGoal, 1, 0, null, null, ereignisse)
+                : new(-1, EntscheidungArt.GoldenGoal, 0, 1, null, null, ereignisse);
         }
+        return new(0, EntscheidungArt.GoldenGoal, 0, 0, null, null, []);
     }
 
-    private static (int Result, EntscheidungArt Art,
-                    int? HV, int? GV, int? HE, int? GE,
-                    IReadOnlyList<SimuliertesEreignis> Extras)
-        VerlaengerungSimulieren(
-            Mannschaft heim, Mannschaft auswaerts,
-            Random rng, bool ausfuehrlich, Spielortvorteil spielortvorteil, int ueberraschungsfaktor)
+    /// <summary>Silbernes Tor: Führt ein Team nach der ersten Verlängerungshälfte (15 Min.), endet das Spiel
+    /// sofort; bei Gleichstand wird die zweite Hälfte (weitere 15 Min.) gespielt.</summary>
+    private static Verfahrensausgang SilverGoalSimulieren(Paarung paarung, Random rng, bool ausfuehrlich)
     {
-                double hL = BerechneErwartetesTore(heim, auswaerts, istHeim: true,  spielortvorteil, ueberraschungsfaktor) * (30.0 / 90.0);
-                double gL = BerechneErwartetesTore(auswaerts, heim, istHeim: false, spielortvorteil, ueberraschungsfaktor) * (30.0 / 90.0);
-                int hv = ZiehePoisson(hL, rng);
-                int gv = ZiehePoisson(gL, rng);
-                var extras = ausfuehrlich
-                    ? EreignisseGenerieren(hv, gv, rng, 91, 120)
-                    : (IReadOnlyList<SimuliertesEreignis>)[];
-                return (hv - gv, EntscheidungArt.Verlaengerung, hv, gv, null, null, extras);
+        double heimJeHaelfte = paarung.HeimTorerwartung * (15.0 / 90.0);
+        double gastJeHaelfte = paarung.GastTorerwartung * (15.0 / 90.0);
+
+        int hv1 = ZiehePoisson(heimJeHaelfte, rng);
+        int gv1 = ZiehePoisson(gastJeHaelfte, rng);
+        var ereignisse = ausfuehrlich ? EreignisseGenerieren(hv1, gv1, rng, 91, 105) : [];
+
+        if (hv1 != gv1)
+            return new(hv1 - gv1, EntscheidungArt.SilverGoal, hv1, gv1, null, null, ereignisse);
+
+        // #391: Ein Sieg erst in der zweiten Hälfte ist ein gewöhnlicher Sieg nach Verlängerung.
+        int hv2 = ZiehePoisson(heimJeHaelfte, rng);
+        int gv2 = ZiehePoisson(gastJeHaelfte, rng);
+        if (ausfuehrlich)
+            ereignisse = [.. ereignisse, .. EreignisseGenerieren(hv2, gv2, rng, 106, 120)];
+
+        return new(hv2 - gv2, EntscheidungArt.Verlaengerung, hv1 + hv2, gv1 + gv2, null, null, ereignisse);
     }
 
-    private static (int Result, EntscheidungArt Art,
-                    int? HV, int? GV, int? HE, int? GE,
-                    IReadOnlyList<SimuliertesEreignis> Extras)
-        GoldenGoalSimulieren(
-            Mannschaft heim, Mannschaft auswaerts,
-            Random rng, bool ausfuehrlich, Spielortvorteil spielortvorteil, int ueberraschungsfaktor)
+    private static Verfahrensausgang ElfmeterschiessenAusgang(Paarung paarung, Random rng, bool ausfuehrlich)
     {
-                // Simuliere bis zum ersten Tor (max. 30 Min.)
-                double hProbPerMin = BerechneErwartetesTore(heim, auswaerts, istHeim: true,  spielortvorteil, ueberraschungsfaktor) / 90.0;
-                double gProbPerMin = BerechneErwartetesTore(auswaerts, heim, istHeim: false, spielortvorteil, ueberraschungsfaktor) / 90.0;
-                int hv = 0, gv = 0;
-                var extras = new List<SimuliertesEreignis>();
-                for (int min = 91; min <= 120; min++)
-                {
-                    bool h = rng.NextDouble() < hProbPerMin;
-                    bool g = rng.NextDouble() < gProbPerMin;
-                    if (h || g)
-                    {
-                        // Treffen beide in derselben Minute, entscheidet das Los, wer zuerst traf — bis #629 zählte
-                        // stets das Heimtor.
-                        bool heimTrifft = h && (!g || rng.Next(2) == 0);
-                        if (heimTrifft) hv++; else gv++;
-                        if (ausfuehrlich) extras.Add(new(min, EreignisArt.GoldenGoal, heimTrifft, "Golden Goal"));
-                        break;
-                    }
-                }
-                return (hv - gv, EntscheidungArt.GoldenGoal, hv, gv, null, null, extras);
+        var (he, ge, ereignisse) = ElfmeterschiessenSimulieren(paarung.Heim, paarung.Auswaerts, rng, ausfuehrlich);
+        return new(he - ge, EntscheidungArt.Elfmeterschiessen, null, null, he, ge, ereignisse);
     }
 
-    private static (int Result, EntscheidungArt Art,
-                    int? HV, int? GV, int? HE, int? GE,
-                    IReadOnlyList<SimuliertesEreignis> Extras)
-        SilverGoalSimulieren(
-            Mannschaft heim, Mannschaft auswaerts,
-            Random rng, bool ausfuehrlich, Spielortvorteil spielortvorteil, int ueberraschungsfaktor)
-    {
-                // Silbernes Tor: Führt ein Team nach der ersten Verlängerungshälfte (15 Min.), endet
-                // das Spiel sofort; bei Gleichstand wird die zweite Hälfte (weitere 15 Min.) gespielt.
-                double hL15 = BerechneErwartetesTore(heim, auswaerts, istHeim: true,  spielortvorteil, ueberraschungsfaktor) * (15.0 / 90.0);
-                double gL15 = BerechneErwartetesTore(auswaerts, heim, istHeim: false, spielortvorteil, ueberraschungsfaktor) * (15.0 / 90.0);
-
-                int hv1 = ZiehePoisson(hL15, rng);
-                int gv1 = ZiehePoisson(gL15, rng);
-                var extras = ausfuehrlich
-                    ? EreignisseGenerieren(hv1, gv1, rng, 91, 105)
-                    : (IReadOnlyList<SimuliertesEreignis>)[];
-
-                if (hv1 != gv1)
-                    return (hv1 - gv1, EntscheidungArt.SilverGoal, hv1, gv1, null, null, extras);
-
-                // #391: Ein Sieg erst in der zweiten Hälfte ist ein gewöhnlicher Sieg nach Verlängerung.
-                int hv2 = ZiehePoisson(hL15, rng);
-                int gv2 = ZiehePoisson(gL15, rng);
-                if (ausfuehrlich)
-                    extras = [.. extras, .. EreignisseGenerieren(hv2, gv2, rng, 106, 120)];
-
-                return (hv2 - gv2, EntscheidungArt.Verlaengerung, hv1 + hv2, gv1 + gv2, null, null, extras);
-    }
+    private static Verfahrensausgang LosAusgang(EntscheidungArt art, Random rng)
+        => new(rng.Next(2) == 0 ? 1 : -1, art, null, null, null, null, []);
 
     // ── Elfmeterschießen ──────────────────────────────────────────────────
 
