@@ -27,14 +27,21 @@ public class MannschaftRepository(TurnierverwaltungDbContext context)
             .Include(m => m.Land)
             .FirstOrDefaultAsync(m => m.Id == id, ct);
 
+    // PostgreSQL (ICU) schreibt „İ“ klein als „i“ + kombinierenden Punkt (U+0307), .NET als schlichtes „i“ – ohne den
+    // Punkt fand der Import „İstanbul Başakşehir“ nicht wieder und die Suche nach „istanbul“ nichts (#49). Beide Seiten
+    // werfen ihn deshalb nach dem Kleinschreiben weg; EF übersetzt Replace in die Abfrage, InMemory rechnet es in .NET.
+    private const string KOMBINIERENDER_PUNKT = "\u0307";
+
+    private static string Vergleichsform(string text) => text.Trim().ToLower().Replace(KOMBINIERENDER_PUNKT, "");
+
     public async Task<IReadOnlyList<Mannschaft>> SuchenAsync(string suchbegriff, CancellationToken ct = default)
     {
-        var term = suchbegriff.Trim().ToLower();
+        var term = Vergleichsform(suchbegriff);
         return await Context.Mannschaften
             .Include(m => m.Land)
-            .Where(m => m.Name.ToLower().Contains(term)
-                     || m.Kurzname.ToLower().Contains(term)
-                     || m.Land.Name.ToLower().Contains(term)
+            .Where(m => m.Name.ToLower().Replace(KOMBINIERENDER_PUNKT, "").Contains(term)
+                     || m.Kurzname.ToLower().Replace(KOMBINIERENDER_PUNKT, "").Contains(term)
+                     || m.Land.Name.ToLower().Replace(KOMBINIERENDER_PUNKT, "").Contains(term)
                      || m.Land.FifaCode.ToLower().Contains(term))
             .OrderBy(m => m.Name)
             .ToListAsync(ct);
@@ -55,9 +62,9 @@ public class MannschaftRepository(TurnierverwaltungDbContext context)
 
     public async Task<Mannschaft?> FindenNachNameAsync(string name, CancellationToken ct = default)
     {
-        var nameLower = name.Trim().ToLower();
+        var vergleichsname = Vergleichsform(name);
         return await Context.Mannschaften
-            .FirstOrDefaultAsync(m => m.Name.ToLower() == nameLower, ct);
+            .FirstOrDefaultAsync(m => m.Name.ToLower().Replace(KOMBINIERENDER_PUNKT, "") == vergleichsname, ct);
     }
 
     public async Task<IReadOnlyList<Mannschaft>> AlleNachTurnierfilterAsync(

@@ -52,6 +52,46 @@ public sealed class PostgresVerhaltenTests(PostgresDatenbank datenbank) : IClass
         treffer.Select(m => m.Name).Should().Contain("Österreich U21");
     }
 
+    // PostgreSQL (ICU) schreibt „İ“ klein als „i“ + kombinierender Punkt (U+0307), .NET als schlichtes „i“ – der
+    // Namensabgleich beim Import fand „İstanbul Başakşehir“ deshalb nicht mehr (GUI-Test ImportExportTests, #49).
+    [Theory]
+    [InlineData("İstanbul Başakşehir")]
+    [InlineData("istanbul başakşehir")]
+    public async Task FindenNachName_TuerkischesI_WirdGefunden(string name)
+    {
+        datenbank.VerfuegbarOderUeberspringen();
+        await TuerkischeMannschaftAnlegenAsync();
+        await using var lesen = datenbank.NeuerContext();
+
+        var gefunden = await new MannschaftRepository(lesen).FindenNachNameAsync(name);
+
+        gefunden.Should().NotBeNull();
+        gefunden!.Name.Should().Be("İstanbul Başakşehir");
+    }
+
+    [Theory]
+    [InlineData("istanbul")]
+    [InlineData("İstanbul")]
+    public async Task Mannschaftssuche_TuerkischesI_WirdGefunden(string suchbegriff)
+    {
+        datenbank.VerfuegbarOderUeberspringen();
+        await TuerkischeMannschaftAnlegenAsync();
+        await using var lesen = datenbank.NeuerContext();
+
+        (await new MannschaftRepository(lesen).SuchenAsync(suchbegriff)).Select(m => m.Name)
+            .Should().Contain("İstanbul Başakşehir");
+    }
+
+    private async Task TuerkischeMannschaftAnlegenAsync()
+    {
+        await using var context = datenbank.NeuerContext();
+        if (await context.Mannschaften.AnyAsync(m => m.Kurzname == "IBFK")) return;
+        var verband = new Verband { Name = "Türkeiprobe", Kurzname = "TUERK" };
+        var land = new Land { Name = "Türkei (Probe)", Kurzname = "TUR", FifaCode = "TRP", Verband = verband };
+        context.Mannschaften.Add(new Mannschaft { Name = "İstanbul Başakşehir", Kurzname = "IBFK", Land = land });
+        await context.SaveChangesAsync();
+    }
+
     [Fact]
     public async Task Verbindungspruefung_FunktionierendeVerbindung_KeineUrsache()
     {
