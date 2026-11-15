@@ -12,9 +12,7 @@ public static class SimulationsEngine
 {
     // ── Öffentliche Eintrittspunkte ────────────────────────────────────────
 
-    // S107: die beiden letzten Parameter haben Standardwerte; sie zu einem Wert zu bündeln hieße, alle Aufrufer
-    // und Engine-Tests umzustellen – intern laufen die vier Angaben als Paarung (#503).
-#pragma warning disable S107
+#pragma warning disable S107 // zwei Parameter mit Standardwerten; Bündeln hieße alle Aufrufer und Tests umstellen, intern läuft es als Paarung (#503)
     public static SimulationsErgebnis Simulieren(
         Mannschaft heim,
         Mannschaft auswaerts,
@@ -183,7 +181,7 @@ public static class SimulationsEngine
     // ── Verfahren bei Gleichstand ──────────────────────────────────────────
 
     /// <summary>Die beiden Mannschaften samt Rahmen des Spiels — jedes Verfahren braucht alle vier Angaben.</summary>
-    private sealed record Paarung(
+    private readonly record struct Paarung(
         Mannschaft Heim, Mannschaft Auswaerts, Spielortvorteil Spielortvorteil, int Ueberraschungsfaktor)
     {
         public double HeimTorerwartung =>
@@ -195,7 +193,7 @@ public static class SimulationsEngine
 
     /// <summary>Ausgang eines einzelnen Verfahrens. <see cref="Vorsprung"/> &gt; 0: Heimsieg, &lt; 0: Gastsieg,
     /// 0: weiter mit dem nächsten Verfahren der Kette.</summary>
-    private sealed record Verfahrensausgang(
+    private readonly record struct Verfahrensausgang(
         int Vorsprung, EntscheidungArt Art,
         int? HeimVerl, int? GastVerl, int? HeimElf, int? GastElf,
         IReadOnlyList<SimuliertesEreignis> Ereignisse);

@@ -71,8 +71,11 @@ internal sealed class Elfmeterschiessen
     {
         _minute++;
         bool tor = _rng.NextDouble() < (istHeim ? _trefferHeim : _trefferGast);
-        if (tor && istHeim) _heim++;
-        if (tor && !istHeim) _gast++;
+        if (tor)
+        {
+            if (istHeim) _heim++;
+            else _gast++;
+        }
         if (_ausfuehrlich)
             _ereignisse.Add(new(
                 _minute,

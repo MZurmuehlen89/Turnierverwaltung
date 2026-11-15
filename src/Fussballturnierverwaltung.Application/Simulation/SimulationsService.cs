@@ -13,9 +13,7 @@ using Microsoft.Extensions.Logging;
 
 namespace Fussballturnierverwaltung.Application.Simulation;
 
-// S107: sechs Abhängigkeiten, aber eine Verantwortung (Spiele würfeln und speichern); Zufallsquelle und Logger
-// sind Querschnitt, ein eigener Dienst nur für den Simulationslauf brächte keine Trennung (#503).
-#pragma warning disable S107
+#pragma warning disable S107 // sechs Abhängigkeiten, eine Verantwortung (Spiele würfeln und speichern); Zufallsquelle und Logger sind Querschnitt (#503)
 public class SimulationsService(
     ISpielRepository spielRepository,
     ITurnierInstanzRepository instanzRepository,
@@ -227,8 +225,6 @@ public class SimulationsService(
         int? seed = null,
         CancellationToken ct = default)
     {
-        var rng = new Random(seed ?? zufallsquelle.SeedZiehen());
-
         // Issue #346: Hinspiele vor Rückspielen — ein K.-o.-Rückspiel braucht das Hinspiel-Ergebnis.
         var offene = new List<Spiel>();
         foreach (var spielId in spielIds)
@@ -238,10 +234,10 @@ public class SimulationsService(
             offene.Add(spiel);
         }
 
-        int simuliert = await MehrereSimulierenAsync(
+        int simuliert = await OffeneSimulierenAsync(
             // #479: frühere Runden zuerst — die Auswahl der Mannschaftsansicht reicht über mehrere Runden.
-            offene.OrderBy(s => s.TurnierRunde.Reihenfolge).ThenBy(s => s.IstRueckspiel).ThenBy(s => s.Spielnummer)
-                .Select(s => s.Id), rng, ct);
+            [.. offene.OrderBy(s => s.TurnierRunde.Reihenfolge).ThenBy(s => s.IstRueckspiel).ThenBy(s => s.Spielnummer)],
+            seed, ct);
 
         logger.LogInformation("Auswahl: {Anz} Spiel(e) simuliert.", simuliert);
         return simuliert;
