@@ -114,9 +114,10 @@ public sealed class AppSession : IDisposable
         {
             MainWindow.Close();
         }
-        catch (Exception e) when (e is COMException or ElementNotAvailableException)
+        catch (Exception e) when (e is COMException or ElementNotAvailableException or MethodNotSupportedException)
         {
-            // Window already gone or not responding — the kill below takes over.
+            // Window already gone or not responding — the kill below takes over. MethodNotSupported: the first window
+            // was a start-up window that has closed meanwhile, its element no longer offers the window pattern.
         }
 
         if (!_process.WaitForExit(_options.ShutdownTimeout))
