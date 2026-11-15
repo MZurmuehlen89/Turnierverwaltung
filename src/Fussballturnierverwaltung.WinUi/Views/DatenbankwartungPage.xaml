@@ -2,9 +2,11 @@
 <UserControl
     x:Class="Fussballturnierverwaltung.WinUi.Views.DatenbankwartungPage"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:views="using:Fussballturnierverwaltung.WinUi.Views">
 
-    <!-- Issue #370: Migrationsstand + "Prüfen / ergänzen" (Ribbon). Ergebnis als Protokoll, kein Dialog. -->
+    <!-- Issue #370: Migrationsstand + "Prüfen / ergänzen" (Ribbon). Ergebnis als Protokoll, kein Dialog.
+         #49: Karte „Verbindung“, Speichern/Abbrechen in der Ribbon-Gruppe „Verbindung“. -->
 
     <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
         <StackPanel MaxWidth="680" Margin="32,28" HorizontalAlignment="Left">
@@ -32,20 +34,28 @@
                            FontSize="13" TextWrapping="Wrap" IsTextSelectionEnabled="True" />
             </Border>
 
+            <!-- ── Karte: Verbindung (#49) ── -->
+            <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1"
+                    CornerRadius="6" Padding="20,16" Margin="0,0,0,16">
+                <StackPanel>
+                    <TextBlock Text="VERBINDUNG" FontSize="11" FontWeight="Bold" Opacity="0.6" Margin="0,0,0,12" />
+                    <views:VerbindungsFelder DataContext="{Binding Verbindung}" />
+                </StackPanel>
+            </Border>
+
             <!-- ── Karte: Status ── -->
             <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
                     BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1"
                     CornerRadius="6" Padding="20,16" Margin="0,0,0,16">
                 <StackPanel>
                     <TextBlock Text="STATUS" FontSize="11" FontWeight="Bold" Opacity="0.6" Margin="0,0,0,12" />
-                    <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto" ColumnSpacing="16" RowSpacing="6">
-                        <TextBlock Grid.Row="0" Grid.Column="0" Text="Server" FontSize="13" Opacity="0.7" />
-                        <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding Server}" FontSize="13" IsTextSelectionEnabled="True" />
-                        <TextBlock Grid.Row="1" Grid.Column="0" Text="Datenbank" FontSize="13" Opacity="0.7" />
-                        <TextBlock Grid.Row="1" Grid.Column="1" AutomationProperties.AutomationId="Datenbankwartung.Datenbank"
-                                   Text="{Binding Datenbank}" FontSize="13" IsTextSelectionEnabled="True" />
-                        <TextBlock Grid.Row="2" Grid.Column="0" Text="Migrationen" FontSize="13" Opacity="0.7" />
-                        <TextBlock Grid.Row="2" Grid.Column="1" AutomationProperties.AutomationId="Datenbankwartung.Migrationen"
+                    <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto" ColumnSpacing="16" RowSpacing="6">
+                        <TextBlock Grid.Row="0" Grid.Column="0" Text="PostgreSQL" FontSize="13" Opacity="0.7" />
+                        <TextBlock Grid.Row="0" Grid.Column="1" AutomationProperties.AutomationId="Datenbankwartung.Version"
+                                   Text="{Binding PostgreSqlVersion}" FontSize="13" IsTextSelectionEnabled="True" />
+                        <TextBlock Grid.Row="1" Grid.Column="0" Text="Migrationen" FontSize="13" Opacity="0.7" />
+                        <TextBlock Grid.Row="1" Grid.Column="1" AutomationProperties.AutomationId="Datenbankwartung.Migrationen"
                                    Text="{Binding MigrationsStand}" FontSize="13" />
                     </Grid>
                 </StackPanel>

@@ -19,10 +19,12 @@ using Fussballturnierverwaltung.WinUi.Dialoge;
 using Fussballturnierverwaltung.WinUi.Helpers;
 using Fussballturnierverwaltung.WinUi.Navigation;
 using Fussballturnierverwaltung.WinUi.ViewModels;
+using Fussballturnierverwaltung.WinUi.Views;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.UI.Xaml;
+using Npgsql;
 using Serilog;
 
 namespace Fussballturnierverwaltung.WinUi;
@@ -98,6 +100,7 @@ public partial class App : global::Microsoft.UI.Xaml.Application
         builder.Services.AddScoped<RanglisteValidator>();
         builder.Services.AddScoped<SpielErgebnisValidator>();
         builder.Services.AddScoped<ImportValidator>();
+        builder.Services.AddScoped<DatenbankVerbindungValidator>();
         builder.Services.AddScoped<MannschaftService>();
         builder.Services.AddScoped<LandService>();
         builder.Services.AddScoped<VerbandService>();
@@ -174,6 +177,7 @@ public partial class App : global::Microsoft.UI.Xaml.Application
         builder.Services.AddTransient<EinzelspielSimulationsViewModel>();
         builder.Services.AddTransient<ImportExportViewModel>();
         builder.Services.AddTransient<DatenbankwartungViewModel>();
+        builder.Services.AddTransient<VerbindungsFormularViewModel>();
 
         // Navigation & Hauptfenster
         // AusgewaehlteTurnierInstanzService (#299) haelt die Instanzauswahl geteilt zwischen "Turniere" und
@@ -199,34 +203,75 @@ public partial class App : global::Microsoft.UI.Xaml.Application
             _host.Services.GetRequiredService<ThemeService>(),
             _host.Services.GetRequiredService<IDialogService>());
         _window.Activate();
+        // Das Startfenster (#49) lief ohne Hauptfenster – ab jetzt beendet das Schließen des letzten Fensters die App.
+        DispatcherShutdownMode = DispatcherShutdownMode.OnLastWindowClose;
     }
 
     /// <summary>Issue #370: legt die Datenbank bei Bedarf an, spielt fehlende Migrationen ein und ergänzt fehlende
-    /// Stammdaten. Schlägt das fehl (z. B. PostgreSQL nicht erreichbar), gibt es noch kein Hauptfenster und damit
-    /// keinen ContentDialog — daher native Meldung und sauberes Beenden statt Absturz.</summary>
+    /// Stammdaten. Kommt keine Verbindung zustande, öffnet sich das Startfenster (#49), bis sie steht oder der Nutzer
+    /// beendet. Andere Fehler (oder eine von außen vorgegebene Verbindung) enden wie bisher mit einer nativen Meldung,
+    /// weil es noch kein Hauptfenster und damit keinen ContentDialog gibt.</summary>
     private async Task<bool> DatenbankVorbereitenAsync()
     {
+        while (true)
+        {
+            var fehler = await DatenbankPruefenAsync();
+            if (fehler is null) return true;
+
+            var verbindungsfehler = Verbindungspruefung.VerbindungsfehlerFinden(fehler);
+            var einstellung = _host.Services.GetRequiredService<Verbindungseinstellung>();
+            if (verbindungsfehler is null || einstellung.IstVorgegeben)
+            {
+                FehlerMeldenUndBeenden(fehler);
+                return false;
+            }
+            if (!await StartfensterZeigenAsync(verbindungsfehler, einstellung))
+            {
+                Exit();
+                return false;
+            }
+        }
+    }
+
+    private async Task<Exception?> DatenbankPruefenAsync()
+    {
         using var scope = _host.Services.CreateScope();
-        var wartung = scope.ServiceProvider.GetRequiredService<DatenbankWartungService>();
         try
         {
-            await wartung.PruefenUndErgaenzenAsync();
-            return true;
+            await scope.ServiceProvider.GetRequiredService<DatenbankWartungService>().PruefenUndErgaenzenAsync();
+            return null;
         }
         catch (Exception ex)
         {
             Log.Error(ex, "Datenbank konnte beim Start nicht vorbereitet werden.");
-            var (server, datenbank) = wartung.Verbindungsziel();
-            var logOrdner = Datenpfade.Logs;
-            NativeMeldung.FehlerAnzeigen(
-                "Turnierverwaltung – Datenbankfehler",
-                $"Die Datenbank konnte nicht geöffnet oder eingerichtet werden.\n\n"
-                + $"Server: {server}\nDatenbank: {datenbank}\n\n"
-                + $"Ursache: {ex.GetBaseException().Message}\n\n"
-                + $"Bitte prüfen, ob der PostgreSQL-Dienst läuft und erreichbar ist. Details stehen im Log:\n{logOrdner}\n\n"
-                + "Die Anwendung wird beendet.");
-            Exit();
-            return false;
+            return ex;
         }
+    }
+
+    private async Task<bool> StartfensterZeigenAsync(Exception verbindungsfehler, Verbindungseinstellung einstellung)
+    {
+        var ursache = Verbindungspruefung.Ursache(
+            verbindungsfehler, new NpgsqlConnectionStringBuilder(einstellung.Verbindungszeichenfolge()));
+        // Ohne Hauptfenster ist das Startfenster das letzte – sein Schließen darf die App nicht schon beenden.
+        DispatcherShutdownMode = DispatcherShutdownMode.OnExplicitShutdown;
+        var fenster = new VerbindungsFenster(
+            _host.Services.GetRequiredService<VerbindungsFormularViewModel>(), ursache,
+            _host.Services.GetRequiredService<ThemeService>().AktuellerModus);
+        fenster.Activate();
+        return await fenster.ErgebnisAsync;
+    }
+
+    private void FehlerMeldenUndBeenden(Exception fehler)
+    {
+        using var scope = _host.Services.CreateScope();
+        var (server, datenbank) = scope.ServiceProvider.GetRequiredService<DatenbankWartungService>().Verbindungsziel();
+        NativeMeldung.FehlerAnzeigen(
+            "Turnierverwaltung – Datenbankfehler",
+            $"Die Datenbank konnte nicht geöffnet oder eingerichtet werden.\n\n"
+            + $"Server: {server}\nDatenbank: {datenbank}\n\n"
+            + $"Ursache: {fehler.GetBaseException().Message}\n\n"
+            + $"Details stehen im Log:\n{Datenpfade.Logs}\n\n"
+            + "Die Anwendung wird beendet.");
+        Exit();
     }
 }

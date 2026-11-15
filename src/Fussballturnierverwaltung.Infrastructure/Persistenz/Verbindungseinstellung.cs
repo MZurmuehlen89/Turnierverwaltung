@@ -31,6 +31,8 @@ public class Verbindungseinstellung(EinstellungenService einstellungen, IConfigu
         var alle = einstellungen.Laden();
         alle.Datenbank = MitKennwort(verbindung, alle.Datenbank.KennwortVerschluesselt, neuesKennwort);
         einstellungen.Speichern(alle);
+        // Das Startfenster arbeitet ohne Neustart weiter und braucht danach die neue Verbindung.
+        _verbindungszeichenfolge = null;
     }
 
     /// <summary>Zeichenfolge für eine noch nicht gespeicherte Eingabe, etwa zum Prüfen vor dem Speichern.</summary>

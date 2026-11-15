@@ -7,8 +7,7 @@ using Npgsql;
 namespace Fussballturnierverwaltung.Infrastructure.Wartung;
 
 public record DatenbankStatus(
-    string Server,
-    string Datenbank,
+    string Version,
     int AnzahlEingespielteMigrationen,
     IReadOnlyList<string> AusstehendeMigrationen);
 
@@ -45,10 +44,22 @@ public class DatenbankWartungService
 
     public async Task<DatenbankStatus> StatusAbrufenAsync(CancellationToken ct = default)
     {
-        var (server, datenbank) = Verbindungsziel();
         var eingespielt = await _context.Database.GetAppliedMigrationsAsync(ct);
         var ausstehend = await _context.Database.GetPendingMigrationsAsync(ct);
-        return new DatenbankStatus(server, datenbank, eingespielt.Count(), [.. ausstehend]);
+        return new DatenbankStatus(await VersionAsync(ct), eingespielt.Count(), [.. ausstehend]);
+    }
+
+    private async Task<string> VersionAsync(CancellationToken ct)
+    {
+        await _context.Database.OpenConnectionAsync(ct);
+        try
+        {
+            return ((NpgsqlConnection)_context.Database.GetDbConnection()).PostgreSqlVersion.ToString();
+        }
+        finally
+        {
+            await _context.Database.CloseConnectionAsync();
+        }
     }
 
     /// <summary>Legt die Datenbank bei Bedarf an, spielt fehlende Migrationen ein und ergänzt danach fehlende

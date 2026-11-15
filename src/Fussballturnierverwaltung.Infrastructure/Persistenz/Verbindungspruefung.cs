@@ -50,6 +50,21 @@ public static class Verbindungspruefung
         await verbindung.OpenAsync(ct);
     }
 
+    /// <summary>Der Verbindungsfehler in der Kette der inneren Ausnahmen – <c>null</c>, wenn die Ausnahme etwas
+    /// anderes ist (etwa eine fehlerhafte Migration), bei dem andere Zugangsdaten nicht helfen.</summary>
+    public static Exception? VerbindungsfehlerFinden(Exception ex)
+    {
+        for (var aktuell = ex; aktuell is not null; aktuell = aktuell.InnerException)
+        {
+            if (aktuell is PostgresException postgres)
+                return postgres.SqlState is PostgresErrorCodes.InvalidPassword
+                    or PostgresErrorCodes.InvalidAuthorizationSpecification
+                    or PostgresErrorCodes.InvalidCatalogName ? postgres : null;
+            if (aktuell is NpgsqlException or TimeoutException) return aktuell;
+        }
+        return null;
+    }
+
     public static string Ursache(Exception ex, NpgsqlConnectionStringBuilder ziel) => ex switch
     {
         PostgresException { SqlState: PostgresErrorCodes.InvalidPassword or PostgresErrorCodes.InvalidAuthorizationSpecification }

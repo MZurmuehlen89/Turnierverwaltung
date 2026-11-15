@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<Window
+    x:Class="Fussballturnierverwaltung.WinUi.Views.VerbindungsFenster"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:views="using:Fussballturnierverwaltung.WinUi.Views"
+    Title="Turnierverwaltung – Datenbankverbindung">
+
+    <!-- #49: öffnet sich vor dem Hauptfenster, wenn beim Start keine Verbindung zustande kommt. Background explizit,
+         sonst folgt der Fensterhintergrund dem System- statt dem App-Theme (siehe WinUi/CLAUDE.md). -->
+    <Grid x:Name="Wurzel" RowDefinitions="*,Auto" Background="{ThemeResource ApplicationPageBackgroundThemeBrush}">
+        <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+            <StackPanel Padding="24,20,24,16">
+                <TextBlock AutomationProperties.AutomationId="Startfenster.Titel" Text="Keine Verbindung zur Datenbank"
+                           FontSize="20" FontWeight="SemiBold" Margin="0,0,0,6" />
+                <TextBlock FontSize="13" Opacity="0.75" TextWrapping="Wrap" Margin="0,0,0,16"
+                           Text="Bitte die Zugangsdaten für PostgreSQL prüfen. Läuft nur der Dienst nicht, ihn starten und erneut verbinden." />
+                <views:VerbindungsFelder x:Name="Felder" />
+            </StackPanel>
+        </ScrollViewer>
+        <Border Grid.Row="1" Padding="24,12" BorderThickness="0,1,0,0"
+                Background="{ThemeResource LayerFillColorDefaultBrush}"
+                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}">
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8">
+                <Button x:Name="BeendenKnopf" AutomationProperties.AutomationId="Startfenster.Beenden" Content="Beenden"
+                        MinWidth="96" Click="Beenden_Click" />
+                <Button x:Name="VerbindenKnopf" AutomationProperties.AutomationId="Startfenster.Verbinden" Content="Verbinden"
+                        MinWidth="96" Style="{StaticResource AccentButtonStyle}" Click="Verbinden_Click" />
+            </StackPanel>
+        </Border>
+    </Grid>
+</Window>

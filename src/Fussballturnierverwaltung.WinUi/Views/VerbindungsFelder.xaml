@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<UserControl
+    x:Class="Fussballturnierverwaltung.WinUi.Views.VerbindungsFelder"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:views="using:Fussballturnierverwaltung.WinUi.Views">
+
+    <!-- #49: Felder der Datenbankverbindung, DataContext = VerbindungsFormularViewModel. Gemeinsam für die Karte
+         auf der Seite „Datenbankwartung“ und das Startfenster bei einem Verbindungsfehler. -->
+    <StackPanel>
+        <Border Background="{ThemeResource CardBackgroundFillColorSecondaryBrush}"
+                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1"
+                CornerRadius="4" Padding="12,8" Margin="0,0,0,12"
+                Visibility="{Binding IstGesperrt, Converter={StaticResource BoolToVisibility}}">
+            <TextBlock AutomationProperties.AutomationId="Verbindung.Vorgabe" FontSize="13" TextWrapping="Wrap"
+                       Text="Die Verbindung wird von der Umgebungsvariable ConnectionStrings__Standard vorgegeben (GUI-Tests). Die Felder zeigen die Werte daraus und sind gesperrt." />
+        </Border>
+
+        <Grid ColumnDefinitions="2*,*" ColumnSpacing="14" RowSpacing="12" RowDefinitions="Auto,Auto,Auto">
+            <StackPanel Grid.Row="0" Grid.Column="0">
+                <TextBlock Text="Server" FontSize="12" Margin="0,0,0,3" />
+                <TextBox AutomationProperties.AutomationId="Verbindung.Server"
+                         Text="{Binding Server, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                         IsEnabled="{Binding IstBearbeitbar}"
+                         views:Feldmarkierung.Meldungen="{Binding Fehler}" views:Feldmarkierung.Feld="Server" />
+                <TextBlock Text="Rechnername oder IP; auf dem Host „localhost“" FontSize="11" Opacity="0.7" Margin="0,3,0,0" />
+            </StackPanel>
+            <StackPanel Grid.Row="0" Grid.Column="1">
+                <TextBlock Text="Port" FontSize="12" Margin="0,0,0,3" />
+                <TextBox AutomationProperties.AutomationId="Verbindung.Port"
+                         Text="{Binding Port, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                         IsEnabled="{Binding IstBearbeitbar}" InputScope="Number"
+                         views:Feldmarkierung.Meldungen="{Binding Fehler}" views:Feldmarkierung.Feld="Port" />
+                <TextBlock Text="Standard 5432" FontSize="11" Opacity="0.7" Margin="0,3,0,0" />
+            </StackPanel>
+            <StackPanel Grid.Row="1" Grid.Column="0">
+                <TextBlock Text="Datenbank" FontSize="12" Margin="0,0,0,3" />
+                <TextBox AutomationProperties.AutomationId="Verbindung.Datenbank"
+                         Text="{Binding Datenbank, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                         IsEnabled="{Binding IstBearbeitbar}"
+                         views:Feldmarkierung.Meldungen="{Binding Fehler}" views:Feldmarkierung.Feld="Datenbank" />
+                <TextBlock Text="Fehlt sie, wird sie beim Start angelegt" FontSize="11" Opacity="0.7" Margin="0,3,0,0" />
+            </StackPanel>
+            <StackPanel Grid.Row="1" Grid.Column="1">
+                <TextBlock Text="Benutzer" FontSize="12" Margin="0,0,0,3" />
+                <TextBox AutomationProperties.AutomationId="Verbindung.Benutzer"
+                         Text="{Binding Benutzer, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                         IsEnabled="{Binding IstBearbeitbar}"
+                         views:Feldmarkierung.Meldungen="{Binding Fehler}" views:Feldmarkierung.Feld="Benutzer" />
+            </StackPanel>
+            <StackPanel Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="2">
+                <TextBlock Text="Kennwort" FontSize="12" Margin="0,0,0,3" />
+                <PasswordBox AutomationProperties.AutomationId="Verbindung.Kennwort"
+                             Password="{Binding Kennwort, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                             IsEnabled="{Binding IstBearbeitbar}" />
+                <TextBlock Text="{Binding KennwortHinweis}" FontSize="11" Opacity="0.7" Margin="0,3,0,0" TextWrapping="Wrap" />
+            </StackPanel>
+        </Grid>
+
+        <Border Background="{ThemeResource SystemFillColorCriticalBackgroundBrush}"
+                BorderBrush="{ThemeResource SystemFillColorCriticalBrush}" BorderThickness="1"
+                CornerRadius="4" Padding="12,8" Margin="0,12,0,0"
+                Visibility="{Binding Fehlermeldung, Converter={StaticResource NullToCollapsed}}">
+            <TextBlock AutomationProperties.AutomationId="Verbindung.Fehlermeldung"
+                       Text="{Binding Fehlermeldung}" Foreground="{ThemeResource SystemFillColorCriticalBrush}"
+                       FontSize="13" TextWrapping="Wrap" IsTextSelectionEnabled="True" />
+        </Border>
+        <TextBlock Text="Verbindung wird geprüft …" FontSize="13" Margin="0,10,0,0"
+                   Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"
+                   Visibility="{Binding Laeuft, Converter={StaticResource BoolToVisibility}}" />
+    </StackPanel>
+</UserControl>
