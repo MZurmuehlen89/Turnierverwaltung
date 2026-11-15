@@ -201,6 +201,16 @@ public class SimulationsService(
         return simuliert;
     }
 
+    /// <summary>Gemeinsamer Ablauf der Massensimulationen: ist nichts offen, bleibt es bei 0 (ohne Seed zu ziehen);
+    /// sonst ein <see cref="Random"/> für den ganzen Vorgang und ein Block über alle Spiele.</summary>
+    private async Task<int> OffeneSimulierenAsync(IReadOnlyCollection<Spiel> offene, int? seed, CancellationToken ct)
+    {
+        if (offene.Count == 0) return 0;
+
+        var rng = new Random(seed ?? zufallsquelle.SeedZiehen());
+        return await MehrereSimulierenAsync(offene.Select(s => s.Id), rng, ct);
+    }
+
     // ── Eine freie Auswahl ────────────────────────────────────────────────
 
     /// <summary>
@@ -253,10 +263,8 @@ public class SimulationsService(
             .Where(s => s.Spieltag == spieltag && s.Status != SpielStatus.Abgeschlossen)
             .ToList();
 
-        if (!offene.Any()) return 0;
-
-        var rng = new Random(seed ?? zufallsquelle.SeedZiehen());
-        int simuliert = await MehrereSimulierenAsync(offene.Select(s => s.Id), rng, ct);
+        int simuliert = await OffeneSimulierenAsync(offene, seed, ct);
+        if (simuliert == 0) return 0;
 
         logger.LogInformation("Spieltag {Tag} (Runde {Id}): {Anz} Spiel(e) simuliert.",
             spieltag, turnierRundeId, simuliert);
@@ -283,10 +291,8 @@ public class SimulationsService(
                      && gruppenTeamIds.Contains(s.HeimMannschaftId.Value))
             .ToList();
 
-        if (!offene.Any()) return 0;
-
-        var rng = new Random(seed ?? zufallsquelle.SeedZiehen());
-        int simuliert = await MehrereSimulierenAsync(offene.Select(s => s.Id), rng, ct);
+        int simuliert = await OffeneSimulierenAsync(offene, seed, ct);
+        if (simuliert == 0) return 0;
 
         logger.LogInformation("Gruppe (Runde {Id}): {Anz} Spiel(e) simuliert.", turnierRundeId, simuliert);
         return simuliert;
@@ -313,10 +319,8 @@ public class SimulationsService(
                      && gruppenTeamIds.Contains(s.HeimMannschaftId.Value))
             .ToList();
 
-        if (!offene.Any()) return 0;
-
-        var rng = new Random(seed ?? zufallsquelle.SeedZiehen());
-        int simuliert = await MehrereSimulierenAsync(offene.Select(s => s.Id), rng, ct);
+        int simuliert = await OffeneSimulierenAsync(offene, seed, ct);
+        if (simuliert == 0) return 0;
 
         logger.LogInformation("Spieltag {Tag} (Gruppe, Runde {Id}): {Anz} Spiel(e) simuliert.",
             spieltag, turnierRundeId, simuliert);
@@ -345,25 +349,28 @@ public class SimulationsService(
             .Where(s => s.IstRueckspiel == istRueckrunde && s.Status != SpielStatus.Abgeschlossen)
             .ToList();
 
-        if (!offene.Any()) return 0;
+        if (istRueckrunde && offene.Count > 0)
+            offene = await KoRueckspieleOhneHinspielErgebnisEntfernenAsync(offene, spiele, ct);
 
-        if (istRueckrunde)
-        {
-            var runde = (await spielRepository.FindenNachIdFuerSimulationAsync(offene[0].Id, ct))?.TurnierRunde;
-            if (runde is not null && HinRueckspielWertung.IstKoRunde(runde))
-            {
-                var hinspielMitErgebnis = spiele.Where(s => s.Ergebnis is not null).Select(s => s.Id).ToHashSet();
-                offene = offene.Where(s => s.HinspielId is int h && hinspielMitErgebnis.Contains(h)).ToList();
-                if (!offene.Any()) return 0;
-            }
-        }
-
-        var rng = new Random(seed ?? zufallsquelle.SeedZiehen());
-        int simuliert = await MehrereSimulierenAsync(offene.Select(s => s.Id), rng, ct);
+        int simuliert = await OffeneSimulierenAsync(offene, seed, ct);
+        if (simuliert == 0) return 0;
 
         logger.LogInformation("{Haelfte} (Runde {Id}): {Anz} Spiel(e) simuliert.",
             istRueckrunde ? "Rückrunde" : "Hinrunde", turnierRundeId, simuliert);
         return simuliert;
+    }
+
+    /// <summary>In einer K.-o.-Runde braucht ein Rückspiel das Hinspiel-Ergebnis — Rückspiele mit offenem Hinspiel
+    /// fallen heraus. In einer Liga-Rückrunde bleibt die Auswahl unverändert.</summary>
+    private async Task<List<Spiel>> KoRueckspieleOhneHinspielErgebnisEntfernenAsync(
+        List<Spiel> offeneRueckspiele, IReadOnlyCollection<Spiel> spieleDerRunde, CancellationToken ct)
+    {
+        var runde = (await spielRepository.FindenNachIdFuerSimulationAsync(offeneRueckspiele[0].Id, ct))?.TurnierRunde;
+        if (runde is null || !HinRueckspielWertung.IstKoRunde(runde))
+            return offeneRueckspiele;
+
+        var hinspielMitErgebnis = spieleDerRunde.Where(s => s.Ergebnis is not null).Select(s => s.Id).ToHashSet();
+        return offeneRueckspiele.Where(s => s.HinspielId is int h && hinspielMitErgebnis.Contains(h)).ToList();
     }
 
     // ── Eine Runde ────────────────────────────────────────────────────────
@@ -384,10 +391,8 @@ public class SimulationsService(
             .OrderBy(s => s.IstRueckspiel).ThenBy(s => s.Spielnummer)
             .ToList();
 
-        if (!offene.Any()) return 0;
-
-        var rng = new Random(seed ?? zufallsquelle.SeedZiehen());
-        int simuliert = await MehrereSimulierenAsync(offene.Select(s => s.Id), rng, ct);
+        int simuliert = await OffeneSimulierenAsync(offene, seed, ct);
+        if (simuliert == 0) return 0;
 
         logger.LogInformation("Runde {Id}: {Anz} Spiel(e) simuliert.", turnierRundeId, simuliert);
         return simuliert;
