@@ -66,6 +66,16 @@ jobs:
           Start-Service postgresql-x64-17
           ./build/PostgreSQL-Einrichten.ps1
 
+      # Bricht früh ab, wenn die App sich nicht anmelden kann – sonst scheitert jeder GUI-Test einzeln am Start (#49)
+      - name: Anmeldung der App prüfen
+        run: |
+          foreach ($ebene in 'Process', 'User', 'Machine') {
+              "PGPASSWORD ($ebene) gesetzt: $([bool][Environment]::GetEnvironmentVariable('PGPASSWORD', $ebene))"
+          }
+          "pgpass.conf: $((Get-Content "$env:APPDATA\postgresql\pgpass.conf" | Measure-Object).Count) Zeile(n)"
+          & "$env:PGBIN\psql.exe" -h localhost -U turnierverwaltung -w -d turnierverwaltung -tAc "SELECT current_user"
+          if ($LASTEXITCODE -ne 0) { throw 'Anmeldung als turnierverwaltung über pgpass.conf scheitert.' }
+
       - name: Framework-Tests
         run: >
           dotnet test --project tests/GuiTest.Framework.Tests
