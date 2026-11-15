@@ -114,10 +114,13 @@ public sealed class AppSession : IDisposable
         {
             CurrentMainWindow().Close();
         }
-        catch (Exception e) when (e is COMException or ElementNotAvailableException or ArgumentException)
+        catch (Exception e) when (e is COMException or ElementNotAvailableException or ArgumentException
+                                      or MethodNotSupportedException)
         {
             // Window already gone or not responding, or the process exited just now (ArgumentException from the
-            // attach) — the kill below takes over.
+            // attach) — the wait below lets it finish, the kill takes over otherwise. MethodNotSupported: the window is
+            // being torn down, e.g. the test closed the main window itself and the app is exiting (StartfensterTests,
+            // CI run 43725409496).
         }
 
         if (!_process.WaitForExit(_options.ShutdownTimeout))
