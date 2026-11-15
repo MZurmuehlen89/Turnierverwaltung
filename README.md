@@ -8,7 +8,7 @@ Lostöpfen und Verbandsregeln bis zum Europapokal mit Hin- und Rückspiel und Au
 WinUI 3 und Entity Framework Core, nach Clean Architecture und mit einer Testpyramide bis hinauf zu automatisierten
 GUI-Tests.
 
-> **English summary:** A Windows desktop app (C#, .NET 10, WinUI 3, EF Core, SQL Server) for configuring, drawing,
+> **English summary:** A Windows desktop app (C#, .NET 10, WinUI 3, EF Core, PostgreSQL) for configuring, drawing,
 > simulating and evaluating football tournaments of any format – groups, knockout rounds, two-legged ties, Swiss
 > system. Built with Clean Architecture and tested from unit to GUI level (xUnit, architecture tests, mutation
 > testing with Stryker.NET, FlaUI-based GUI tests in CI). The domain language and code are German. Developed together
@@ -42,7 +42,7 @@ GUI-Tests.
 |---|---|
 | Sprache, Plattform | C# 14, .NET 10 |
 | Oberfläche | WinUI 3 (Windows App SDK), MVVM mit CommunityToolkit.Mvvm |
-| Daten | Entity Framework Core 10 (Code First, Migrationen), SQL Server |
+| Daten | Entity Framework Core 10 (Code First, Migrationen), PostgreSQL (Npgsql) |
 | Hosting, Logging | Microsoft.Extensions.Hosting (DI, Konfiguration), Serilog |
 | Tests | xUnit v3, FluentAssertions, NetArchTest, Stryker.NET, FlaUI (UI Automation) |
 | Statische Analyse | SonarAnalyzer.CSharp, Roslynator |
@@ -104,10 +104,16 @@ KI Code schreibt, sondern wie man sie in einem wachsenden Projekt auf Kurs hält
 
 ## Selbst bauen
 
-Voraussetzungen: Windows 10/11, .NET 10 SDK, SQL Server (Developer Edition oder LocalDB). Die Verbindung steht in
-`src/Fussballturnierverwaltung.WinUi/appsettings.json` (Standard: lokale Instanz `.`).
+Voraussetzungen: Windows 10/11, .NET 10 SDK, PostgreSQL 15 oder neuer (getestet mit 17 und 18). Einmal nach der
+Installation von PostgreSQL legt das Einrichtungsskript die Anmeldung `turnierverwaltung` und die Datenbank an und
+trägt das Kennwort in die Kennwortdatei von PostgreSQL ein (`%APPDATA%\postgresql\pgpass.conf`). Andere Server,
+Ports oder Zugangsdaten stellt man in der App ein (Seite „Datenbankwartung“, Karte „Verbindung“; kommt beim Start
+keine Verbindung zustande, öffnet sich dieselbe Eingabe als Startfenster).
 
 ```bash
+# PostgreSQL einrichten (fragt nach dem Kennwort des Administrators „postgres“)
+pwsh build/PostgreSQL-Einrichten.ps1
+
 # Anwendung starten – legt die Datenbank beim ersten Start an, spielt Migrationen ein und ergänzt die mitgelieferten Daten
 dotnet run --project src/Fussballturnierverwaltung.WinUi
 

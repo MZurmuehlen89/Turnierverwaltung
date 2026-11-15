@@ -4,7 +4,23 @@ Gilt zusätzlich zur Root-`CLAUDE.md` bei Arbeit an diesem Projekt.
 
 ## Database
 
-SQL Server is required. The connection string defaults to `Server=.;Database=Fussballturnierverwaltung;Trusted_Connection=True;TrustServerCertificate=True;` (see `appsettings.json` in each startup project).
+PostgreSQL (15+, Npgsql) since #49 – SQL Server is gone, its 55 migrations live only in git history.
+
+- **Setup:** `pwsh build/PostgreSQL-Einrichten.ps1` once per machine: login `turnierverwaltung` (no superuser, CREATEDB
+  for the GUI-test databases), database `turnierverwaltung` (ICU de-DE), password into `%APPDATA%\postgresql\pgpass.conf`.
+  psql: `"C:\Program Files\PostgreSQL\18\bin\psql.exe" -h localhost -U turnierverwaltung -w -d turnierverwaltung`.
+- **Connection** (`Persistenz/Verbindungseinstellung`): `ConnectionStrings:Standard` from configuration wins (only set
+  by the GUI tests, via environment variable); otherwise the block `Datenbank` in `einstellungen.json` (defaults
+  localhost:5432, database and user `turnierverwaltung`, no password → pgpass.conf). A password entered in the app is
+  stored DPAPI-encrypted (`Kennwortschutz`, Windows only). `appsettings.json` has no connection string any more.
+- **Collation:** every text column uses the ICU collation `deutsch` (de-DE, deterministic) defined in the model
+  (`TurnierverwaltungDbContext.ConfigureConventions`), so a database created by the app sorts like one from the setup
+  script. Deterministic means `==` and unique indexes distinguish upper/lower case – normalise keys on save
+  (`Verband.Kurzname`, `Land.FifaCode` are upper-cased).
+- **DateTime:** `timestamptz`, only `DateTimeKind.Utc` (the app writes `UtcNow`). Npgsql throws on Local/Unspecified.
+- **Raw SQL** (tests, tools): identifiers are mixed case → always in double quotes (`SELECT "Name" FROM "Laender"`).
+- **Moving an existing SQL Server database:** `dotnet run --project tools/DatenUmzug -- [--ersetzen]` (COPY with all
+  IDs, connects as superuser `postgres` for disabled FK triggers, migrates as the database owner).
 
 ```bash
 # Apply migrations (creates DB if not exists)

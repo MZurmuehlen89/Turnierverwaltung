@@ -4,7 +4,10 @@ Gilt zusätzlich zur Root-`CLAUDE.md` bei Arbeit an diesem Projekt.
 
 ## Testing
 
-No mocking framework is used — generators and validators are instantiated directly. Integration tests use the EF Core InMemory provider.
+No mocking framework is used — generators and validators are instantiated directly. Integration tests use the EF Core InMemory provider. What only a real
+PostgreSQL shows (German collation, umlaut search, connection errors) is tested in `Persistenz/` against a database of
+its own per class (`PostgresDatenbank`, #49): in CI a `postgres:17` service container (`TURNIERVERWALTUNG_TEST_POSTGRES`
+set = the tests must run), locally the PostgreSQL set up by `build/PostgreSQL-Einrichten.ps1`; without one they are skipped.
 
 **Runner:** xunit.v3 on the Microsoft Testing Platform (MTP v2), fixed repo-wide in `global.json` (#497). Every test project in this repo must use MTP too — `dotnet test` cannot mix runners. MTP syntax differs from VSTest: the project is passed with `--project`, filters use `--filter-class`/`--filter-method` (xunit options) instead of `--filter`, coverage is `--coverage --coverage-output-format cobertura` (`Microsoft.Testing.Extensions.CodeCoverage`; coverlet does not run under MTP). Results land in `TestResults\` of the current directory (git-ignored).
 
@@ -69,7 +72,8 @@ xunit runner, e.g. `-class …`). The script builds an **unpackaged, self-contai
 - `Fussballturnierverwaltung.GuiTests` is deliberately **not** run by `dotnet test` or the Test Explorer:
   `IsTestingPlatformApplication=false` (under MTP `IsTestProject=false` alone is not enough), so it runs on xunit's
   in-process runner.
-- Each run gets its own database `Fussballturnierverwaltung_GuiTest_<timestamp>` (assembly fixture `TestDatenbank`;
+- Each run gets its own PostgreSQL database `turnierverwaltung_guitest_<timestamp>` (assembly fixture `TestDatenbank`, login from
+  `build/PostgreSQL-Einrichten.ps1` with the password from pgpass.conf, overridable via `TURNIERVERWALTUNG_GUITEST_VERBINDUNG`;
   the app creates it with migrations and seed on first start, ~9 s, and the fixture drops it at the end), its own
   data path (#518) and the fixed random seed 4711 (#519). The user's database, settings and logs are never touched.
 - The app restarts per test class (class fixture `TurnierverwaltungApp`); tests do not run in parallel. A test that
@@ -96,7 +100,7 @@ simply re-run.
 | Workflow | Runner | Trigger | Runs |
 |---|---|---|---|
 | `.github/workflows/unit-tests.yml` | `ubuntu-latest` | push to `main`/`ci/**`, pull request, manual; not for changes only to `*.md`/`docs/` | `Fussballturnierverwaltung.Tests` (incl. architecture tests) |
-| `.github/workflows/gui-tests.yml` | `windows-2025` | same as the unit tests; manual with a filter (`gh workflow run gui-tests.yml --ref <branch>`) | `GuiTest.Framework.Tests` + GUI tests via `build/GuiTests-Ausfuehren.ps1` against LocalDB |
+| `.github/workflows/gui-tests.yml` | `windows-2025` | same as the unit tests; manual with a filter (`gh workflow run gui-tests.yml --ref <branch>`) | `GuiTest.Framework.Tests` + GUI tests via `build/GuiTests-Ausfuehren.ps1` against the runner's PostgreSQL |
 
 - Since the repo went public (11.11.2026, #636) Actions minutes are free, Windows included — both workflows run on
   every push and PR. The unit tests stay on Linux: faster feedback, and it catches Windows assumptions (next point).
@@ -113,7 +117,8 @@ simply re-run.
   Follow a run with `gh run watch <id> --exit-status`, download evidence with `gh run download <id> -n gui-tests-belege`.
   `concurrency` groups by ref and event: a new push cancels the previous push run, a manual run cancels only an
   earlier manual run on the same ref — start the second of two manual runs only after the first has finished.
-- GUI job: `TURNIERVERWALTUNG_GUITEST_SERVER=(localdb)\MSSQLLocalDB`; on failure `artifacts/guitest/laeufe/` is
+- GUI job: starts the pre-installed but disabled service `postgresql-x64-17` and runs `build/PostgreSQL-Einrichten.ps1`
+  (admin password `root` from the image readme); on failure `artifacts/guitest/laeufe/` is
   uploaded as artifact `gui-tests-belege` (screenshots, log tails, app log). The job logs the screen resolution and
   tries to raise it to 1920×1080.
 

@@ -21,9 +21,10 @@ tests/
 ```
 Domain           keine externen Abhängigkeiten, kein EF Core, kein UI
 Application      kennt Domain; definiert Repository-Interfaces (IRepository<T> etc.)
-Infrastructure   implementiert Application-Interfaces; kennt EF Core, SQL Server
+Infrastructure   implementiert Application-Interfaces; kennt EF Core, PostgreSQL (Npgsql)
 WinUi            einzige Kompositionswurzel; registriert alle Abhängigkeiten (DI), startet die App
-Tests            referenziert Domain, Application, Infrastructure; EF Core InMemory für Integrationstests
+Tests            referenziert Domain, Application, Infrastructure; EF Core InMemory für Integrationstests,
+                 echtes PostgreSQL für Sortierung, Umlaute und Verbindungsprüfung (Persistenz/)
 ```
 
 Die Architekturtests (`tests/Fussballturnierverwaltung.Tests/Architektur`) prüfen diese Richtung bei jedem Testlauf.
