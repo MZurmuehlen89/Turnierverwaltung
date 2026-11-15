@@ -96,6 +96,15 @@ public sealed class SicherungsWerkzeugeTests : IDisposable
     }
 
     [Fact]
+    public void Dateiname_ZeichenDieImDateinamenNichtGehen_WerdenErsetzt()
+    {
+        var ungueltig = Path.GetInvalidFileNameChars()[^1];
+
+        DatenbankSicherungService.Dateiname($"a{ungueltig}b", new DateTime(2026, 11, 15, 18, 3, 9, DateTimeKind.Local))
+            .Should().Be("a_b_2026-11-15_18-03-09.dump");
+    }
+
+    [Fact]
     public void Auflisten_OrdnerFehlt_KeineSicherung()
     {
         DatenbankSicherungService.Auflisten(Path.Combine(_ordner, "gibtsnicht")).Should().BeEmpty();

@@ -29,7 +29,7 @@ public class DatenbankSicherungService(
     // ── Sichern ────────────────────────────────────────
 
     public static string Dateiname(string datenbank, DateTime zeitpunkt) =>
-        $"{datenbank}_{zeitpunkt.ToString("yyyy-MM-dd_HH-mm-ss", CultureInfo.InvariantCulture)}{ENDUNG}";
+        $"{string.Concat(datenbank.Select(z => Path.GetInvalidFileNameChars().Contains(z) ? '_' : z))}_{zeitpunkt.ToString("yyyy-MM-dd_HH-mm-ss", CultureInfo.InvariantCulture)}{ENDUNG}";
 
     /// <summary>Die Sicherungen im Ordner, neueste zuerst; ein fehlender Ordner heißt: noch keine.</summary>
     public static IReadOnlyList<Sicherung> Auflisten(string ordner) =>
@@ -47,8 +47,18 @@ public class DatenbankSicherungService(
         var datei = Path.Combine(ordner, Dateiname(ziel.Database ?? "", DateTime.Now));
 
         logger.LogInformation("Sicherung der Datenbank {Datenbank} nach {Datei}", ziel.Database, datei);
-        var fehler = await WerkzeugAufruf.AusfuehrenAsync(
-            WerkzeugAufruf.Erstellen(programm, ziel, ["-Fc", "-f", datei, ziel.Database ?? ""]), ct);
+        string? fehler;
+        try
+        {
+            fehler = await WerkzeugAufruf.AusfuehrenAsync(
+                WerkzeugAufruf.Erstellen(programm, ziel, ["-Fc", "-f", datei, ziel.Database ?? ""]), ct);
+        }
+        catch
+        {
+            // Eine halb geschriebene Datei stünde sonst als Sicherung in der Liste.
+            File.Delete(datei);
+            throw;
+        }
         if (fehler is not null)
         {
             File.Delete(datei);
@@ -131,7 +141,7 @@ public class DatenbankSicherungService(
         }
         catch
         {
-            await VerwaltenAsync($"ALTER DATABASE {Bezeichner(bisherige)} RENAME TO {Bezeichner(name)}", CancellationToken.None);
+            await ZurueckbenennenAsync(bisherige, name);
             throw;
         }
 
@@ -143,6 +153,22 @@ public class DatenbankSicherungService(
         {
             // Die Wiederherstellung selbst ist gelungen – der alte Stand bleibt nur unter seinem Hilfsnamen liegen.
             logger.LogWarning(ex, "Die bisherige Datenbank {Datenbank} ließ sich nicht löschen", bisherige);
+        }
+    }
+
+    private async Task ZurueckbenennenAsync(string bisherige, string name)
+    {
+        try
+        {
+            await VerwaltenAsync($"ALTER DATABASE {Bezeichner(bisherige)} RENAME TO {Bezeichner(name)}", CancellationToken.None);
+        }
+        catch (Exception ex) when (ex is NpgsqlException or DatenbankSicherungException)
+        {
+            logger.LogError(ex, "Die bisherige Datenbank ließ sich nicht von {Hilfsname} zurück in {Datenbank} umbenennen",
+                bisherige, name);
+            throw new DatenbankSicherungException("Die Wiederherstellung ist gescheitert, und die bisherige Datenbank "
+                + $"ließ sich nicht zurückbenennen: Sie liegt unverändert unter dem Namen „{bisherige}“. Bitte von Hand "
+                + $"(pgAdmin, psql) in „{name}“ umbenennen, bevor das Programm neu startet.");
         }
     }
 
@@ -184,7 +210,8 @@ public class DatenbankSicherungService(
         catch (PostgresException ex) when (ex.SqlState == PostgresErrorCodes.ObjectInUse)
         {
             throw new DatenbankSicherungException($"Die Datenbank „{Ziel().Database}“ ist noch in einem anderen "
-                + "Programm geöffnet (zweite Turnierverwaltung, pgAdmin, psql …). Bitte dort schließen und erneut versuchen.");
+                + "Programm geöffnet (zweite Turnierverwaltung, pgAdmin, psql …) oder wird gerade von einer anderen Seite "
+                + "dieses Programms gelesen. Bitte dort schließen und erneut versuchen.");
         }
         catch (PostgresException ex) when (ex.SqlState == PostgresErrorCodes.InsufficientPrivilege)
         {

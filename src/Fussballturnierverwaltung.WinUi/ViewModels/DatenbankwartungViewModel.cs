@@ -126,10 +126,17 @@ public partial class DatenbankwartungViewModel : ViewModelBase, IRibbonAware
         _wartung = wartung;
         _ablaufprotokoll = ablaufprotokoll;
         LogOrdner = einstellungenService.LogPfad;
-        PruefenBefehl = new AsyncRelayCommand(PruefenUndErgaenzenAsync, () => !IstLadend);
+        PruefenBefehl = new AsyncRelayCommand(PruefenUndErgaenzenAsync, () => !IstLadend && !Sicherung.Laeuft);
         Verbindung = verbindung;
         Sicherung = sicherung;
-        VerbindungSpeichernBefehl = new AsyncRelayCommand(VerbindungSpeichernAsync, () => Verbindung.KannUebernehmen);
+        Sicherung.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName != nameof(SicherungViewModel.Laeuft)) return;
+            PruefenBefehl.NotifyCanExecuteChanged();
+            VerbindungSpeichernBefehl.NotifyCanExecuteChanged();
+        };
+        VerbindungSpeichernBefehl = new AsyncRelayCommand(VerbindungSpeichernAsync,
+            () => Verbindung.KannUebernehmen && !Sicherung.Laeuft);
         VerbindungAbbrechenBefehl = new RelayCommand(Verbindung.Laden, () => Verbindung.IstGeaendert && !Verbindung.Laeuft);
         Verbindung.PropertyChanged += (_, e) =>
         {

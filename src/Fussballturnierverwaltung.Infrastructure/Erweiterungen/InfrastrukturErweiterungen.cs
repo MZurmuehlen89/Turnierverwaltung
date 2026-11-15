@@ -38,7 +38,8 @@ public static class InfrastrukturErweiterungen
         services.AddSingleton(SeedBildQuelle.Eingebettet);
         services.AddScoped<SeedDatenService>();
         services.AddScoped<DatenbankWartungService>();
-        services.AddSingleton(_ => PostgresWerkzeuge.Standard());
+        // Je Aufruf neu gesucht: Wer die Werkzeuge nach der Fehlermeldung installiert, muss die App nicht neu starten.
+        services.AddTransient(_ => PostgresWerkzeuge.Standard());
         services.AddScoped<DatenbankSicherungService>();
 
         // Stammdaten-Repositories

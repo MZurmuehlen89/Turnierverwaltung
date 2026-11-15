@@ -59,7 +59,9 @@ public sealed class DatenbankSicherungTests(PostgresDatenbank datenbank) : IClas
         var datei = Path.Combine(Directory.CreateDirectory(_ordner).FullName, "defekt.dump");
         await File.WriteAllTextAsync(datei, "keine Sicherung");
 
-        await AbgelehntOhneAenderungAsync(datei, "ließ sich nicht einspielen");
+        var meldung = await AbgelehntOhneAenderungAsync(datei, "ließ sich nicht einspielen");
+
+        meldung.Should().NotContain("�", "die Meldung von pg_restore kommt in der Kodierung des Werkzeugs an");
     }
 
     [Fact]
@@ -146,7 +148,7 @@ public sealed class DatenbankSicherungTests(PostgresDatenbank datenbank) : IClas
 
     // ── Hilfen ─────────────────────────────────────────
 
-    private async Task AbgelehntOhneAenderungAsync(string datei, string meldungsteil)
+    private async Task<string> AbgelehntOhneAenderungAsync(string datei, string meldungsteil)
     {
         var a = Kuerzel();
         await VerbaendeAnlegenAsync(a);
@@ -154,9 +156,11 @@ public sealed class DatenbankSicherungTests(PostgresDatenbank datenbank) : IClas
 
         var wiederherstellen = () => NeuerDienst().WiederherstellenAsync(datei);
 
-        (await wiederherstellen.Should().ThrowAsync<DatenbankSicherungException>()).Which.Message.Should().Contain(meldungsteil);
+        var meldung = (await wiederherstellen.Should().ThrowAsync<DatenbankSicherungException>()).Which.Message;
+        meldung.Should().Contain(meldungsteil);
         (await VerbandsnamenAsync(a)).Should().Equal($"Verband {a}");
         (await HilfsdatenbankenAsync()).Should().Be(hilfsdatenbankenVorher, "die Hilfsdatenbank wird verworfen");
+        return meldung;
     }
 
     private void BereitOderUeberspringen()

@@ -1,4 +1,6 @@
 using System.Diagnostics;
+using System.Globalization;
+using System.Text;
 using Npgsql;
 
 namespace Fussballturnierverwaltung.Infrastructure.Wartung;
@@ -20,6 +22,7 @@ public static class WerkzeugAufruf
             CreateNoWindow = true,
             RedirectStandardError = true,
             RedirectStandardOutput = true,
+            StandardErrorEncoding = Ausgabekodierung(),
         };
         foreach (var argument in (string[])["-h", ziel.Host ?? "localhost", "-p", ziel.Port.ToString(), "-U", ziel.Username ?? "", "-w"])
             start.ArgumentList.Add(argument);
@@ -28,6 +31,16 @@ public static class WerkzeugAufruf
         if (!string.IsNullOrEmpty(ziel.Password))
             start.Environment[KENNWORT_VARIABLE] = ziel.Password;
         return start;
+    }
+
+    /// <summary>Unter Windows schreiben die Werkzeuge ihre (übersetzten) Meldungen in der ANSI-Codepage – belegt:
+    /// „gültiges“ kam als Byte 0xFC (Windows-1252). Ohne Angabe las .NET sie falsch und machte Umlaute unlesbar.</summary>
+    private static Encoding Ausgabekodierung()
+    {
+        if (!OperatingSystem.IsWindows())
+            return Encoding.UTF8;
+        Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
+        return Encoding.GetEncoding(CultureInfo.CurrentCulture.TextInfo.ANSICodePage);
     }
 
     /// <returns>Die Fehlerausgabe, oder <c>null</c>, wenn das Werkzeug ohne Fehler endete.</returns>

@@ -49,21 +49,36 @@ public partial class SicherungViewModel : ObservableObject
     {
         _dienst = dienst;
         _dialog = dialog;
-        SichernBefehl = new AsyncRelayCommand(SichernAsync, () => Taetigkeit is null);
+        SichernBefehl = new AsyncRelayCommand(SichernAsync, () => !Laeuft);
         WiederherstellenBefehl = new AsyncRelayCommand(WiederherstellenAsync,
-            () => Taetigkeit is null && AusgewaehlteSicherung is not null);
+            () => !Laeuft && AusgewaehlteSicherung is not null);
         OrdnerOeffnenBefehl = new RelayCommand(OrdnerOeffnen);
     }
+
+    /// <summary>Wahr, solange Sichern oder Wiederherstellen läuft – die Seite sperrt dann ihre übrigen Befehle, die
+    /// sonst eigene Verbindungen auf die Datenbank öffneten, die gerade getauscht wird.</summary>
+    public bool Laeuft => Taetigkeit is not null;
 
     public void Laden()
     {
         Sicherungen.Clear();
-        foreach (var sicherung in DatenbankSicherungService.Auflisten(Ordner))
-            Sicherungen.Add(new SicherungsZeile(sicherung));
+        try
+        {
+            foreach (var sicherung in DatenbankSicherungService.Auflisten(Ordner))
+                Sicherungen.Add(new SicherungsZeile(sicherung));
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            Fehlermeldung = $"Der Sicherungsordner ließ sich nicht lesen: {ex.Message}";
+        }
         OnPropertyChanged(nameof(KeineSicherung));
     }
 
-    partial void OnTaetigkeitChanged(string? value) => BefehleAktualisieren();
+    partial void OnTaetigkeitChanged(string? value)
+    {
+        OnPropertyChanged(nameof(Laeuft));
+        BefehleAktualisieren();
+    }
     partial void OnAusgewaehlteSicherungChanged(SicherungsZeile? value) => BefehleAktualisieren();
 
     private void BefehleAktualisieren()

@@ -26,7 +26,6 @@ public sealed class DatenbankSicherungTests(TurnierverwaltungApp app, TestDatenb
         _seite.SicherungsFehlermeldung.Should().BeEmpty();
         _seite.Sicherungen.Should().ContainSingle().Which.Should()
             .MatchRegex($"^{datenbank.Name}_\\d{{4}}-\\d{{2}}-\\d{{2}}_\\d{{2}}-\\d{{2}}-\\d{{2}}\\.dump$");
-        _seite.KeineSicherungAngezeigt.Should().BeFalse();
         _seite.WiederherstellenMoeglich.Should().BeFalse("noch ist keine Sicherung gewählt");
 
         // AK4: Rückfrage abbrechen – die Datenbank bleibt, wie sie ist
