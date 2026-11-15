@@ -1,22 +1,13 @@
 using FluentAssertions;
 using Fussballturnierverwaltung.Application.Simulation;
-using Fussballturnierverwaltung.Domain.Entitaeten.Regelwerke;
 using Fussballturnierverwaltung.Domain.Entitaeten.Stammdaten;
 using Fussballturnierverwaltung.Domain.Enums;
+using static Fussballturnierverwaltung.Tests.Simulation.SimulationsEngineTestdaten;
 
 namespace Fussballturnierverwaltung.Tests.Simulation;
 
 public class SimulationsEngineTests
 {
-    private static Mannschaft Team(int id, int off = 70, int mid = 70, int def = 70,
-                                   int heim = 75, int ausw = 65) =>
-        new() { Id = id, Name = $"Team {id}", Kurzname = $"T{id}",
-                OffensivRating = off, MittelfeldRating = mid, DefensivRating = def,
-                Heimstaerke = heim, Auswaertsstaerke = ausw };
-
-    private static EntscheidungsVerfahren Verfahren(VerfahrenArt art, int rang = 1) =>
-        new() { VerfahrenArt = art, Reihenfolge = rang };
-
     [Fact]
     public void GleicherSeed_LiefertGleichesErgebnis()
     {
