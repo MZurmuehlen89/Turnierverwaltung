@@ -487,5 +487,9 @@ analyse/
 # Sperrdatei der geplanten Claude-Code-Aufgaben (lokal)
 .claude/scheduled_tasks.lock
 
+# Lokale Claude-Code-Freigaben – „Nicht mehr fragen“ speichert den ganzen Befehl, ggf. samt Kennwort; nicht nur
+# über die globale Git-Ignore-Datei des Entwicklungsrechners ausschließen, sonst ist ein Klon woanders ungeschützt (#666)
+.claude/settings.local.json
+
 # Privates Seed-Bildmaterial mit fremden Rechten – eigenes privates Repo Turnierverwaltung-Bildmaterial (#633)
 src/Fussballturnierverwaltung.Infrastructure/Seed/Bildmaterial/Privat/
