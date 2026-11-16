@@ -169,6 +169,35 @@ public class SpielablaufTests
             (1, null, EreignisArt.RoteKarte, false, "Rote Karte"));
     }
 
+    [Theory]
+    // Wer trifft, folgt dem Anteil an der Torerwartung: 11 gegen 11 hat das Heimteam 1,95 / 2,925 = 0,667, nach
+    // seiner Roten Karte 1,365 / (1,365 + 1,17) = 0,538. Ein Wurf von 0,6 trennt beide Fälle.
+    [InlineData(false, true)]
+    [InlineData(true, false)]
+    public void RoteKarte_WirktAbDerFolgeminute(bool karteInMinute1, bool heimTrifftInMinute2)
+    {
+        var e = Simulieren(new Ablauffolge()
+            .KeinTor().Karten(rotHeim: karteInMinute1)
+            .Hinzu(JA, 0.6).Hinzu(TorstilOhneKonter).KeinTor().Karten()
+            .Zufall());
+
+        e.Ereignisse.Single(x => x.Art == EreignisArt.Tor).Should().Be(
+            new SimuliertesEreignis(2, EreignisArt.Tor, heimTrifftInMinute2, KOPFBALL));
+    }
+
+    [Fact]
+    public void RoteKarte_TorDerselbenMinuteFaelltNochInGleichzahl()
+    {
+        // Die Tore einer Minute fallen vor ihren Karten: trotz Roter Karte in Minute 1 trifft das Heimteam dort mit 0,6.
+        var e = Simulieren(new Ablauffolge()
+            .Hinzu(JA, 0.6).Hinzu(TorstilOhneKonter).KeinTor().Karten(rotHeim: true)
+            .Zufall());
+
+        Kurz(e.Ereignisse.Where(x => x.Art is EreignisArt.Tor or EreignisArt.RoteKarte)).Should().Equal(
+            (1, null, EreignisArt.Tor, true, KOPFBALL),
+            (1, null, EreignisArt.RoteKarte, true, "Rote Karte"));
+    }
+
     [Fact]
     public void Karten_HoechstensVierPlatzverweiseJeTeam()
     {
