@@ -17,8 +17,13 @@ public sealed class EinzelspielSimulationsTests(TurnierverwaltungApp app) : ICla
     private const string MIT_VERLAENGERUNG = "FIFA Standard Modern (3-Punkte)";
     private const string DIREKTES_ELFMETERSCHIESSEN = "CONMEBOL Copa América (direktes Elfmeterschießen)";
 
-    // Ohne festen Seed trifft jeder Versuch mit gut einem Viertel einen Gleichstand; mit Seed klappt es beim ersten
-    private const int GLEICHSTAND_VERSUCHE = 15;
+    // Hinspiele, mit denen GleichstandHerbeifuehren es der Reihe nach versucht – je knapper, desto eher gleicht das
+    // Rückspiel sie aus. Jeder Versuch trifft mit gut einem Viertel einen Gleichstand.
+    private static readonly (int Heim, int Auswaerts)[] HINSPIELE =
+    [
+        (0, 0), (1, 1), (1, 0), (0, 1), (2, 2), (2, 1), (1, 2), (2, 0),
+        (0, 2), (3, 3), (3, 2), (2, 3), (3, 1), (1, 3), (3, 0), (0, 3)
+    ];
 
     private readonly EinzelspielSeite _seite = app.Hauptfenster.EinzelspielSimulationOeffnen();
 
@@ -85,8 +90,10 @@ public sealed class EinzelspielSimulationsTests(TurnierverwaltungApp app) : ICla
         throw new InvalidOperationException($"Jedes Rückspiel endete nach 90 Minuten unentschieden: {string.Join("; ", gelesen.Select(g => g.Rueckspiel))}");
     }
 
-    /// <summary>Den Gleichstand nach 180 Minuten erzwingt die Hinspiel-Eingabe von Hand: Sie spiegelt den regulären
-    /// Stand des letzten Rückspiels. Mit festem Seed wiederholt sich der beim nächsten Rückspiel genau.</summary>
+    /// <summary>Den Gleichstand nach 180 Minuten erzwingt die Hinspiel-Eingabe von Hand: verschiedene Hinspiele, bis
+    /// das Rückspiel eines ausgleicht. Mit festem Seed ist das Rückspiel zu jedem Hinspiel immer dasselbe, der Test
+    /// also wiederholbar. Bis #673 spiegelte der Test einfach das letzte Rückspiel, weil es sich unabhängig vom
+    /// Hinspiel wiederholte; seit die Taktik nach dem Gesamtstand würfelt, hängt die Zufallsfolge am Hinspiel.</summary>
     [Theory]
     [InlineData(MIT_VERLAENGERUNG)]
     [InlineData(DIREKTES_ELFMETERSCHIESSEN)]
@@ -119,16 +126,16 @@ public sealed class EinzelspielSimulationsTests(TurnierverwaltungApp app) : ICla
 
     private HinRueckAnzeige GleichstandHerbeifuehren()
     {
-        for (int versuch = 0; versuch < GLEICHSTAND_VERSUCHE; versuch++)
+        var gelesen = new List<string>();
+        foreach (var (heim, auswaerts) in HINSPIELE)
         {
+            _seite.HinspielEingeben(heim, auswaerts);
             var paarung = _seite.RueckspielSimulieren();
             if (HinUndRueckspiel.GleichstandNach180(paarung.Hinspiel, paarung.Rueckspiel))
                 return paarung;
-
-            var (rueckHeim, rueckAuswaerts) = paarung.Rueckspiel.ToreNach90!.Value;
-            _seite.HinspielEingeben(rueckHeim, rueckAuswaerts);
+            gelesen.Add($"{heim}:{auswaerts} → {paarung.Rueckspiel.Score}");
         }
-        throw new InvalidOperationException($"Kein Gleichstand nach 180 Minuten in {GLEICHSTAND_VERSUCHE} Versuchen.");
+        throw new InvalidOperationException($"Kein Gleichstand nach 180 Minuten: {string.Join("; ", gelesen)}");
     }
 
     private static void PruefeGesamtwertung(HinRueckAnzeige paarung)
