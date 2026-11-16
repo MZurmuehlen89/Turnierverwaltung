@@ -44,12 +44,23 @@ public static class HinRueckspielWertung
         int hinspielHeimTore, int hinspielAuswaertsTore,
         int rueckspielHeimTore, int rueckspielAuswaertsTore,
         bool auswaertstorRegelAktiv)
+        => Gesamtwertung(hinspielHeimTore, hinspielAuswaertsTore, rueckspielHeimTore, rueckspielAuswaertsTore,
+                         auswaertstorRegelAktiv) == 0;
+
+    /// <summary>Wer nach der regulären Spielzeit des Rückspiels weiter ist: &gt; 0 das Rückspiel-Heimteam, &lt; 0 der
+    /// Rückspiel-Gast, 0 keiner (Entscheidungsverfahren). Erst der Gesamtstand, bei Gleichstand und aktiver Regel
+    /// die Auswärtstore (AD-001). Die Risikostufe im Rückspiel bemisst sich danach (#671).</summary>
+    public static int Gesamtwertung(
+        int hinspielHeimTore, int hinspielAuswaertsTore,
+        int rueckspielHeimTore, int rueckspielAuswaertsTore,
+        bool auswaertstorRegelAktiv)
     {
         // Team A = Hinspiel-Heim = Rückspiel-Auswärts; Team B umgekehrt.
         int teamA = hinspielHeimTore      + rueckspielAuswaertsTore;
         int teamB = hinspielAuswaertsTore + rueckspielHeimTore;
-        if (teamA != teamB) return false;
+        if (teamA != teamB) return Math.Sign(teamB - teamA);
 
-        return !auswaertstorRegelAktiv || rueckspielAuswaertsTore == hinspielAuswaertsTore;
+        // Auswärtstore: Team B traf auswärts im Hinspiel, Team A auswärts im Rückspiel.
+        return auswaertstorRegelAktiv ? Math.Sign(hinspielAuswaertsTore - rueckspielAuswaertsTore) : 0;
     }
 }
