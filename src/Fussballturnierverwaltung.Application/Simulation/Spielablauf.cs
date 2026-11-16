@@ -33,6 +33,7 @@ internal sealed class Spielablauf
     private readonly Random _rng;
     private readonly double _heimJeMinute;
     private readonly double _gastJeMinute;
+    private readonly Hinspielstand _hinspielstand;
     private readonly List<SimuliertesEreignis> _ereignisse = [];
     private Teamzustand _heim;
     private Teamzustand _gast;
@@ -42,9 +43,13 @@ internal sealed class Spielablauf
 
     /// <param name="platzverweise">Platzverweise, mit denen das Spiel weitergeht (Verlängerung nach dem Rückspiel).</param>
     /// <param name="gespielteMinuten">Bereits gespielte Minuten – bestimmt die Ermüdung.</param>
+    /// <param name="hinspielstand">Im K.-o.-Rückspiel das Hinspiel – die Risikostufe richtet sich dann nach dem
+    /// Gesamtstand (#671).</param>
+#pragma warning disable S107 // drei Angaben zum Spiel, drei zum Stand, mit dem es beginnt; nur die Paarung ruft auf
     public Spielablauf(
         double heimTorerwartung, double gastTorerwartung, Random rng,
-        Platzverweise platzverweise = default, int gespielteMinuten = 0)
+        Platzverweise platzverweise = default, int gespielteMinuten = 0, Hinspielstand hinspielstand = default)
+#pragma warning restore S107
     {
         _rng              = rng;
         _heimJeMinute     = heimTorerwartung / ENDE_REGULAER * ABLAUF_KORREKTUR;
@@ -52,6 +57,7 @@ internal sealed class Spielablauf
         _heim             = Teamzustand.Anpfiff(platzverweise.Heim);
         _gast             = Teamzustand.Anpfiff(platzverweise.Gast);
         _gespielteMinuten = gespielteMinuten;
+        _hinspielstand    = hinspielstand;
     }
 
     /// <summary>Tore und Ereignisse eines Abschnitts (reguläre Spielzeit, Verlängerung, …).</summary>
@@ -164,11 +170,13 @@ internal sealed class Spielablauf
         _ereignisse.Add(new(minute, EreignisArt.Tor, heimTrifft, text, nachspielminute));
     }
 
-    /// <summary>Passt die Risikostufe beider Teams an Spielstand und Zeit an; jeder Wechsel ist ein Ereignis.</summary>
+    /// <summary>Passt die Risikostufe beider Teams an Spielstand und Zeit an; jeder Wechsel ist ein Ereignis. Im
+    /// K.-o.-Rückspiel zählt der Gesamtstand samt Auswärtstorregel (#671).</summary>
     private void TaktikAnpassen(int minute, int? nachspielminute, int verbleibend)
     {
-        _heim = TaktikDesTeams(_heim, _heimTore - _gastTore, istHeim: true, minute, nachspielminute, verbleibend);
-        _gast = TaktikDesTeams(_gast, _gastTore - _heimTore, istHeim: false, minute, nachspielminute, verbleibend);
+        int heimVorsprung = _hinspielstand.VorsprungDesHeimteams(_heimTore, _gastTore);
+        _heim = TaktikDesTeams(_heim, heimVorsprung, istHeim: true, minute, nachspielminute, verbleibend);
+        _gast = TaktikDesTeams(_gast, -heimVorsprung, istHeim: false, minute, nachspielminute, verbleibend);
     }
 
 #pragma warning disable S107 // Team, Stand und Zeitpunkt; die Zeitangaben einzeln, wie sie das Ereignis braucht

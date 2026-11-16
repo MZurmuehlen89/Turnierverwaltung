@@ -475,7 +475,9 @@ public partial class EinzelspielSimulationsViewModel : ViewModelBase, IRibbonAwa
         {
             var rng = _zufallsquelle.Erzeugen();
 #pragma warning disable S2234 // Rückspiel: Heim und Auswärts bewusst getauscht
-            var erg2 = _simulationsService.EinzelspielSimulieren(auswaerts, heim, [], SimulationsModus.AusfuehrlicheSimulation, rng);
+            // #671: Risikostufe nach dem Gesamtstand; die freie Simulation kennt keine Auswärtstorregel.
+            var erg2 = _simulationsService.RueckspielSimulieren(auswaerts, heim,
+                Hinspielstand.AusHinspiel(erg1.HeimToreRegulaer, erg1.AuswaertsToreRegulaer, auswaertstorRegelAktiv: false), rng);
 
             int heimGesamtRegulaer      = erg1.HeimToreRegulaer      + erg2.AuswaertsToreRegulaer;
             int auswaertsGesamtRegulaer = erg1.AuswaertsToreRegulaer + erg2.HeimToreRegulaer;

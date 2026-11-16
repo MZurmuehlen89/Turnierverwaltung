@@ -20,13 +20,15 @@ public static class SimulationsEngine
         bool ausfuehrlich,
         Random rng,
         Spielortvorteil spielortvorteil = Spielortvorteil.Heim,
-        int ueberraschungsfaktor = 0)
+        int ueberraschungsfaktor = 0,
+        Hinspielstand hinspielstand = default)
 #pragma warning restore S107
     {
         var paarung = new Paarung(heim, auswaerts, spielortvorteil, ueberraschungsfaktor);
 
-        // #361: ausführlich Minute für Minute mit Spielzustand, sonst reines Endergebnis per Poisson.
-        var ablauf = ausfuehrlich ? paarung.Anpfiff(rng) : null;
+        // #361: ausführlich Minute für Minute mit Spielzustand, sonst reines Endergebnis per Poisson. Der
+        // Hinspielstand (#671) wirkt nur auf die Risikostufe und damit nur ausführlich.
+        var ablauf = ausfuehrlich ? paarung.Anpfiff(rng, hinspielstand: hinspielstand) : null;
         var (heimTore, gastTore, ereignisse) = ablauf?.RegulaereSpielzeit()
             ?? new(ZiehePoisson(paarung.HeimTorerwartung, rng), ZiehePoisson(paarung.GastTorerwartung, rng), []);
 
@@ -193,8 +195,10 @@ public static class SimulationsEngine
         public double GastTorerwartung =>
             BerechneErwartetesTore(Auswaerts, Heim, istHeim: false, Spielortvorteil, Ueberraschungsfaktor);
 
-        public Spielablauf Anpfiff(Random rng, Platzverweise platzverweise = default, int gespielteMinuten = 0) =>
-            new(HeimTorerwartung, GastTorerwartung, rng, platzverweise, gespielteMinuten);
+        public Spielablauf Anpfiff(
+            Random rng, Platzverweise platzverweise = default, int gespielteMinuten = 0,
+            Hinspielstand hinspielstand = default) =>
+            new(HeimTorerwartung, GastTorerwartung, rng, platzverweise, gespielteMinuten, hinspielstand);
     }
 
     /// <summary>Ausgang eines einzelnen Verfahrens. <see cref="Vorsprung"/> &gt; 0: Heimsieg, &lt; 0: Gastsieg,

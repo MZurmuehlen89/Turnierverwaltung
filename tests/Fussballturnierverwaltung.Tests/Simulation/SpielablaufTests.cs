@@ -118,6 +118,22 @@ public class SpielablaufTests
             (88, null, EreignisArt.Taktikwechsel, false, "Torwart geht mit nach vorn"));
     }
 
+    /// <summary>#671 K3: im Rückspiel zählt der Gesamtstand – bei 0:0 nach einem 0:5 im Hinspiel liegt das
+    /// Rückspiel-Heimteam fünf Tore zurück und der Gast mauert, obwohl im Rückspiel selbst nichts passiert.</summary>
+    [Fact]
+    public void Rueckspiel_TaktikNachGesamtstand()
+    {
+        var e = SimulationsEngine.Simulieren(
+            HeimTeam(), GastTeam(), [], ausfuehrlich: true, new Ablauffolge().Zufall(),
+            hinspielstand: Hinspielstand.AusHinspiel(hinspielHeimTore: 5, hinspielAuswaertsTore: 0, auswaertstorRegelAktiv: false));
+
+        (e.HeimToreRegulaer, e.AuswaertsToreRegulaer).Should().Be((0, 0));
+        Kurz(e.Ereignisse).Should().Equal(
+            (60, null, EreignisArt.Taktikwechsel, true, "Wirft alles nach vorn"),
+            (70, null, EreignisArt.Taktikwechsel, false, "Zieht sich zurück und verteidigt die Führung"),
+            (88, null, EreignisArt.Taktikwechsel, true, "Torwart geht mit nach vorn"));
+    }
+
     [Fact]
     public void ZweiToreInEinerMinute_DasZweiteRechnetMitDemNeuenStand()
     {

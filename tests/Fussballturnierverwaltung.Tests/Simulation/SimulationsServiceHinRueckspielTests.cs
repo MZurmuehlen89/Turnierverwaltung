@@ -164,4 +164,52 @@ public class SimulationsServiceHinRueckspielTests
         spiele.Single(s => s.HinspielId == 1).Ergebnis.Should().NotBeNull();
         spiele.Where(s => s.IstRueckspiel && s.HinspielId != 1).Should().OnlyContain(s => s.Ergebnis == null);
     }
+
+    // ── Issue #671: Risikostufe im Rückspiel nach dem Gesamtstand ─────────────────────────
+
+    /// <summary>Taktikwechsel eines ruhigen Rückspiels (0:0), dessen Heimteam das Hinspiel 0:5 verloren hat: es wirft
+    /// ab der 60. Minute alles nach vorn, der Gast mauert ab der 70. (K3, K4).</summary>
+    private static readonly (int, bool, string)[] TaktikNachHinspielNullZuFuenf =
+    [
+        (60, true, "Wirft alles nach vorn"),
+        (70, false, "Zieht sich zurück und verteidigt die Führung"),
+        (88, true, "Torwart geht mit nach vorn"),
+    ];
+
+    private static IEnumerable<(int, bool, string)> Taktikwechsel(SimulationsErgebnis ergebnis) =>
+        ergebnis.Ereignisse.Where(e => e.Art == EreignisArt.Taktikwechsel).Select(e => (e.Minute, e.IstHeim, e.Beschreibung));
+
+    [Fact]
+    public async Task SpielSimulierenAsync_Rueckspiel_TaktikNachGesamtstand()
+    {
+        await using var ctx = SimulationsDienste.NeuerContext();
+        SetupAnlegen(ctx);
+        var hinspiel = ctx.Spiele.Single(s => s.Id == 1);
+        hinspiel.Status = SpielStatus.Abgeschlossen;
+        ctx.SpielErgebnisse.Add(new SpielErgebnis
+        {
+            SpielId = 1, HeimToreRegulaer = 5, AuswaertsToreRegulaer = 0,
+            SiegerMannschaftId = hinspiel.HeimMannschaftId, EntscheidungArt = EntscheidungArt.RegulaereSpielzeit
+        });
+        ctx.SaveChanges();
+        var service = SimulationsDienste.Service(ctx, new Zufallsquelle());
+
+        var ergebnis = await service.SpielSimulierenAsync(2, new Ablauffolge().Zufall());
+
+        (ergebnis.HeimToreRegulaer, ergebnis.AuswaertsToreRegulaer).Should().Be((0, 0));
+        Taktikwechsel(ergebnis).Should().Equal(TaktikNachHinspielNullZuFuenf);
+    }
+
+    [Fact]
+    public void RueckspielSimulieren_FreieSimulation_TaktikNachGesamtstand()
+    {
+        var service = SimulationsDienste.Service(SimulationsDienste.NeuerContext(), new Zufallsquelle());
+
+        var ergebnis = service.RueckspielSimulieren(
+            SimulationsEngineTestdaten.HeimTeam(), SimulationsEngineTestdaten.GastTeam(),
+            Hinspielstand.AusHinspiel(hinspielHeimTore: 5, hinspielAuswaertsTore: 0, auswaertstorRegelAktiv: false),
+            new Ablauffolge().Zufall());
+
+        Taktikwechsel(ergebnis).Should().Equal(TaktikNachHinspielNullZuFuenf);
+    }
 }

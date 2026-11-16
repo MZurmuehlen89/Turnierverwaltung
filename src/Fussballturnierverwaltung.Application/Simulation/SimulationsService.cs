@@ -44,6 +44,12 @@ public class SimulationsService(
         return ergebnis;
     }
 
+    /// <summary>Rückspiel der freien Hin-/Rückspiel-Simulation (#248), ausführlich und ohne Entscheidungsverfahren –
+    /// das hängt am Gesamtstand und wendet der Aufrufer an. Die Risikostufe richtet sich nach dem Gesamtstand (#671).</summary>
+    public SimulationsErgebnis RueckspielSimulieren(
+        Mannschaft heim, Mannschaft auswaerts, Hinspielstand hinspielstand, Random rng)
+        => SimulationsEngine.Simulieren(heim, auswaerts, [], ausfuehrlich: true, rng, hinspielstand: hinspielstand);
+
     // ── Ein einzelnes Spiel ───────────────────────────────────────────────
 
     /// <summary>Simuliert ein einzelnes Spiel und speichert das Ergebnis.</summary>
@@ -87,6 +93,12 @@ public class SimulationsService(
                 $"Spiel #{spiel.Spielnummer} ist ein Rückspiel, dessen Hinspiel noch kein Ergebnis hat.");
 
         var spielortvorteil = await SpielortvorteilErmittelnAsync(spiel, runde, ct);
+        var hinspielstand = istKoRueckspiel
+            ? Hinspielstand.AusHinspiel(
+                HinRueckspielWertung.HinspielTore(hinspielErgebnis!, heim: true),
+                HinRueckspielWertung.HinspielTore(hinspielErgebnis!, heim: false),
+                runde.AuswaertstorRegelAktiv)
+            : default;
 
         // Issue #171: Ereignisse werden unabhängig vom gewählten Modus immer berechnet und
         // gespeichert (In-Memory-Berechnung ist vernachlässigbar teuer) — sonst bleibt der
@@ -94,7 +106,7 @@ public class SimulationsService(
         var ergebnis = SimulationsEngine.Simulieren(
             spiel.HeimMannschaft!, spiel.AuswaertsMannschaft!,
             istKoHinspiel || istKoRueckspiel ? [] : verfahren, ausfuehrlich: true, rng, spielortvorteil,
-            runde.Ueberraschungsfaktor);
+            runde.Ueberraschungsfaktor, hinspielstand);
 
         if (istKoRueckspiel && verfahren.Count > 0)
             ergebnis = RueckspielEntscheiden(ergebnis, spiel, verfahren, rng, spielortvorteil);
