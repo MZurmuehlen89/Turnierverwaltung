@@ -119,6 +119,26 @@ public class SimulationsServiceTests
         });
     }
 
+    // #361: Ereignisse der Nachspielzeit behalten Minute = Ende der Halbzeit und speichern die Nachspielminute.
+    [Fact]
+    public async Task RundeSimulierenAsync_SpeichertDieNachspielminute()
+    {
+        await using var ctx = SimulationsDienste.NeuerContext();
+        GrunddatenAnlegen(ctx, mannschaften: 20);
+        KoRundeAnlegen(ctx, paarungen: 10);
+        ctx.SaveChanges();
+
+        await SimulationsDienste.Service(ctx, new Zufallsquelle()).RundeSimulierenAsync(1, seed: 361);
+
+        var nachspielzeit = SpieleMitErgebnis(ctx).SelectMany(s => s.Ereignisse).Where(e => e.Nachspielminute != null).ToList();
+        nachspielzeit.Should().NotBeEmpty();
+        nachspielzeit.Should().AllSatisfy(e =>
+        {
+            e.Minute.Should().BeOneOf(45, 90, 105, 120);
+            e.Nachspielminute.Should().BeInRange(1, 6);
+        });
+    }
+
     // ── Freie Auswahl ─────────────────────────────────────────────────────────
 
     [Fact]

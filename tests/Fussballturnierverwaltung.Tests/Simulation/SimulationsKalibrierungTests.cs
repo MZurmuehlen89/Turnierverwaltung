@@ -44,8 +44,12 @@ public class SimulationsKalibrierungTests
             Heimstaerke = r.Heim, Auswaertsstaerke = r.Ausw
         }).ToList();
 
-    [Fact]
-    public void Bundesliga_KennzahlenLiegenImRealenBereich()
+    // #361: der ausführliche Pfad (Minute für Minute mit Spielzustand) muss dieselben Kennzahlen treffen – die App
+    // simuliert seit #171 immer ausführlich.
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void Bundesliga_KennzahlenLiegenImRealenBereich(bool ausfuehrlich)
     {
         var teams = Teams(_bundesliga, 1);
         var rng = new Random(404);
@@ -61,7 +65,7 @@ public class SimulationsKalibrierungTests
             foreach (var gast in teams)
             {
                 if (heim == gast) continue;
-                var erg = SimulationsEngine.Simulieren(heim, gast, [], false, rng);
+                var erg = SimulationsEngine.Simulieren(heim, gast, [], ausfuehrlich, rng);
                 spiele++;
                 tore += erg.HeimToreRegulaer + erg.AuswaertsToreRegulaer;
                 if (erg.HeimToreRegulaer > erg.AuswaertsToreRegulaer) { heimsiege++; punkte[heim.Id] += 3; }
@@ -81,26 +85,30 @@ public class SimulationsKalibrierungTests
         (letzterPunkte / SAISONS).Should().BeInRange(16, 30, "Punkte des Letzten");
     }
 
-    [Fact]
-    public void Pokalrunde1_AussenseiterGewinnenRealistischSelten()
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void Pokalrunde1_AussenseiterGewinnenRealistischSelten(bool ausfuehrlich)
     {
         // Real scheiden je Saison 1–4 der 18 Bundesligisten in Runde 1 aus.
-        AusgeschiedeneBundesligistenJeSaison(ueberraschungsfaktor: 0).Should().BeInRange(1.5, 4.0);
+        AusgeschiedeneBundesligistenJeSaison(ueberraschungsfaktor: 0, ausfuehrlich).Should().BeInRange(1.5, 4.0);
     }
 
-    [Fact]
-    public void Pokalrunde1_MitPokalUeberraschungsfaktor_MehrAussenseitersiegeImRealenRahmen()
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void Pokalrunde1_MitPokalUeberraschungsfaktor_MehrAussenseitersiegeImRealenRahmen(bool ausfuehrlich)
     {
         // Issue #360: der Pokal-Faktor der Seed-Vorlagen hebt die Quote spürbar, bleibt aber im realen Bereich (1–4,
         // etwas Luft nach oben für die Zufallsschwankung).
-        double ohne = AusgeschiedeneBundesligistenJeSaison(ueberraschungsfaktor: 0);
-        double mit  = AusgeschiedeneBundesligistenJeSaison(TurnierVorlagenSeedDaten.POKAL_UEBERRASCHUNGSFAKTOR);
+        double ohne = AusgeschiedeneBundesligistenJeSaison(ueberraschungsfaktor: 0, ausfuehrlich);
+        double mit  = AusgeschiedeneBundesligistenJeSaison(TurnierVorlagenSeedDaten.POKAL_UEBERRASCHUNGSFAKTOR, ausfuehrlich);
 
         mit.Should().BeGreaterThan(ohne + 0.3);
         mit.Should().BeInRange(2.5, 4.5);
     }
 
-    private static double AusgeschiedeneBundesligistenJeSaison(int ueberraschungsfaktor)
+    private static double AusgeschiedeneBundesligistenJeSaison(int ueberraschungsfaktor, bool ausfuehrlich)
     {
         var bundesliga = Teams(_bundesliga, 1);
         var unterklassig = Teams(_unterklassig, 100);
@@ -119,7 +127,7 @@ public class SimulationsKalibrierungTests
         {
             // Im DFB-Pokal hat der unterklassige Verein Heimrecht.
             var erg = SimulationsEngine.Simulieren(
-                aussenseiter, favorit, verfahren, false, rng, Spielortvorteil.Heim, ueberraschungsfaktor);
+                aussenseiter, favorit, verfahren, ausfuehrlich, rng, Spielortvorteil.Heim, ueberraschungsfaktor);
             spiele++;
             if (HeimGewinnt(erg)) aussenseiterSiege++;
         }
@@ -127,8 +135,10 @@ public class SimulationsKalibrierungTests
         return 18.0 * aussenseiterSiege / spiele;
     }
 
-    [Fact]
-    public void Topfavorit_VerliertAuswaertsBeimSchwaechstenRegionalligistenSelten()
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void Topfavorit_VerliertAuswaertsBeimSchwaechstenRegionalligistenSelten(bool ausfuehrlich)
     {
         var bayern = Teams(_bundesliga[..1], 1)[0];
         var wuppertal = Teams(_unterklassig[^1..], 100)[0];
@@ -136,7 +146,7 @@ public class SimulationsKalibrierungTests
         const int SPIELE = 5000;
 
         int niederlagen = Enumerable.Range(0, SPIELE)
-            .Select(_ => SimulationsEngine.Simulieren(wuppertal, bayern, [], false, rng))
+            .Select(_ => SimulationsEngine.Simulieren(wuppertal, bayern, [], ausfuehrlich, rng))
             .Count(e => e.HeimToreRegulaer > e.AuswaertsToreRegulaer);
 
         ((double)niederlagen / SPIELE).Should().BeInRange(0.002, 0.06,

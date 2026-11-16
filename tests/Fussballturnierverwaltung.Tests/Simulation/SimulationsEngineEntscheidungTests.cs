@@ -109,22 +109,8 @@ public class SimulationsEngineEntscheidungTests
         (e.HeimElf, e.GastElf).Should().Be(Stand(6, 5));
     }
 
-    [Fact]
-    public void Verlaengerung_Ausfuehrlich_EreignisseLiegenInDenMinuten91Bis120()
-    {
-        // Je ein Tor, Minuten 91 (Wert 0) und 120 (Wert knapp unter 1); Karten bleiben aus (Folge danach 0).
-        var zufall = new VorgegebenerZufall(
-            [0.53, 0.0, /* Gast */ 0.73, 0.0, /* Torminuten */ 0.0, 0.9999], danach: 0.0);
-
-        var e = Anwenden(zufall, true, VerfahrenArt.VerlaengerungKlassisch);
-
-        e.Ereignisse.Where(x => x.Art == EreignisArt.Tor)
-            .Select(x => (x.Minute, x.IstHeim))
-            .Should().Equal((91, true), (120, false));
-    }
-
-    // ── Golden Goal (je Minute 91–120 Torchance λ/90) ─────────────────────
-    // Heim 1,95/90 = 0,02167; Gast 0,975/90 = 0,01083.
+    // ── Golden Goal der Schnellsimulation (je Minute 91–120 Torchance λ/90) ──
+    // Heim 1,95/90 = 0,02167; Gast 0,975/90 = 0,01083. Ausführlich (Minute für Minute, #361): SpielablaufTests.
 
     [Fact]
     public void GoldenGoal_HeimTrifft_SpielEndetSofort()
@@ -132,12 +118,10 @@ public class SimulationsEngineEntscheidungTests
         // Minute 91: beide knapp über ihrer Torchance; Minute 92: Heim knapp darunter. Weitere Werte würden treffen.
         var zufall = new VorgegebenerZufall([0.0217, 0.0109, 0.0216, 0.5, TRIFFT, TRIFFT, TRIFFT, TRIFFT]);
 
-        var e = Anwenden(zufall, true, VerfahrenArt.GoldenGoal);
+        var e = Anwenden(zufall, false, VerfahrenArt.GoldenGoal);
 
         e.Art.Should().Be(EntscheidungArt.GoldenGoal);
         (e.HeimVerl, e.GastVerl).Should().Be(Stand(1, 0));
-        e.Ereignisse.Should().ContainSingle()
-            .Which.Should().Be(new SimuliertesEreignis(92, EreignisArt.GoldenGoal, true, "Golden Goal"));
         zufall.Verbraucht.Should().Be(4, "nach dem ersten Tor wird nicht weitergespielt");
     }
 
@@ -146,11 +130,9 @@ public class SimulationsEngineEntscheidungTests
     {
         var zufall = new VorgegebenerZufall([0.5, 0.0108]);
 
-        var e = Anwenden(zufall, true, VerfahrenArt.GoldenGoal);
+        var e = Anwenden(zufall, false, VerfahrenArt.GoldenGoal);
 
         (e.HeimVerl, e.GastVerl).Should().Be(Stand(0, 1));
-        e.Ereignisse.Should().ContainSingle()
-            .Which.Should().Be(new SimuliertesEreignis(91, EreignisArt.GoldenGoal, false, "Golden Goal"));
     }
 
     [Theory]
@@ -158,11 +140,11 @@ public class SimulationsEngineEntscheidungTests
     [InlineData(0.6, false)]
     public void GoldenGoal_BeideTreffenInDerselbenMinute_LosEntscheidet(double los, bool heimTrifft)
     {
-        // #629: bis dahin zählte immer das Heimtor.
-        var e = Anwenden(new VorgegebenerZufall([TRIFFT, TRIFFT, los]), true, VerfahrenArt.GoldenGoal);
+        // #629: bis dahin zählte immer das Heimtor. Nur noch in der Schnellsimulation – ausführlich würfelt der
+        // Ablauf seit #361 nach dem Anteil an der Torerwartung.
+        var e = Anwenden(new VorgegebenerZufall([TRIFFT, TRIFFT, los]), false, VerfahrenArt.GoldenGoal);
 
         (e.HeimVerl, e.GastVerl).Should().Be(heimTrifft ? Stand(1, 0) : Stand(0, 1));
-        e.Ereignisse.Should().ContainSingle().Which.IstHeim.Should().Be(heimTrifft);
     }
 
     [Fact]
@@ -171,7 +153,7 @@ public class SimulationsEngineEntscheidungTests
         double[] dreissigMinutenOhneTor = [.. Enumerable.Repeat(0.5, 60)];
         var zufall = new VorgegebenerZufall([.. dreissigMinutenOhneTor, /* Los */ 0.0]);
 
-        var e = Anwenden(zufall, true, VerfahrenArt.GoldenGoal, VerfahrenArt.Losentscheid);
+        var e = Anwenden(zufall, false, VerfahrenArt.GoldenGoal, VerfahrenArt.Losentscheid);
 
         e.Art.Should().Be(EntscheidungArt.Losentscheid);
         (e.HeimVerl, e.GastVerl).Should().Be(Stand(0, 0));
@@ -249,27 +231,6 @@ public class SimulationsEngineEntscheidungTests
         e.Art.Should().Be(EntscheidungArt.Elfmeterschiessen);
         (e.HeimVerl, e.GastVerl).Should().Be(Stand(1, 1));
         (e.HeimElf, e.GastElf).Should().Be(Stand(5, 6));
-    }
-
-    [Fact]
-    public void SilverGoal_Ausfuehrlich_ToreDerHaelftenInIhrenMinuten()
-    {
-        // 1:1 in der ersten Hälfte (Minuten 91 und 105), 1:0 in der zweiten (Minute 106); Karten bleiben aus.
-        // Reihenfolge: Tore der ersten Hälfte, deren Minuten und Ereignisse, dann die zweite Hälfte.
-        double[] ohneKarten = [0.0, 0.0, 0.0, 0.0];
-        var zufall = new VorgegebenerZufall(
-        [
-            0.73, 0.0, 0.86, 0.0,
-            /* Minuten */ 0.0, 0.9999, .. TorstilOhneKonter, .. TorstilOhneKonter, .. ohneKarten,
-            /* zweite Hälfte */ 0.73, 0.0, 0.0,
-            /* Minute */ 0.0, .. TorstilOhneKonter, .. ohneKarten
-        ]);
-
-        var e = Anwenden(zufall, true, VerfahrenArt.SilverGoal);
-
-        e.Art.Should().Be(EntscheidungArt.Verlaengerung);
-        e.Ereignisse.Select(x => (x.Minute, x.Art, x.IstHeim))
-            .Should().Equal((91, EreignisArt.Tor, true), (105, EreignisArt.Tor, false), (106, EreignisArt.Tor, true));
     }
 
     // ── Elfmeterschießen ──────────────────────────────────────────────────

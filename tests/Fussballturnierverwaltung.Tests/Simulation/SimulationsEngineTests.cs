@@ -8,6 +8,8 @@ namespace Fussballturnierverwaltung.Tests.Simulation;
 
 public class SimulationsEngineTests
 {
+    private const string LEERES_TOR = "Tor ins leere Tor";
+
     [Fact]
     public void GleicherSeed_LiefertGleichesErgebnis()
     {
@@ -97,7 +99,7 @@ public class SimulationsEngineTests
         // Beschreibung ("Tor per <Stil>") statt nur "Tor". Seed durchsuchen, bis mindestens ein Tor fällt.
         var torEreignisse = Enumerable.Range(0, 50)
             .SelectMany(seed => SimulationsEngine.Simulieren(Team(1), Team(2), [], true, new Random(seed)).Ereignisse)
-            .Where(e => e.Art == EreignisArt.Tor)
+            .Where(e => e.Art == EreignisArt.Tor && e.Beschreibung != LEERES_TOR)
             .ToList();
 
         torEreignisse.Should().NotBeEmpty();
@@ -123,10 +125,10 @@ public class SimulationsEngineTests
     public void AusfuehrlicheSimulation_TorEreignisseHabenTorzoneInKlammern()
     {
         // Issue #128: jedes Tor-Ereignis trägt zusätzlich eine grob zugeloste Torzone in Klammern
-        // am Ende der Beschreibung, z.B. "Tor per Kopfball (unten Mitte)".
+        // am Ende der Beschreibung, z.B. "Tor per Kopfball (unten Mitte)" – außer bei einem Tor ins leere Tor (#361).
         var torBeschreibungen = Enumerable.Range(0, 50)
             .SelectMany(seed => SimulationsEngine.Simulieren(Team(1), Team(2), [], true, new Random(seed)).Ereignisse)
-            .Where(e => e.Art == EreignisArt.Tor)
+            .Where(e => e.Art == EreignisArt.Tor && e.Beschreibung != LEERES_TOR)
             .Select(e => e.Beschreibung)
             .ToList();
 

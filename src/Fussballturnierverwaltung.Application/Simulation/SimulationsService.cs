@@ -160,9 +160,10 @@ public class SimulationsService(
         if (!noetig)
             return ergebnis;
 
+        // #361: die Verlängerung setzt das Rückspiel fort – mit dessen Platzverweisen, nicht denen des Hinspiels.
         var (hv, gv, he, ge, art, extras, losGewinnerHeim) = SimulationsEngine.EntscheidungsverfahrenAnwenden(
             spiel.HeimMannschaft!, spiel.AuswaertsMannschaft!, verfahren, ausfuehrlich: true, rng, spielortvorteil,
-            runde.Ueberraschungsfaktor);
+            runde.Ueberraschungsfaktor, Platzverweise.AusEreignissen(ergebnis.Ereignisse));
         return ergebnis with
         {
             HeimToreVerlaengerung      = hv,
