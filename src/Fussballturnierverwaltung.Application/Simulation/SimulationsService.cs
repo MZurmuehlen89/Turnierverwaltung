@@ -48,7 +48,12 @@ public class SimulationsService(
     /// das hängt am Gesamtstand und wendet der Aufrufer an. Die Risikostufe richtet sich nach dem Gesamtstand (#671).</summary>
     public SimulationsErgebnis RueckspielSimulieren(
         Mannschaft heim, Mannschaft auswaerts, Hinspielstand hinspielstand, Random rng)
-        => SimulationsEngine.Simulieren(heim, auswaerts, [], ausfuehrlich: true, rng, hinspielstand: hinspielstand);
+    {
+        var ergebnis = SimulationsEngine.Simulieren(heim, auswaerts, [], ausfuehrlich: true, rng, hinspielstand: hinspielstand);
+        logger.LogDebug("Rückspiel: {Heim} {H}:{G} {Gast}",
+            heim.Name, ergebnis.HeimToreRegulaer, ergebnis.AuswaertsToreRegulaer, auswaerts.Name);
+        return ergebnis;
+    }
 
     // ── Ein einzelnes Spiel ───────────────────────────────────────────────
 

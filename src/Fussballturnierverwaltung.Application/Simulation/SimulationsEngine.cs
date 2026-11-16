@@ -12,7 +12,7 @@ public static class SimulationsEngine
 {
     // ── Öffentliche Eintrittspunkte ────────────────────────────────────────
 
-#pragma warning disable S107 // zwei Parameter mit Standardwerten; Bündeln hieße alle Aufrufer und Tests umstellen, intern läuft es als Paarung (#503)
+#pragma warning disable S107 // drei Parameter mit Standardwerten; Bündeln hieße alle Aufrufer und Tests umstellen, intern läuft es als Paarung (#503)
     public static SimulationsErgebnis Simulieren(
         Mannschaft heim,
         Mannschaft auswaerts,

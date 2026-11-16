@@ -24,6 +24,10 @@ public readonly record struct Hinspielstand(int ToreHeim, int ToreGast, bool Aus
     /// </summary>
     public int VorsprungDesHeimteams(int heimTore, int gastTore)
     {
+        // Ohne Regel genügt die Tordifferenz – der Normalfall jeder Minute jedes Spiels, ohne Schleife.
+        if (!AuswaertstorRegelAktiv)
+            return heimTore + ToreHeim - gastTore - ToreGast;
+
         var stand = this; // Lambdas in einer Struktur dürfen this nicht fassen
         int wertung = stand.Wertung(heimTore, gastTore);
         if (wertung > 0)
