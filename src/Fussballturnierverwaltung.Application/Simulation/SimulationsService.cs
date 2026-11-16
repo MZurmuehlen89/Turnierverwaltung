@@ -469,7 +469,8 @@ public class SimulationsService(
             var dbEreignisse = sim.Ereignisse.Select(e => new SpielEreignis
             {
                 SpielId      = spiel.Id,
-                Minute       = e.Minute,
+                Minute          = e.Minute,
+                Nachspielminute = e.Nachspielminute,
                 EreignisArt  = e.Art,
                 MannschaftId = e.IstHeim ? spiel.HeimMannschaftId : spiel.AuswaertsMannschaftId,
                 Beschreibung = e.Beschreibung

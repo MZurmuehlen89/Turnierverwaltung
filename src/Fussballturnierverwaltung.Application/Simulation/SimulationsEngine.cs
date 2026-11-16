@@ -380,8 +380,11 @@ public enum Spielortvorteil
     Auswaerts
 }
 
+/// <summary>Ein Ereignis der ausführlichen Simulation. <see cref="Nachspielminute"/> ist nur in der Nachspielzeit
+/// gesetzt (#361): „90+4'“ = Minute 90, Nachspielminute 4.</summary>
 public record SimuliertesEreignis(
     int Minute,
     EreignisArt Art,
     bool IstHeim,
-    string Beschreibung);
+    string Beschreibung,
+    int? Nachspielminute = null);

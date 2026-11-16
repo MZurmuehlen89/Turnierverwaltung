@@ -620,6 +620,9 @@ namespace Fussballturnierverwaltung.Infrastructure.Persistenz.Migrationen
                     b.Property<int>("Minute")
                         .HasColumnType("integer");
 
+                    b.Property<int?>("Nachspielminute")
+                        .HasColumnType("integer");
+
                     b.Property<int>("SpielId")
                         .HasColumnType("integer");
 
