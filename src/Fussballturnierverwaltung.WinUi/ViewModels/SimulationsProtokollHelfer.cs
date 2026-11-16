@@ -16,7 +16,7 @@ public record EinzelspielEreignisZeile(
     bool IstTrenner = false, string? TrennerText = null, TrennerArt TrennerArt = TrennerArt.Abschnitt,
     byte[]? Wappen = null,
     bool IstTor = false, bool IstGelbeKarte = false, bool IstRoteKarte = false, bool IstElfmeterVerschossen = false,
-    string? Detail = null, int MinuteWert = 0, bool IstElfmeterschuss = false)
+    string? Detail = null, int MinuteWert = 0, bool IstElfmeterschuss = false, bool IstTaktikwechsel = false)
 {
     // Nur fuer IstTrenner==true aussagekräftig — die beiden Properties kombinieren beides, damit die
     // Zeitleisten-DataTemplate-Grids nicht zusätzlich auf IstTrenner prüfen müssen (sonst würde bei
@@ -255,7 +255,8 @@ internal static class SimulationsProtokollHelfer
                 IstElfmeterVerschossen: art == EreignisArt.ElfmeterVerschossen,
                 Detail: DetailText(artText, beschreibung),
                 MinuteWert: minute,
-                IstElfmeterschuss: art is EreignisArt.ElfmeterTor or EreignisArt.ElfmeterVerschossen));
+                IstElfmeterschuss: art is EreignisArt.ElfmeterTor or EreignisArt.ElfmeterVerschossen,
+                IstTaktikwechsel: art == EreignisArt.Taktikwechsel));
         }
 
         // Noch nicht erreichte Schwellen (z. B. Halbzeit ohne Tor, Spielende ohne Ereignis danach) nachtragen

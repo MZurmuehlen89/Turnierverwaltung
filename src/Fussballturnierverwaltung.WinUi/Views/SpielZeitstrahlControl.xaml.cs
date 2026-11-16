@@ -170,7 +170,8 @@ public sealed partial class SpielZeitstrahlControl : UserControl
         }
 
         MarkerFlaeche.Children.Clear();
-        var spielEreignisse = zeilen.Where(z => !z.IstTrenner && !z.IstElfmeterschuss).ToList();
+        // #361: Taktikwechsel stehen nur im Spielbericht – auf dem kompakten Zeitstrahl wären sie Marker ohne Symbol.
+        var spielEreignisse = zeilen.Where(z => !z.IstTrenner && !z.IstElfmeterschuss && !z.IstTaktikwechsel).ToList();
         if (breite > 0)
         {
             double auswaertsTop = Zeichenflaeche.Height - MARKER_GROESSE;

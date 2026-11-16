@@ -5,23 +5,22 @@ namespace Fussballturnierverwaltung.GuiTests.Seiten;
 
 /// <summary>Der Spielbericht einer Turnierpartie: Spielkopf, die Ereignisse der Zeitleiste je Seite (Art-Text wie
 /// „Tor“, „Gelbe Karte“, „Elfmeter verwandelt“) und die Marker des kompakten Zeitstrahls je Seite — der zeigt alle
-/// Ereignisse außer den Schüssen des Elfmeterschießens.</summary>
+/// Ereignisse außer den Schüssen des Elfmeterschießens und den Taktikwechseln (#361).</summary>
 public sealed record Spielbericht(
     SpielKopfAnzeige Kopf,
     IReadOnlyList<string> HeimEreignisse, IReadOnlyList<string> AuswaertsEreignisse,
     IReadOnlyList<string> HeimMarker, IReadOnlyList<string> AuswaertsMarker)
 {
     private static readonly string[] _torArten = ["Tor", "Golden Goal", "Silver Goal"];
-    private static readonly string[] _elfmeterschuesse = ["Elfmeter verwandelt", "Elfmeter verschossen"];
+    private static readonly string[] _nichtImZeitstrahl = ["Elfmeter verwandelt", "Elfmeter verschossen", "Taktikwechsel"];
 
     /// <summary>Tore laut Zeitleiste (ohne Elfmeterschießen).</summary>
     public (int Heim, int Auswaerts) ToreAusEreignissen =>
         (HeimEreignisse.Count(_torArten.Contains), AuswaertsEreignisse.Count(_torArten.Contains));
 
-    public IReadOnlyList<string> HeimOhneElfmeterschiessen => [.. HeimEreignisse.Where(e => !_elfmeterschuesse.Contains(e))];
+    public IReadOnlyList<string> HeimImZeitstrahl => [.. HeimEreignisse.Where(e => !_nichtImZeitstrahl.Contains(e))];
 
-    public IReadOnlyList<string> AuswaertsOhneElfmeterschiessen =>
-        [.. AuswaertsEreignisse.Where(e => !_elfmeterschuesse.Contains(e))];
+    public IReadOnlyList<string> AuswaertsImZeitstrahl => [.. AuswaertsEreignisse.Where(e => !_nichtImZeitstrahl.Contains(e))];
 }
 
 /// <summary>Reiter „Simulation“ der Turnierdurchführung: zeigt den Spielbericht einer Partie, nach „Ausführlich
