@@ -167,13 +167,26 @@ public class SimulationsServiceHinRueckspielTests
 
     // ── Issue #671: Risikostufe im Rückspiel nach dem Gesamtstand ─────────────────────────
 
-    /// <summary>Taktikwechsel eines ruhigen Rückspiels (0:0), dessen Heimteam das Hinspiel 0:5 verloren hat: es wirft
-    /// ab der 60. Minute alles nach vorn, der Gast mauert ab der 70. (K3, K4).</summary>
+    /// <summary>Taktikwechsel eines ruhigen Rückspiels (0:0), dessen Heimteam das Hinspiel 0:5 verloren hat (K3, K4;
+    /// seit #673 nach dem Entscheidungsmodell, jeder Wurf „noch nicht“, also sieben Minuten nach der Schwelle). Die
+    /// Teams aus <c>SetupAnlegen</c> sind gleich stark: offensiv in der 7., alles nach vorn in der 27., aussichtslos
+    /// in der 68. – ohne Torwart vorn; der Gast mauert in der 77.</summary>
+    private static readonly (int, bool, string)[] TaktikNachHinspielNullZuFuenfGleichStark =
+    [
+        (7, true, "Stellt auf Offensive um"),
+        (27, true, "Wirft alles nach vorn"),
+        (68, true, "Kehrt zur gewohnten Ordnung zurück"),
+        (77, false, "Zieht sich zurück und verteidigt die Führung"),
+    ];
+
+    /// <summary>Dasselbe mit Heim- und Gastteam aus den Engine-Testdaten (Stärkeanteil 2/3 gegen 1/3): das Heimteam
+    /// drückt früher, der Gast mauert früher.</summary>
     private static readonly (int, bool, string)[] TaktikNachHinspielNullZuFuenf =
     [
-        (60, true, "Wirft alles nach vorn"),
-        (70, false, "Zieht sich zurück und verteidigt die Führung"),
-        (88, true, "Torwart geht mit nach vorn"),
+        (1, true, "Stellt auf Offensive um"),
+        (14, true, "Wirft alles nach vorn"),
+        (64, false, "Zieht sich zurück und verteidigt die Führung"),
+        (68, true, "Kehrt zur gewohnten Ordnung zurück"),
     ];
 
     private static IEnumerable<(int, bool, string)> Taktikwechsel(SimulationsErgebnis ergebnis) =>
@@ -197,7 +210,7 @@ public class SimulationsServiceHinRueckspielTests
         var ergebnis = await service.SpielSimulierenAsync(2, new Ablauffolge().Zufall());
 
         (ergebnis.HeimToreRegulaer, ergebnis.AuswaertsToreRegulaer).Should().Be((0, 0));
-        Taktikwechsel(ergebnis).Should().Equal(TaktikNachHinspielNullZuFuenf);
+        Taktikwechsel(ergebnis).Should().Equal(TaktikNachHinspielNullZuFuenfGleichStark);
     }
 
     [Fact]

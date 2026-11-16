@@ -5,7 +5,9 @@ namespace Fussballturnierverwaltung.Tests.Simulation;
 /// fällt, bei einem Tor wer trifft und die Torbeschreibung, dann erneut ob ein Tor fällt (ein weiteres Tor derselben
 /// Minute), danach vier Karten (Gelb Heim, Rot Heim, Gelb Gast, Rot Gast). Nach der letzten regulären Minute einer
 /// Halbzeit wird die Nachspielzeit gezogen. <see cref="NEIN"/> als Folgewert danach heißt: kein Tor, keine Karte,
-/// längste Nachspielzeit.
+/// längste Nachspielzeit. Steht ein Taktikwechsel an, den nur die Zeit fällig macht (#673), zieht der Ablauf zu
+/// Beginn der Minute je betroffenem Team (erst Heim, dann Gast) einen Wurf, ob umgestellt wird; <see cref="NEIN"/>
+/// heißt „noch nicht“ – spätestens sieben Minuten nach der Schwelle stellt das Team auch dann um.
 /// </summary>
 internal sealed class Ablauffolge
 {
@@ -24,6 +26,17 @@ internal sealed class Ablauffolge
 
     public Ablauffolge Karten(bool gelbHeim = false, bool rotHeim = false, bool gelbGast = false, bool rotGast = false)
         => Hinzu(gelbHeim ? JA : NEIN, rotHeim ? JA : NEIN, gelbGast ? JA : NEIN, rotGast ? JA : NEIN);
+
+    /// <summary>Wurf, ob ein Team einen fälligen Taktikwechsel vollzieht (#673): <see cref="JA"/> sofort.</summary>
+    public Ablauffolge Taktikwurf(double wert = NEIN) => Hinzu(wert);
+
+    /// <summary>Ruhige Minuten, in denen ein Team einen fälligen Taktikwechsel noch aufschiebt.</summary>
+    public Ablauffolge RuhigMitTaktikwurf(int minuten)
+    {
+        for (int i = 0; i < minuten; i++)
+            Taktikwurf().Ruhig(1);
+        return this;
+    }
 
     /// <summary>Minuten ohne Tor und ohne Karte.</summary>
     public Ablauffolge Ruhig(int minuten)
@@ -46,4 +59,7 @@ internal sealed class Ablauffolge
     }
 
     public VorgegebenerZufall Zufall(double? danach = NEIN) => new(_werte, danach);
+
+    /// <summary>Die Folge als Anfang eines Spiels, danach zieht <paramref name="danach"/> weiter (#673).</summary>
+    public VorgegebenerAnfang Anfang(Random danach) => new(_werte, danach);
 }

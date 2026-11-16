@@ -33,6 +33,8 @@ internal sealed class Spielablauf
     private readonly Random _rng;
     private readonly double _heimJeMinute;
     private readonly double _gastJeMinute;
+    // Kräfteverhältnis für die Risikoentscheidung (#673): Anteil des Heimteams an der Torerwartung beider Teams.
+    private readonly double _heimAnteil;
     private readonly Hinspielstand _hinspielstand;
     private readonly List<SimuliertesEreignis> _ereignisse = [];
     private Teamzustand _heim;
@@ -54,6 +56,9 @@ internal sealed class Spielablauf
         _rng              = rng;
         _heimJeMinute     = heimTorerwartung / ENDE_REGULAER * ABLAUF_KORREKTUR;
         _gastJeMinute     = gastTorerwartung / ENDE_REGULAER * ABLAUF_KORREKTUR;
+        _heimAnteil       = heimTorerwartung + gastTorerwartung > 0
+            ? heimTorerwartung / (heimTorerwartung + gastTorerwartung)
+            : 0.5;
         _heim             = Teamzustand.Anpfiff(platzverweise.Heim);
         _gast             = Teamzustand.Anpfiff(platzverweise.Gast);
         _gespielteMinuten = gespielteMinuten;
@@ -111,9 +116,10 @@ internal sealed class Spielablauf
             if (MinuteSpielen(minute, null, abschnittsende - minute, goldenGoal))
                 return true;
 
+        // In der Nachspielzeit läuft die Restzeit negativ weiter – ein fälliger Wechsel wird dort immer wahrscheinlicher.
         int nachspielzeit = _rng.Next(minNachspiel, maxNachspiel + 1);
         for (int nachspielminute = 1; nachspielminute <= nachspielzeit; nachspielminute++)
-            if (MinuteSpielen(bis, nachspielminute, abschnittsende - bis, goldenGoal))
+            if (MinuteSpielen(bis, nachspielminute, abschnittsende - bis - nachspielminute, goldenGoal))
                 return true;
 
         return false;
@@ -125,13 +131,13 @@ internal sealed class Spielablauf
     {
         _gespielteMinuten++;
         double ermuedung = Spielsituation.Ermuedung(_gespielteMinuten);
-        TaktikAnpassen(minute, nachspielminute, verbleibend);
+        TaktikAnpassen(minute, nachspielminute, verbleibend, nachTor: false);
 
         for (int tor = 0; tor < MAX_TORE_JE_MINUTE && TorFaellt(ermuedung, out bool heimTrifft); tor++)
         {
             TorErzielen(minute, nachspielminute, heimTrifft, goldenGoal);
             if (goldenGoal) return true;
-            TaktikAnpassen(minute, nachspielminute, verbleibend);
+            TaktikAnpassen(minute, nachspielminute, verbleibend, nachTor: true);
         }
 
         KartenZiehen(minute, nachspielminute, ermuedung);
@@ -170,26 +176,32 @@ internal sealed class Spielablauf
         _ereignisse.Add(new(minute, EreignisArt.Tor, heimTrifft, text, nachspielminute));
     }
 
-    /// <summary>Passt die Risikostufe beider Teams an Spielstand und Zeit an; jeder Wechsel ist ein Ereignis. Im
-    /// K.-o.-Rückspiel zählt der Gesamtstand samt Auswärtstorregel (#671).</summary>
-    private void TaktikAnpassen(int minute, int? nachspielminute, int verbleibend)
+    /// <summary>Passt die Risikostufe beider Teams an Spielstand und Zeit an (#673); jeder Wechsel ist ein Ereignis.
+    /// Im K.-o.-Rückspiel zählt der Gesamtstand samt Auswärtstorregel (#671). Nach einem Tor stellen beide Teams
+    /// sofort um; einen Wechsel, den nur die Zeit fällig macht, vollzieht ein Team mit steigender Wahrscheinlichkeit
+    /// – gewürfelt wird nur, wenn einer ansteht.</summary>
+    private void TaktikAnpassen(int minute, int? nachspielminute, int verbleibend, bool nachTor)
     {
         int heimVorsprung = _hinspielstand.VorsprungDesHeimteams(_heimTore, _gastTore);
-        _heim = TaktikDesTeams(_heim, heimVorsprung, istHeim: true, minute, nachspielminute, verbleibend);
-        _gast = TaktikDesTeams(_gast, -heimVorsprung, istHeim: false, minute, nachspielminute, verbleibend);
+        var heimLage = new Spiellage(heimVorsprung, verbleibend, _heimAnteil, _heim.Platzverweise - _gast.Platzverweise);
+        var gastLage = new Spiellage(-heimVorsprung, verbleibend, 1 - _heimAnteil, _gast.Platzverweise - _heim.Platzverweise);
+        _heim = TaktikDesTeams(_heim, heimLage, istHeim: true, minute, nachspielminute, nachTor);
+        _gast = TaktikDesTeams(_gast, gastLage, istHeim: false, minute, nachspielminute, nachTor);
     }
 
-#pragma warning disable S107 // Team, Stand und Zeitpunkt; die Zeitangaben einzeln, wie sie das Ereignis braucht
+#pragma warning disable S107 // Team, Lage und Zeitpunkt; die Zeitangaben einzeln, wie sie das Ereignis braucht
     private Teamzustand TaktikDesTeams(
-        Teamzustand team, int vorsprung, bool istHeim, int minute, int? nachspielminute, int verbleibend)
+        Teamzustand team, Spiellage lage, bool istHeim, int minute, int? nachspielminute, bool nachTor)
 #pragma warning restore S107
     {
-        var stufe = Spielsituation.RisikostufeErmitteln(vorsprung, verbleibend);
-        if (stufe == team.Stufe)
+        var faellig = Risikoentscheidung.Faellig(lage);
+        if (faellig.Stufe == team.Stufe)
+            return team;
+        if (!nachTor && _rng.NextDouble() >= Risikoentscheidung.Umstellwahrscheinlichkeit(faellig, lage.Verbleibend))
             return team;
 
-        _ereignisse.Add(new(minute, EreignisArt.Taktikwechsel, istHeim, Spielsituation.Taktiktext(stufe), nachspielminute));
-        return team with { Stufe = stufe };
+        _ereignisse.Add(new(minute, EreignisArt.Taktikwechsel, istHeim, Spielsituation.Taktiktext(faellig.Stufe, lage.Vorsprung), nachspielminute));
+        return team with { Stufe = faellig.Stufe };
     }
 
     /// <summary>Gelbe und rote Karten je Team; mit der Ermüdung steigt die Fehlerquote. Ein Platzverweis wirkt ab

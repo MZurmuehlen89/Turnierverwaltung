@@ -9,45 +9,7 @@ public class SpielsituationTests
 {
     private static readonly Teamzustand _neutral = Teamzustand.Anpfiff();
 
-    // ── Risikostufe (K3, K4) ──────────────────────────────────────────────
-
-    [Theory]
-    [InlineData(0, 90)]
-    [InlineData(0, 0)]
-    [InlineData(-3, 31)]
-    [InlineData(1, 21)]
-    public void Risikostufe_NeutralBeiGleichstandUndFruehemRueckstand(int vorsprung, int verbleibend)
-    {
-        Spielsituation.RisikostufeErmitteln(vorsprung, verbleibend).Should().Be(Risikostufe.Neutral);
-    }
-
-    [Theory]
-    [InlineData(-1, 30, Risikostufe.Offensiv)]       // 60. Minute
-    [InlineData(-1, 11, Risikostufe.Offensiv)]
-    [InlineData(-2, 30, Risikostufe.AllesNachVorn)]  // höherer Rückstand: früher alles nach vorn
-    [InlineData(-1, 10, Risikostufe.AllesNachVorn)]  // 80. Minute
-    [InlineData(-1, 3, Risikostufe.AllesNachVorn)]
-    [InlineData(-1, 2, Risikostufe.Brechstange)]     // 88. Minute
-    [InlineData(-4, 0, Risikostufe.Brechstange)]     // Nachspielzeit
-    [InlineData(1, 20, Risikostufe.Mauern)]          // führend ab der 70. Minute
-    [InlineData(3, 0, Risikostufe.Mauern)]
-    public void Risikostufe_NachVorsprungUndRestzeit(int vorsprung, int verbleibend, Risikostufe erwartet)
-    {
-        Spielsituation.RisikostufeErmitteln(vorsprung, verbleibend).Should().Be(erwartet);
-    }
-
-    [Fact]
-    public void Risikostufe_SteigtZurueckliegendMonotonMitRueckstandUndSpielzeit()
-    {
-        for (int rueckstand = 1; rueckstand <= 5; rueckstand++)
-        for (int verbleibend = 90; verbleibend >= 0; verbleibend--)
-        {
-            int stufe = (int)Spielsituation.RisikostufeErmitteln(-rueckstand, verbleibend);
-            if (verbleibend > 0)
-                stufe.Should().BeLessThanOrEqualTo((int)Spielsituation.RisikostufeErmitteln(-rueckstand, verbleibend - 1));
-            stufe.Should().BeLessThanOrEqualTo((int)Spielsituation.RisikostufeErmitteln(-rueckstand - 1, verbleibend));
-        }
-    }
+    // ── Wirkung der Risikostufe (K3, K4) ───────────────────────────────────────────────────────────────────────────
 
     [Fact]
     public void Risikostufe_GegnerGewinntMitSteigenderStufeStaerkerAlsDasEigeneTeam()
@@ -85,14 +47,15 @@ public class SpielsituationTests
     }
 
     [Theory]
-    [InlineData(Risikostufe.Mauern, "Zieht sich zurück und verteidigt die Führung")]
-    [InlineData(Risikostufe.Neutral, "Kehrt zur gewohnten Ordnung zurück")]
-    [InlineData(Risikostufe.Offensiv, "Stellt auf Offensive um")]
-    [InlineData(Risikostufe.AllesNachVorn, "Wirft alles nach vorn")]
-    [InlineData(Risikostufe.Brechstange, "Torwart geht mit nach vorn")]
-    public void Taktiktext_JeStufe(Risikostufe stufe, string erwartet)
+    [InlineData(Risikostufe.Mauern, 1, "Zieht sich zurück und verteidigt die Führung")]
+    [InlineData(Risikostufe.Mauern, 0, "Zieht sich zurück und verteidigt das Unentschieden")]
+    [InlineData(Risikostufe.Neutral, -3, "Kehrt zur gewohnten Ordnung zurück")]
+    [InlineData(Risikostufe.Offensiv, -1, "Stellt auf Offensive um")]
+    [InlineData(Risikostufe.AllesNachVorn, -1, "Wirft alles nach vorn")]
+    [InlineData(Risikostufe.Brechstange, -1, "Torwart geht mit nach vorn")]
+    public void Taktiktext_JeStufe(Risikostufe stufe, int vorsprung, string erwartet)
     {
-        Spielsituation.Taktiktext(stufe).Should().Be(erwartet);
+        Spielsituation.Taktiktext(stufe, vorsprung).Should().Be(erwartet);
     }
 
     // ── Platzverweise (K1, K2) ────────────────────────────────────────────

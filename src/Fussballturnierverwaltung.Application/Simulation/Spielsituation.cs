@@ -34,33 +34,12 @@ public readonly record struct Platzverweise(int Heim, int Gast)
 /// <summary>
 /// Reine Berechnung der Spielsituation (#361): wie Risikostufe, Platzverweise und Ermüdung die Torerwartung einer
 /// Minute verändern. Kein Zufall, kein Zustand – der minutenweise <see cref="Spielablauf"/> fragt hier nach. Die
-/// Faktoren sind bewusst Konstanten; eine Grundausrichtung je Mannschaft (#667) oder die Spielbedeutung je Runde
-/// (#668) setzen an dieser Stelle an.
+/// Faktoren sind bewusst Konstanten; welche Stufe ein Team wählt, entscheidet <see cref="Risikoentscheidung"/>.
 /// </summary>
 public static class Spielsituation
 {
     // ── Risikostufe ───────────────────────────────────────────────────────
-
-    // Verbleibende Minuten bis zum Ende des Abschnitts (regulär: 90). Nachspielzeit zählt als 0.
-    private const int OFFENSIV_AB_REST        = 30; // ab der 60. Minute
-    private const int MAUERN_AB_REST          = 20; // ab der 70. Minute
-    private const int ALLES_NACH_VORN_AB_REST = 10; // ab der 80. Minute
-    private const int BRECHSTANGE_AB_REST     = 2;  // ab der 88. Minute – real nur in den letzten Augenblicken
-
-    /// <summary>Risikostufe eines Teams aus seinem Vorsprung (negativ = Rückstand) und der verbleibenden Zeit.
-    /// Zurückliegend steigt sie monoton mit Rückstand und Spielzeit; führend wird ab der 70. Minute gemauert.</summary>
-    public static Risikostufe RisikostufeErmitteln(int vorsprung, int verbleibendeMinuten)
-    {
-        if (vorsprung > 0)
-            return verbleibendeMinuten <= MAUERN_AB_REST ? Risikostufe.Mauern : Risikostufe.Neutral;
-        if (vorsprung == 0 || verbleibendeMinuten > OFFENSIV_AB_REST)
-            return Risikostufe.Neutral;
-        if (verbleibendeMinuten <= BRECHSTANGE_AB_REST)
-            return Risikostufe.Brechstange;
-        if (verbleibendeMinuten <= ALLES_NACH_VORN_AB_REST || vorsprung <= -2)
-            return Risikostufe.AllesNachVorn;
-        return Risikostufe.Offensiv;
-    }
+    // Welche Stufe ein Team wählt, entscheidet seit #673 die Risikoentscheidung; hier steht nur ihre Wirkung.
 
     /// <summary>Wirkung der eigenen Risikostufe auf den eigenen Angriff: mit dem Risiko nur leicht stärker.</summary>
     public static double EigenerAngriff(Risikostufe stufe) => stufe switch
@@ -114,9 +93,11 @@ public static class Spielsituation
            * Math.Pow(UNTERZAHL_ANGRIFF_GEGNER, verteidiger.Platzverweise)
            * Torfaktor(ermuedung);
 
-    /// <summary>Text des Ereignisses <c>Taktikwechsel</c> beim Wechsel in diese Stufe.</summary>
-    public static string Taktiktext(Risikostufe stufe) => stufe switch
+    /// <summary>Text des Ereignisses <c>Taktikwechsel</c> beim Wechsel in diese Stufe. Gemauert wird seit #673 auch
+    /// bei Gleichstand (in Unterzahl).</summary>
+    public static string Taktiktext(Risikostufe stufe, int vorsprung) => stufe switch
     {
+        Risikostufe.Mauern when vorsprung == 0 => "Zieht sich zurück und verteidigt das Unentschieden",
         Risikostufe.Mauern        => "Zieht sich zurück und verteidigt die Führung",
         Risikostufe.Offensiv      => "Stellt auf Offensive um",
         Risikostufe.AllesNachVorn => "Wirft alles nach vorn",
