@@ -14,9 +14,9 @@ namespace Fussballturnierverwaltung.Tests.Simulation;
 /// </summary>
 public class SpielablaufTests
 {
-    private const string KOPFBALL = "Tor per Kopfball (oben links)";
+    internal const string KOPFBALL = "Tor per Kopfball (oben links)";
 
-    private static SimulationsErgebnis Simulieren(Random zufall, params VerfahrenArt[] verfahren) =>
+    internal static SimulationsErgebnis Simulieren(Random zufall, params VerfahrenArt[] verfahren) =>
         SimulationsEngine.Simulieren(HeimTeam(), GastTeam(), VerfahrenKette(verfahren), ausfuehrlich: true, zufall);
 
     private static (int? HeimVerl, int? GastVerl, int? HeimElf, int? GastElf, EntscheidungArt Art,
@@ -25,7 +25,7 @@ public class SpielablaufTests
         SimulationsEngine.EntscheidungsverfahrenAnwenden(
             HeimTeam(), GastTeam(), VerfahrenKette(verfahren), ausfuehrlich: true, zufall);
 
-    private static IEnumerable<(int, int?, EreignisArt, bool, string)> Kurz(IEnumerable<SimuliertesEreignis> ereignisse) =>
+    internal static IEnumerable<(int, int?, EreignisArt, bool, string)> Kurz(IEnumerable<SimuliertesEreignis> ereignisse) =>
         ereignisse.Select(e => (e.Minute, e.Nachspielminute, e.Art, e.IstHeim, e.Beschreibung));
 
     // ── Reguläre Spielzeit und Nachspielzeit (K5, K7) ─────────────────────
@@ -101,122 +101,6 @@ public class SpielablaufTests
 
         Simulieren(zufall).Ereignisse.Should().Contain(x => x.Art == EreignisArt.Tor)
             .Which.Beschreibung.Should().Be(erwartet);
-    }
-
-    // ── Taktikwechsel und Tore nacheinander (K3, K4, K5, K8) ──────────────
-
-    /// <summary>#673 K7: Ohne weiteres Tor stellt ein Team, das jeden Wurf mit „noch nicht“ beantwortet, sieben
-    /// Minuten nach der Schwelle um. 1:0 in Minute 1 – der Gast (Stärkeanteil 1/3) ist frühestens ab der 73.
-    /// offensiv, ab der 88. mit Torwart; das Heimteam (2/3) mauert frühestens ab der 83. In der Nachspielzeit läuft
-    /// die Restzeit weiter, der Torwart geht in der 90.+5 nach vorn.</summary>
-    [Fact]
-    public void Rueckstand_TaktikwechselSpaetestensSiebenMinutenNachDerSchwelle()
-    {
-        var e = Simulieren(new Ablauffolge().MinuteMitTor(heim: true).Zufall());
-
-        Kurz(e.Ereignisse.Where(x => x.Art == EreignisArt.Taktikwechsel)).Should().Equal(
-            (80, null, EreignisArt.Taktikwechsel, false, "Stellt auf Offensive um"),
-            (90, null, EreignisArt.Taktikwechsel, true, "Zieht sich zurück und verteidigt die Führung"),
-            (90, 5, EreignisArt.Taktikwechsel, false, "Torwart geht mit nach vorn"));
-    }
-
-    /// <summary>#671 K3 und #673 K3: im Rückspiel zählt der Gesamtstand – bei 0:0 nach einem 0:5 im Hinspiel liegt
-    /// das Rückspiel-Heimteam fünf Tore zurück: offensiv vom Anpfiff, alles nach vorn frühestens ab der 7., und als
-    /// es ab der 61. aussichtslos ist, zurück zur gewohnten Ordnung – nie mit dem Torwart vorn. Der Gast mauert
-    /// frühestens ab der 57. Jeder Wurf heißt „noch nicht“, umgestellt wird also sieben Minuten nach der Schwelle.</summary>
-    [Fact]
-    public void Rueckspiel_TaktikNachGesamtstand_AussichtslosOhneTorwartVorn()
-    {
-        var e = SimulationsEngine.Simulieren(
-            HeimTeam(), GastTeam(), [], ausfuehrlich: true, new Ablauffolge().Zufall(),
-            hinspielstand: Hinspielstand.AusHinspiel(hinspielHeimTore: 5, hinspielAuswaertsTore: 0, auswaertstorRegelAktiv: false));
-
-        (e.HeimToreRegulaer, e.AuswaertsToreRegulaer).Should().Be((0, 0));
-        Kurz(e.Ereignisse).Should().Equal(
-            (1, null, EreignisArt.Taktikwechsel, true, "Stellt auf Offensive um"),
-            (14, null, EreignisArt.Taktikwechsel, true, "Wirft alles nach vorn"),
-            (64, null, EreignisArt.Taktikwechsel, false, "Zieht sich zurück und verteidigt die Führung"),
-            (68, null, EreignisArt.Taktikwechsel, true, "Kehrt zur gewohnten Ordnung zurück"));
-    }
-
-    /// <summary>#673 K3 – BVB – Málaga, Viertelfinale 2013: Hinspiel 0:0, Auswärtstorregel. Nach dem 1:2 in der 82.
-    /// braucht der BVB zwei Tore (ein 2:2 reichte wegen der Auswärtstore nicht) und bleibt bis zum Schluss bei „alles
-    /// nach vorn“; nach dem 2:2 in der 90.+1 geht sofort der Torwart mit nach vorn, nach dem 3:2 tauschen beide
-    /// Teams die Rollen. Jeder Taktikwurf heißt „noch nicht“.</summary>
-    [Fact]
-    public void Rueckspiel_ZweiToreRueckstandSpaet_NieAussichtslos_NachDemAnschlusstorTorwartVorn()
-    {
-        var zufall = new Ablauffolge()
-            .Ruhig(24).MinuteMitTor(heim: false)        // 25.: 0:1 – der BVB braucht zwei Tore
-            .Ruhig(6).RuhigMitTaktikwurf(8)             // offensiv ab der 32. fällig, in der 39. sicher
-            .MinuteMitTor(heim: true)                   // 40.: 1:1 – ein Tor reicht wieder
-            .Ruhig(5).Nachspielzeit(JA).Ruhig(1)
-            .Ruhig(1).RuhigMitTaktikwurf(8)             // BVB offensiv ab der 47. fällig
-            .Ruhig(2).RuhigMitTaktikwurf(8)             // Málaga mauert ab der 57. fällig
-            .Ruhig(2).RuhigMitTaktikwurf(8)             // BVB alles nach vorn ab der 67. fällig
-            .Ruhig(7).MinuteMitTor(heim: false)         // 82.: 1:2
-            .Ruhig(8).Nachspielzeit(0.5)                // vier Minuten Nachspielzeit
-            .MinuteMitTor(heim: true).Ruhig(1)          // 90.+1: 2:2
-            .MinuteMitTor(heim: true)                   // 90.+3: 3:2
-            .Zufall();
-
-        var e = SimulationsEngine.Simulieren(
-            HeimTeam(), GastTeam(), [], ausfuehrlich: true, zufall,
-            hinspielstand: Hinspielstand.AusHinspiel(hinspielHeimTore: 0, hinspielAuswaertsTore: 0, auswaertstorRegelAktiv: true));
-
-        (e.HeimToreRegulaer, e.AuswaertsToreRegulaer).Should().Be((3, 2));
-        Kurz(e.Ereignisse.Where(x => x.Art == EreignisArt.Taktikwechsel)).Should().Equal(
-            (39, null, EreignisArt.Taktikwechsel, true, "Stellt auf Offensive um"),
-            (40, null, EreignisArt.Taktikwechsel, true, "Kehrt zur gewohnten Ordnung zurück"),
-            (54, null, EreignisArt.Taktikwechsel, true, "Stellt auf Offensive um"),
-            (64, null, EreignisArt.Taktikwechsel, false, "Zieht sich zurück und verteidigt die Führung"),
-            (74, null, EreignisArt.Taktikwechsel, true, "Wirft alles nach vorn"),
-            (90, 1, EreignisArt.Taktikwechsel, true, "Torwart geht mit nach vorn"),
-            (90, 3, EreignisArt.Taktikwechsel, true, "Zieht sich zurück und verteidigt die Führung"),
-            (90, 3, EreignisArt.Taktikwechsel, false, "Torwart geht mit nach vorn"));
-    }
-
-    [Fact]
-    public void ZweiToreInEinerMinute_DasZweiteRechnetMitDemNeuenStand()
-    {
-        // Minute 86: Heimtor, beide Teams stellen sofort um (#673: ein Tor löst den Wechsel ohne Wurf aus), Ausgleich,
-        // beide kehren zur gewohnten Ordnung zurück. Der Gast als Außenseiter ist erst offensiv, nicht alles nach vorn.
-        var zufall = new Ablauffolge()
-            .Ruhig(45).Nachspielzeit(JA).Ruhig(1).Ruhig(40)
-            .Tor(heim: true).Tor(heim: false).KeinTor().Karten()
-            .Zufall();
-
-        var e = Simulieren(zufall);
-
-        Kurz(e.Ereignisse).Should().Equal(
-            (86, null, EreignisArt.Tor, true, KOPFBALL),
-            (86, null, EreignisArt.Taktikwechsel, true, "Zieht sich zurück und verteidigt die Führung"),
-            (86, null, EreignisArt.Taktikwechsel, false, "Stellt auf Offensive um"),
-            (86, null, EreignisArt.Tor, false, KOPFBALL),
-            (86, null, EreignisArt.Taktikwechsel, true, "Kehrt zur gewohnten Ordnung zurück"),
-            (86, null, EreignisArt.Taktikwechsel, false, "Kehrt zur gewohnten Ordnung zurück"));
-        (e.HeimToreRegulaer, e.AuswaertsToreRegulaer).Should().Be((1, 1));
-    }
-
-    [Theory]
-    [InlineData(true, "Tor ins leere Tor")]
-    [InlineData(false, KOPFBALL)]
-    public void Brechstange_EinTeilDerGegentoreGehtInsLeereTor(bool insLeereTor, string erwartet)
-    {
-        // 1:0 in Minute 1; der Gast wird ab der 73. offensiv (Wurf je Minute, in der 80. sicher), das Heimteam
-        // könnte ab der 83. mauern, in der 88. geht der Torhüter des Gasts mit nach vorn, in der 89. trifft das Heimteam.
-        var folge = new Ablauffolge()
-            .MinuteMitTor(heim: true).Ruhig(44).Nachspielzeit(JA).Ruhig(1).Ruhig(27)
-            .RuhigMitTaktikwurf(8).Ruhig(2).RuhigMitTaktikwurf(5)
-            .Taktikwurf().Taktikwurf(JA).Ruhig(1)
-            .Taktikwurf().Hinzu(JA, JA, insLeereTor ? JA : NEIN);
-        if (!insLeereTor)
-            folge.Hinzu(TorstilOhneKonter);
-
-        var e = Simulieren(folge.Zufall());
-
-        e.Ereignisse.Last(x => x.Art == EreignisArt.Tor)
-            .Should().Be(new SimuliertesEreignis(89, EreignisArt.Tor, true, erwartet));
     }
 
     // ── Karten (K1, K6) ───────────────────────────────────────────────────
@@ -497,52 +381,6 @@ public class SpielablaufTests
 
         (ereignisse.Count(x => x.Art == EreignisArt.GelbeKarte) / (2.0 * SPIELE)).Should().BeInRange(2.3, 2.7);
         (ereignisse.Count(x => x.Art == EreignisArt.RoteKarte) / (2.0 * SPIELE)).Should().BeInRange(0.11, 0.19);
-    }
-
-    // ── Entscheidungsmodell der Risikostufe (#673, K5, K7) ────────────────
-
-    /// <summary>K7: 1:0 in Minute 1, danach Zufall. Der Gast (Stärkeanteil 1/3) darf ab der 73. offensiv werden und
-    /// ist es spätestens in der 80.; dazwischen streut die Minute – im Mittel gut drei Minuten nach der Schwelle.</summary>
-    [Fact]
-    public void Umstellminute_StreutZwischenSchwelleUndSiebenMinutenDanach()
-    {
-        var rng = new Random(673);
-        var minuten = new List<int>();
-
-        for (int i = 0; i < 8000; i++)
-        {
-            var e = Simulieren(new Ablauffolge().MinuteMitTor(heim: true).Anfang(rng));
-            if (e.Ereignisse.Count(x => x.Art == EreignisArt.Tor && x.Minute <= 80) != 1
-                || e.Ereignisse.Any(x => x.Art == EreignisArt.RoteKarte && x.Minute < 80))
-                continue; // nur Spiele, in denen allein die Zeit den Wechsel fällig macht
-            minuten.Add(e.Ereignisse.First(x => x.Art == EreignisArt.Taktikwechsel && !x.IstHeim).Minute);
-        }
-
-        minuten.Should().HaveCountGreaterThan(400);
-        minuten.Min().Should().Be(73);
-        minuten.Max().Should().BeLessThanOrEqualTo(80);
-        minuten.Distinct().Should().HaveCountGreaterThanOrEqualTo(6, "nicht alle Teams stellen in derselben Minute um");
-        minuten.Average().Should().BeInRange(74.8, 75.8);
-    }
-
-    /// <summary>K5: Ein Favorit im Rückstand stellt im Mittel deutlich früher auf Offensive um als ein Außenseiter;
-    /// ein Außenseiter in Führung mauert im Mittel deutlich früher als ein Favorit.</summary>
-    [Fact]
-    public void Kraefteverhaeltnis_FavoritDruecktFrueher_AussenseiterMauertFrueher()
-    {
-        var rng = new Random(6731);
-        var offensiv = new Dictionary<bool, List<int>> { [true] = [], [false] = [] };
-        var mauern   = new Dictionary<bool, List<int>> { [true] = [], [false] = [] };
-
-        for (int i = 0; i < 3000; i++)
-            foreach (var x in Simulieren(rng).Ereignisse.Where(x => x.Art == EreignisArt.Taktikwechsel))
-                if (x.Beschreibung == "Stellt auf Offensive um")
-                    offensiv[x.IstHeim].Add(x.Minute);
-                else if (x.Beschreibung == "Zieht sich zurück und verteidigt die Führung")
-                    mauern[x.IstHeim].Add(x.Minute);
-
-        offensiv[true].Average().Should().BeLessThan(offensiv[false].Average() - 10, "der Favorit (Heim) drückt früher");
-        mauern[false].Average().Should().BeLessThan(mauern[true].Average() - 10, "der Außenseiter (Gast) mauert früher");
     }
 
     // ── Reproduzierbarkeit (K11) ──────────────────────────────────────────
