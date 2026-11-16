@@ -154,7 +154,7 @@ internal static class SimulationsProtokollHelfer
     // (und damit auch die Marken) hinzugefügt wurden.
     public static bool ZeitleisteHinzufuegen(
         ObservableCollection<EinzelspielEreignisZeile> ziel,
-        IEnumerable<(int Minute, EreignisArt Art, bool IstHeimSeite, string Beschreibung)> ereignisse,
+        IEnumerable<(int Minute, int? Nachspielminute, EreignisArt Art, bool IstHeimSeite, string Beschreibung)> ereignisse,
         string heimName, string auswaertsName,
         EntscheidungArt entscheidungArt,
         int heimToreRegulaer, int auswaertsToreRegulaer,
@@ -234,7 +234,9 @@ internal static class SimulationsProtokollHelfer
         if (anpfiffText is not null)
             ziel.Add(EinzelspielEreignisZeile.Trenner(anpfiffText, TrennerArt.Start));
 
-        foreach (var (minute, art, istHeimSeite, beschreibung) in ereignisListe.OrderBy(ev => ev.Minute))
+        // #361: Nachspielzeit („90+4'“) nach der regulären Minute, Ereignisse derselben Minute in Entstehungsreihenfolge.
+        foreach (var (minute, nachspielminute, art, istHeimSeite, beschreibung) in
+                 ereignisListe.Chronologisch(ev => ev.Minute, ev => ev.Nachspielminute))
         {
             SchwellenPruefen(minute);
 
@@ -245,7 +247,7 @@ internal static class SimulationsProtokollHelfer
 
             string artText = ArtText(art);
             ziel.Add(new EinzelspielEreignisZeile(
-                $"{minute}'", istHeimSeite ? heimName : auswaertsName, artText, istHeimSeite,
+                Spielminute.Text(minute, nachspielminute), istHeimSeite ? heimName : auswaertsName, artText, istHeimSeite,
                 Wappen: istHeimSeite ? heimWappen : auswaertsWappen,
                 IstTor: art is EreignisArt.Tor or EreignisArt.GoldenGoal or EreignisArt.SilverGoal or EreignisArt.ElfmeterTor,
                 IstGelbeKarte: art == EreignisArt.GelbeKarte,
