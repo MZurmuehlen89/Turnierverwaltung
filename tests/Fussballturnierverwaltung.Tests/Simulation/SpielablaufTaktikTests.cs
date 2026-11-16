@@ -174,4 +174,43 @@ public class SpielablaufTaktikTests
         offensiv[true].Average().Should().BeLessThan(offensiv[false].Average() - 10, "der Favorit (Heim) drückt früher");
         mauern[false].Average().Should().BeLessThan(mauern[true].Average() - 10, "der Außenseiter (Gast) mauert früher");
     }
+
+    /// <summary>K8 (Befund aus dem KI-Review): Zur gewohnten Ordnung kehrt ein Team nur nach einem Tor derselben
+    /// Minute zurück oder wenn es aussichtslos (drei Tore und mehr) zurückliegt – nicht, weil die Restzeit nach der
+    /// Nachspielzeit der ersten Hälfte wieder steigt, und nicht zu Beginn der Verlängerung.</summary>
+    [Fact]
+    public void RueckwechselZurGewohntenOrdnung_NurNachToroderAussichtslos()
+    {
+        var rng = new Random(6732);
+        var unbegruendet = new List<string>();
+
+        for (int i = 0; i < 3000; i++)
+        {
+            var ereignisse = Simulieren(rng, VerfahrenArt.VerlaengerungKlassisch, VerfahrenArt.Elfmeterschiessen).Ereignisse;
+            int heimTore = 0, gastTore = 0;
+            bool torInDieserMinute = false;
+            (int, int?) minuteVorher = (0, null);
+            foreach (var e in ereignisse)
+            {
+                if ((e.Minute, e.Nachspielminute) != minuteVorher)
+                    torInDieserMinute = false;
+                minuteVorher = (e.Minute, e.Nachspielminute);
+
+                if (e.Art is EreignisArt.Tor or EreignisArt.GoldenGoal)
+                {
+                    torInDieserMinute = true;
+                    if (e.IstHeim) heimTore++;
+                    else gastTore++;
+                }
+                else if (e.Beschreibung == "Kehrt zur gewohnten Ordnung zurück" && !torInDieserMinute)
+                {
+                    int rueckstand = e.IstHeim ? gastTore - heimTore : heimTore - gastTore;
+                    if (rueckstand < 3)
+                        unbegruendet.Add($"Spiel {i}: {Spielminute.Text(e.Minute, e.Nachspielminute)} {(e.IstHeim ? "Heim" : "Gast")}");
+                }
+            }
+        }
+
+        unbegruendet.Should().BeEmpty();
+    }
 }

@@ -37,9 +37,9 @@ public static class Risikoentscheidung
     // danach ist umgestellt.
     private const double UMSTELLFENSTER = 8;
 
-    /// <summary>Schwelle eines Wechsels, der ohne Plan fällig ist (etwa zurück zur gewohnten Ordnung, wenn ein
-    /// Platzverweis des Gegners die Lage ändert) – er erfolgt sofort.</summary>
-    public const int SOFORT = 1000;
+    /// <summary>Schwelle der gewohnten Ordnung vor der ersten Stufe des Plans: Die Zeit allein führt nie dorthin
+    /// zurück (etwa zu Beginn der Verlängerung oder nach einem Platzverweis des Gegners) – das tut nur ein Tor.</summary>
+    public const int OHNE_SCHWELLE = int.MaxValue;
 
     // ── Stufenplan ────────────────────────────────────────────────────────
 
@@ -80,15 +80,17 @@ public static class Risikoentscheidung
     /// <summary>Die späteste Stufe des Plans, deren Schwelle erreicht ist; vor der ersten die gewohnte Ordnung.</summary>
     public static FaelligeStufe Faellig(Spiellage lage)
     {
-        var faellig = new FaelligeStufe(Risikostufe.Neutral, SOFORT);
+        var faellig = new FaelligeStufe(Risikostufe.Neutral, OHNE_SCHWELLE);
         foreach (var stufe in Stufenplan(lage))
             if (lage.Verbleibend <= stufe.AbVerbleibend)
                 faellig = stufe;
         return faellig;
     }
 
-    /// <summary>Wahrscheinlichkeit, in dieser Minute auf eine fällige Stufe umzustellen: in der Minute der Schwelle
-    /// 1/8, danach je Minute ein Achtel mehr.</summary>
+    /// <summary>Wahrscheinlichkeit, in dieser Minute ohne Tor auf eine fällige Stufe umzustellen: in der Minute der
+    /// Schwelle 1/8, danach je Minute ein Achtel mehr; ohne Schwelle nie.</summary>
     public static double Umstellwahrscheinlichkeit(FaelligeStufe faellig, int verbleibend)
-        => Math.Clamp(((double)faellig.AbVerbleibend - verbleibend + 1) / UMSTELLFENSTER, 0, 1);
+        => faellig.AbVerbleibend == OHNE_SCHWELLE
+            ? 0
+            : Math.Clamp(((double)faellig.AbVerbleibend - verbleibend + 1) / UMSTELLFENSTER, 0, 1);
 }

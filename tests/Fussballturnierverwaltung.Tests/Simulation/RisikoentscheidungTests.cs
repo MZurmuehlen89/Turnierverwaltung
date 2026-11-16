@@ -202,10 +202,12 @@ public class RisikoentscheidungTests
     }
 
     [Fact]
-    public void Umstellwahrscheinlichkeit_OhneSchwelleSofort()
+    public void Umstellwahrscheinlichkeit_OhneSchwelleNie_NurEinTorFuehrtZurGewohntenOrdnungZurueck()
     {
-        Risikoentscheidung.Faellig(Lage(-1, verbleibend: 60)).Should().Be(new FaelligeStufe(Risikostufe.Neutral, Risikoentscheidung.SOFORT));
-        Risikoentscheidung.Umstellwahrscheinlichkeit(new FaelligeStufe(Risikostufe.Neutral, Risikoentscheidung.SOFORT), 60)
-            .Should().Be(1);
+        var ohneSchwelle = new FaelligeStufe(Risikostufe.Neutral, Risikoentscheidung.OHNE_SCHWELLE);
+
+        Risikoentscheidung.Faellig(Lage(-1, verbleibend: 60)).Should().Be(ohneSchwelle);
+        Risikoentscheidung.Umstellwahrscheinlichkeit(ohneSchwelle, 60).Should().Be(0);
+        Risikoentscheidung.Umstellwahrscheinlichkeit(ohneSchwelle, -5).Should().Be(0);
     }
 }

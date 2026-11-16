@@ -116,11 +116,16 @@ internal sealed class Spielablauf
             if (MinuteSpielen(minute, null, abschnittsende - minute, goldenGoal))
                 return true;
 
-        // In der Nachspielzeit läuft die Restzeit negativ weiter – ein fälliger Wechsel wird dort immer wahrscheinlicher.
+        // Am Ende des Abschnitts läuft die Restzeit in der Nachspielzeit negativ weiter – ein fälliger Wechsel wird dort
+        // immer wahrscheinlicher. Vor einer weiteren Hälfte bleibt sie stehen; sonst stiege sie mit deren erster Minute
+        // wieder, und eine gerade fällige Stufe wäre es nicht mehr (Befund aus dem KI-Review, #673).
         int nachspielzeit = _rng.Next(minNachspiel, maxNachspiel + 1);
         for (int nachspielminute = 1; nachspielminute <= nachspielzeit; nachspielminute++)
-            if (MinuteSpielen(bis, nachspielminute, abschnittsende - bis - nachspielminute, goldenGoal))
+        {
+            int verbleibend = abschnittsende - bis - (bis == abschnittsende ? nachspielminute : 0);
+            if (MinuteSpielen(bis, nachspielminute, verbleibend, goldenGoal))
                 return true;
+        }
 
         return false;
     }
@@ -197,11 +202,19 @@ internal sealed class Spielablauf
         var faellig = Risikoentscheidung.Faellig(lage);
         if (faellig.Stufe == team.Stufe)
             return team;
-        if (!nachTor && _rng.NextDouble() >= Risikoentscheidung.Umstellwahrscheinlichkeit(faellig, lage.Verbleibend))
+        if (!nachTor && !ZeitMachtWechselFaellig(faellig, lage.Verbleibend))
             return team;
 
         _ereignisse.Add(new(minute, EreignisArt.Taktikwechsel, istHeim, Spielsituation.Taktiktext(faellig.Stufe, lage.Vorsprung), nachspielminute));
         return team with { Stufe = faellig.Stufe };
+    }
+
+    /// <summary>Würfelt, ob ein Team einen Wechsel vollzieht, den nur die Zeit fällig macht; ohne Schwelle (zurück zur
+    /// gewohnten Ordnung) wird nicht gewürfelt.</summary>
+    private bool ZeitMachtWechselFaellig(FaelligeStufe faellig, int verbleibend)
+    {
+        double wahrscheinlichkeit = Risikoentscheidung.Umstellwahrscheinlichkeit(faellig, verbleibend);
+        return wahrscheinlichkeit > 0 && _rng.NextDouble() < wahrscheinlichkeit;
     }
 
     /// <summary>Gelbe und rote Karten je Team; mit der Ermüdung steigt die Fehlerquote. Ein Platzverweis wirkt ab
