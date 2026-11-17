@@ -67,6 +67,7 @@ public record TurnierRundeEingabe(
     bool TitelverteidigerInTopf1 = false,
     bool NeutralerSpielort = false,
     int Ueberraschungsfaktor = 0,
+    Spielbedeutung Spielbedeutung = Spielbedeutung.Normal,
     IReadOnlyList<AuslosungsRegelArt>? VorgegebeneAuslosungsregeln = null,
     IReadOnlyList<TabellenBereichEingabe>? TabellenBereiche = null,
     Gruppenposition VorgegebeneGruppenposition = Gruppenposition.NachTopf,

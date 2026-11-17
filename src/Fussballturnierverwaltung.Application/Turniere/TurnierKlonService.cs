@@ -92,6 +92,7 @@ public class TurnierKlonService(
             AuswaertstorRegelAktiv    = runde.AuswaertstorRegelAktiv,
             NeutralerSpielort         = runde.NeutralerSpielort,
             Ueberraschungsfaktor      = runde.Ueberraschungsfaktor,
+            Spielbedeutung            = runde.Spielbedeutung,
             KonfigurationJson         = runde.KonfigurationJson,
             EingangUeberUebergangsregeln = runde.EingangUeberUebergangsregeln,
             PaarungFestVorgegeben     = runde.PaarungFestVorgegeben,

@@ -58,6 +58,7 @@ public static class TurnierVorlagenSeedDaten
         {
             NeutraleSpielorteSetzen(vorlage);
             UeberraschungsfaktorSetzen(vorlage);
+            SpielbedeutungSetzen(vorlage);
             AuslosungsregelnSetzen(vorlage);
             GruppenpositionSetzen(vorlage);
             GruppenkoepfeSetzen(vorlage);
@@ -269,6 +270,13 @@ public static class TurnierVorlagenSeedDaten
         if (!_nationalePokale.Contains(vorlage.Name)) return;
         foreach (var runde in vorlage.Runden)
             runde.Ueberraschungsfaktor = POKAL_UEBERRASCHUNGSFAKTOR;
+    }
+
+    // #668: Finale vorsichtig, Spiel um Platz 3 offen – dieselbe Regel wie das Rundenformular.
+    private static void SpielbedeutungSetzen(TurnierInstanz vorlage)
+    {
+        foreach (var runde in vorlage.Runden)
+            runde.Spielbedeutung = SpielbedeutungVorbelegung.Fuer(runde.Rundenart);
     }
 
     // Regelwerk-Namen für nationale Ligen (Issue #350) — müssen mit RegelwerkeSeedDaten übereinstimmen.

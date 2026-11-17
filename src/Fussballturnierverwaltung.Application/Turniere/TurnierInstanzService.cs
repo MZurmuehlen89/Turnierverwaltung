@@ -222,6 +222,7 @@ public class TurnierInstanzService(
         AuswaertstorRegelAktiv       = e.AuswaertstorRegelAktiv,
         NeutralerSpielort            = e.NeutralerSpielort,
         Ueberraschungsfaktor         = e.Ueberraschungsfaktor,
+        Spielbedeutung               = e.Spielbedeutung,
         KonfigurationJson            = e.KonfigurationJson,
         EingangUeberUebergangsregeln = e.EingangUeberUebergangsregeln,
         PaarungFestVorgegeben        = e.PaarungFestVorgegeben,

@@ -47,7 +47,8 @@ public class TurnierKlonServiceTests
         var finale = new TurnierRunde
         {
             Id = 2, TurnierInstanzId = 1, Name = "Finale", Reihenfolge = 2,
-            Rundenart = Rundenart.Finale, EingangsMannschaftsanzahl = 2, AusgangsMannschaftsanzahl = 1, RegelwerkId = 1
+            Rundenart = Rundenart.Finale, EingangsMannschaftsanzahl = 2, AusgangsMannschaftsanzahl = 1, RegelwerkId = 1,
+            Spielbedeutung = Spielbedeutung.Hoch
         };
         ctx.TurnierInstanzen.Add(quelle);
         ctx.TurnierRunden.AddRange(halbfinale, finale);
@@ -170,6 +171,19 @@ public class TurnierKlonServiceTests
         halbfinale.NeutralerSpielort.Should().BeTrue();
         klon.Runden.Single(r => r.Name == "Finale").StandardRanglisteId.Should().BeNull();
         klon.Runden.Single(r => r.Name == "Finale").NeutralerSpielort.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task KlonenAsync_UebernimmtSpielbedeutungJeRunde()
+    {
+        using var ctx = NeuerContext();
+        var quellId = await QuelleAnlegenAsync(ctx);
+        var service = ServiceFuer(ctx);
+
+        var klon = await service.KlonenAsync(quellId, "EM 2028", "2028", TurnierStatus.Geplant);
+
+        klon.Runden.Single(r => r.Name == "Finale").Spielbedeutung.Should().Be(Spielbedeutung.Hoch);
+        klon.Runden.Single(r => r.Name == "Halbfinale").Spielbedeutung.Should().Be(Spielbedeutung.Normal);
     }
 
     [Fact]
