@@ -220,6 +220,8 @@ How PRs are handled (user decision 27.10.2026):
 
 **`SimulationsEngine`** is stateless (pure static methods). It uses the Knuth algorithm for Poisson draws. Pass a seeded `Random` instance for reproducible results. The seed is recorded in `SimulationsLauf.ZufallsSeed`.
 
+**Risk axis and playing style (#673, #667):** in the detailed simulation every team sits on a risk axis (`Spielsituation`: Mauern −2, Defensiv −1, Neutral 0, Offensiv 1, AllesNachVorn 2, Brechstange 3; factors interpolated in between). `Risikoentscheidung` decides which stage is due (leading: Defensiv, then Mauern). `Mannschaft.Grundausrichtung` (5 stages) is the starting point and shifts the switching times by 5 min per stage; `Mannschaft.Flexibilitaet` (3 stages) sets how far a team follows a due stage (`S + (1 − f) · g`) and how fast (window 12/8/4 min) — see `Teamprofil`. Default (ausgeglichen/normal, value 0) behaves exactly as before #667. The seed takes the Grundausrichtung from the ratings (`SpielweisenVorschlag`) plus a hand list (`SpielweiseSeedDaten`).
+
 **`Zufallsquelle`** (Application/Zufall, singleton) is the only source of randomness for draws, fixtures and simulation (#519): get a `Random` per operation via `Erzeugen()`, never use `Random.Shared` or `new Random()` directly (exception: `GruppenZiehung`'s deliberately fixed `new Random(0)`). The configuration value `Zufall:Seed` (environment variable `Zufall__Seed`) fixes the seed for GUI tests — every operation then starts with the same sequence; the app logs a warning at startup when it is set.
 
 **`TurnierBaumKnoten`** has circular self-references — deleting/saving trees needs a multi-phase save; see `src/Fussballturnierverwaltung.Infrastructure/CLAUDE.md`.
