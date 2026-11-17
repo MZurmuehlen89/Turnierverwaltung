@@ -54,7 +54,9 @@ public static class Spielsituation
     // #667 liegen die Stufen auf einer Achse (Mauern −2 … Brechstange 3): Grundausrichtung und Flexibilität lassen ein
     // Team auch zwischen zwei Stufen spielen, die Faktoren werden dazwischen linear interpoliert.
 
-    private const int ACHSE_ANFANG = -2;
+    /// <summary>Enden der Risikoachse: Mauern und Brechstange.</summary>
+    public const int ACHSE_ANFANG = -2;
+    public const int ACHSE_ENDE = 3;
 
     // Je Position der Achse, beginnend bei Mauern. Defensiv liegt vorläufig in der Mitte zwischen Mauern und Neutral.
     /// <summary>Wirkung auf den eigenen Angriff: mit dem Risiko nur leicht stärker.</summary>

@@ -16,7 +16,6 @@ public readonly record struct Teamprofil(Grundausrichtung Grundausrichtung, Flex
 
     private const double SCHRITT_JE_STUFE  = 0.5; // auf der Risikoachse je Stufe der Grundausrichtung
     private const int    MINUTEN_JE_STUFE  = 5;   // Verschiebung der Umstellzeitpunkte je Stufe
-    private const double ACHSE_MIN = -2, ACHSE_MAX = 3;
 
     public static Teamprofil Von(Mannschaft mannschaft) => new(mannschaft.Grundausrichtung, mannschaft.Flexibilitaet);
 
@@ -46,7 +45,8 @@ public readonly record struct Teamprofil(Grundausrichtung Grundausrichtung, Flex
     /// Startpunkt.</summary>
     public double Ziel(Risikostufe stufe) => stufe == Risikostufe.Neutral
         ? Startpunkt
-        : Math.Clamp(Spielsituation.Position(stufe) + (1 - Anpassung) * Startpunkt, ACHSE_MIN, ACHSE_MAX);
+        : Math.Clamp(Spielsituation.Position(stufe) + (1 - Anpassung) * Startpunkt,
+            Spielsituation.ACHSE_ANFANG, Spielsituation.ACHSE_ENDE);
 }
 
 /// <summary>Die Profile beider Teams eines Spiels.</summary>

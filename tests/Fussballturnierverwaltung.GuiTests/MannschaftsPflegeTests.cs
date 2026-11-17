@@ -97,7 +97,7 @@ public sealed class MannschaftsPflegeTests(TurnierverwaltungApp app) : IClassFix
 
     /// <summary>#667 K12, K13: Eine neue Mannschaft startet ausgeglichen und normal flexibel. Der Vorschlag aus den
     /// Ratings folgt sofort dem Offensiv-Regler (Defensiv bleibt auf 70, Normalabstand +2): 70 → defensiv, 72 → passt,
-    /// 76 → offensiv. „Übernehmen“ steht nur bei Abweichung da und wählt den Vorschlag.</summary>
+    /// 74 → offensiv. „Übernehmen“ steht nur bei Abweichung da und wählt den Vorschlag.</summary>
     [Fact]
     public void Spielweise_NeueMannschaft_VorschlagFolgtDenRatingsUndLaesstSichUebernehmen()
     {
@@ -111,7 +111,7 @@ public sealed class MannschaftsPflegeTests(TurnierverwaltungApp app) : IClassFix
         _seite.VorschlagAbwarten(PASST).Should().Be(PASST);
         _seite.UebernehmenSichtbarAbwarten(false).Should().BeFalse("ohne Abweichung gibt es nichts zu übernehmen");
 
-        _seite.OffensivSetzen(76);
+        _seite.OffensivSetzen(74);
         _seite.VorschlagAbwarten(VORSCHLAG + "offensiv").Should().Be(VORSCHLAG + "offensiv");
         _seite.VorschlagUebernehmen();
         _seite.GrundausrichtungAbwarten("Offensiv").Should().Be("Offensiv");

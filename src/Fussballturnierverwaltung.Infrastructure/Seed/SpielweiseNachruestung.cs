@@ -31,7 +31,10 @@ public static class SpielweiseNachruestung
         var grundausrichtung = eintrag.Grundausrichtung is { } wert ? $"\"Grundausrichtung\" = {(int)wert}, " : "";
         return $"""
             UPDATE "Mannschaften" SET {grundausrichtung}"Flexibilitaet" = {(int)eintrag.Flexibilitaet}
-            WHERE "Mannschaftsart" = {(int)eintrag.Art} AND "Kurzname" = '{eintrag.Kurzname.Replace("'", "''")}';
+            WHERE "Mannschaftsart" = {(int)eintrag.Art} AND "Kurzname" = {Text(eintrag.Kurzname)}
+              AND "LandId" = (SELECT "Id" FROM "Laender" WHERE "FifaCode" = {Text(eintrag.Land)});
             """;
     }
+
+    private static string Text(string wert) => $"'{wert.Replace("'", "''")}'";
 }

@@ -1,5 +1,6 @@
 using FluentAssertions;
 using Fussballturnierverwaltung.Application.Simulation;
+using Fussballturnierverwaltung.Application.Stammdaten;
 using Fussballturnierverwaltung.Domain.Entitaeten.Regelwerke;
 using Fussballturnierverwaltung.Domain.Entitaeten.Stammdaten;
 using Fussballturnierverwaltung.Domain.Enums;
@@ -36,22 +37,26 @@ public class SimulationsKalibrierungTests
         (54, 53, 53, 58, 48), (53, 53, 53, 58, 48), (53, 53, 52, 57, 48), (53, 52, 52, 57, 47)
     ];
 
-    private static List<Mannschaft> Teams((int Off, int Mid, int Def, int Heim, int Ausw)[] ratings, int idBasis) =>
+    /// <param name="mitSpielweise">Grundausrichtung aus dem Rating-Vorschlag wie im Seed (#667); sonst ausgeglichen.</param>
+    private static List<Mannschaft> Teams(
+        (int Off, int Mid, int Def, int Heim, int Ausw)[] ratings, int idBasis, bool mitSpielweise = false) =>
         ratings.Select((r, i) => new Mannschaft
         {
             Id = idBasis + i, Name = $"Team {idBasis + i}", Kurzname = $"T{idBasis + i}",
             OffensivRating = r.Off, MittelfeldRating = r.Mid, DefensivRating = r.Def,
-            Heimstaerke = r.Heim, Auswaertsstaerke = r.Ausw
+            Heimstaerke = r.Heim, Auswaertsstaerke = r.Ausw,
+            Grundausrichtung = mitSpielweise ? SpielweisenVorschlag.AusRatings(r.Off, r.Def) : Grundausrichtung.Ausgeglichen
         }).ToList();
 
     // #361: der ausführliche Pfad (Minute für Minute mit Spielzustand) muss dieselben Kennzahlen treffen – die App
-    // simuliert seit #171 immer ausführlich.
+    // simuliert seit #171 immer ausführlich. #667: auch mit der Spielweise, die der Seed aus den Ratings vorschlägt.
     [Theory]
-    [InlineData(false)]
-    [InlineData(true)]
-    public void Bundesliga_KennzahlenLiegenImRealenBereich(bool ausfuehrlich)
+    [InlineData(false, false)]
+    [InlineData(true, false)]
+    [InlineData(true, true)]
+    public void Bundesliga_KennzahlenLiegenImRealenBereich(bool ausfuehrlich, bool mitSpielweise)
     {
-        var teams = Teams(_bundesliga, 1);
+        var teams = Teams(_bundesliga, 1, mitSpielweise);
         var rng = new Random(404);
         const int SAISONS = 30;
 

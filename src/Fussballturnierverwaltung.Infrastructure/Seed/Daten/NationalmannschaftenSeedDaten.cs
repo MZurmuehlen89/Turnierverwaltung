@@ -157,9 +157,8 @@ public static class NationalmannschaftenSeedDaten
                     DefensivRating   = e.Def,
                     Heimstaerke      = e.Heim,
                     Auswaertsstaerke = e.Ausw
-                };
+                }.MitSpielweise(e.Code);
             })
-            .Select(SpielweiseSeedDaten.MitSpielweise)
             .ToList();
     }
 }

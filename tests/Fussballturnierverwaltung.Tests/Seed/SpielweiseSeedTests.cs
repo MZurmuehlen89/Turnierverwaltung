@@ -21,7 +21,7 @@ public sealed class SpielweiseSeedTests(PostgresDatenbank datenbank) : IClassFix
             .UseInMemoryDatabase(Guid.NewGuid().ToString()).Options;
         await using var ctx = new TurnierverwaltungDbContext(optionen);
         await SeedTestDienst.Erzeugen(ctx).InitialisierenAsync();
-        return await ctx.Mannschaften.AsNoTracking().ToListAsync();
+        return await ctx.Mannschaften.Include(m => m.Land).AsNoTracking().ToListAsync();
     }
 
     private static Mannschaft Team(List<Mannschaft> alle, Mannschaftsart art, string kurzname)
@@ -45,9 +45,9 @@ public sealed class SpielweiseSeedTests(PostgresDatenbank datenbank) : IClassFix
     public async Task FrischeDatenbank_OhneHandlisteGiltDerRatingVorschlag()
     {
         var alle = await GeseedeteMannschaften();
-        var handliste = SpielweiseSeedDaten.Handliste.Select(e => (e.Art, e.Kurzname)).ToHashSet();
+        var handliste = SpielweiseSeedDaten.Handliste.Select(e => (e.Art, e.Kurzname, e.Land)).ToHashSet();
 
-        alle.Where(m => !handliste.Contains((m.Mannschaftsart, m.Kurzname))).Should().AllSatisfy(m =>
+        alle.Where(m => !handliste.Contains((m.Mannschaftsart, m.Kurzname, m.Land.FifaCode))).Should().AllSatisfy(m =>
         {
             m.Grundausrichtung.Should().Be(SpielweisenVorschlag.AusRatings(m.OffensivRating, m.DefensivRating), m.Name);
             m.Flexibilitaet.Should().Be(Flexibilitaet.Normal, m.Name);
@@ -58,10 +58,10 @@ public sealed class SpielweiseSeedTests(PostgresDatenbank datenbank) : IClassFix
     [Fact]
     public async Task Handliste_JederEintragGibtEsImSeed()
     {
-        var alle = (await GeseedeteMannschaften()).Select(m => (m.Mannschaftsart, m.Kurzname)).ToHashSet();
+        var alle = (await GeseedeteMannschaften()).Select(m => (m.Mannschaftsart, m.Kurzname, m.Land.FifaCode)).ToHashSet();
 
-        SpielweiseSeedDaten.Handliste.Where(e => !alle.Contains((e.Art, e.Kurzname))).Should().BeEmpty();
-        SpielweiseSeedDaten.Handliste.Select(e => (e.Art, e.Kurzname)).Should().OnlyHaveUniqueItems();
+        SpielweiseSeedDaten.Handliste.Where(e => !alle.Contains((e.Art, e.Kurzname, e.Land))).Should().BeEmpty();
+        SpielweiseSeedDaten.Handliste.Select(e => (e.Art, e.Kurzname, e.Land)).Should().OnlyHaveUniqueItems();
     }
 
     /// <summary>Die Nachrüstung rechnet in SQL – sie muss dieselben Stufen liefern wie die C#-Funktion und die
@@ -72,23 +72,22 @@ public sealed class SpielweiseSeedTests(PostgresDatenbank datenbank) : IClassFix
         datenbank.VerfuegbarOderUeberspringen();
         await using (var ctx = datenbank.NeuerContext())
         {
-            var land = new Land
-            {
-                Name = "Nachrüstland", Kurzname = "NRL", FifaCode = "NRL",
-                Verband = new Verband { Name = "Nachrüstverband", Kurzname = "NRV" }
-            };
+            var verband = new Verband { Name = "Nachrüstverband", Kurzname = "NRV" };
+            var land = new Land { Name = "Nachrüstland", Kurzname = "NRL", FifaCode = "NRL", Verband = verband };
+            var spanien = new Land { Name = "Spanien", Kurzname = "ESP", FifaCode = "ESP", Verband = verband };
             for (int abweichung = -7; abweichung <= 7; abweichung++)
                 ctx.Mannschaften.Add(Neu($"Probe {abweichung}", $"P{abweichung + 10}", Mannschaftsart.Verein, land, 70 + abweichung + 2, 70));
-            ctx.Mannschaften.Add(Neu("Barcelona-Probe", "BAR", Mannschaftsart.Verein, land, 88, 84));
-            ctx.Mannschaften.Add(Neu("Atlético-Probe", "ATM", Mannschaftsart.Verein, land, 82, 86));
-            ctx.Mannschaften.Add(Neu("Barcelona als Nationalteam", "BAR", Mannschaftsart.Nationalmannschaft, land, 88, 84));
+            ctx.Mannschaften.Add(Neu("Barcelona-Probe", "BAR", Mannschaftsart.Verein, spanien, 88, 84));
+            ctx.Mannschaften.Add(Neu("Atlético-Probe", "ATM", Mannschaftsart.Verein, spanien, 82, 86));
+            ctx.Mannschaften.Add(Neu("Barcelona als Nationalteam", "BAR", Mannschaftsart.Nationalmannschaft, spanien, 88, 84));
+            ctx.Mannschaften.Add(Neu("BAR anderswo", "BAR", Mannschaftsart.Verein, land, 88, 84));
             await ctx.SaveChangesAsync();
 
             await ctx.Database.ExecuteSqlRawAsync(SpielweiseNachruestung.Sql());
         }
 
         await using var pruefung = datenbank.NeuerContext();
-        var alle = await pruefung.Mannschaften.Where(m => m.Land.FifaCode == "NRL").ToListAsync();
+        var alle = await pruefung.Mannschaften.Where(m => m.Land.Verband.Kurzname == "NRV").ToListAsync();
         alle.Where(m => m.Name.StartsWith("Probe")).Should().HaveCount(15).And.AllSatisfy(m =>
         {
             m.Grundausrichtung.Should().Be(SpielweisenVorschlag.AusRatings(m.OffensivRating, m.DefensivRating), m.Name);
@@ -101,6 +100,9 @@ public sealed class SpielweiseSeedTests(PostgresDatenbank datenbank) : IClassFix
         var falscheArt = alle.Single(m => m.Name == "Barcelona als Nationalteam");
         (falscheArt.Grundausrichtung, falscheArt.Flexibilitaet).Should().Be((Grundausrichtung.Offensiv, Flexibilitaet.Normal),
             "die Handliste gilt nur für die Mannschaftsart ihres Eintrags");
+        var anderswo = alle.Single(m => m.Name == "BAR anderswo");
+        (anderswo.Grundausrichtung, anderswo.Flexibilitaet).Should().Be((Grundausrichtung.Offensiv, Flexibilitaet.Normal),
+            "ein Verein mit gleichem Kurznamen in einem anderen Land ist nicht gemeint");
     }
 
     private static Mannschaft Neu(string name, string kurzname, Mannschaftsart art, Land land, int offensiv, int defensiv) => new()

@@ -31,19 +31,36 @@ public partial class SpielweiseOption(string anzeige, int wert, string automatio
 public partial class SpielweiseAuswahl : ObservableObject
 {
     private bool _ladenAktiv;
+    private bool _markiertGerade;
     private int _offensivRating;
     private int _defensivRating;
 
     public IReadOnlyList<SpielweiseOption> Grundausrichtungen { get; }
     public IReadOnlyList<SpielweiseOption> Flexibilitaeten { get; }
 
-    [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(WeichtVomVorschlagAb), nameof(VorschlagText))]
+    // Nach außen nur lesbar (Tell, don't ask): geändert wird über Waehlen, damit Knöpfe und Geaendert mitziehen.
     private Grundausrichtung _grundausrichtung;
-
-    [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(FlexibilitaetErklaerung))]
     private Flexibilitaet _flexibilitaet;
+
+    public Grundausrichtung Grundausrichtung
+    {
+        get => _grundausrichtung;
+        private set
+        {
+            if (!SetProperty(ref _grundausrichtung, value)) return;
+            OnPropertyChanged(nameof(WeichtVomVorschlagAb));
+            OnPropertyChanged(nameof(VorschlagText));
+        }
+    }
+
+    public Flexibilitaet Flexibilitaet
+    {
+        get => _flexibilitaet;
+        private set
+        {
+            if (SetProperty(ref _flexibilitaet, value)) OnPropertyChanged(nameof(FlexibilitaetErklaerung));
+        }
+    }
 
     /// <summary>Vom Nutzer geändert – nicht beim Laden über <see cref="Zeigen"/>.</summary>
     public event Action? Geaendert;
@@ -53,11 +70,11 @@ public partial class SpielweiseAuswahl : ObservableObject
         // Nach Wert sortiert: GetValues ordnet negative Werte nach ihrer Bitdarstellung hinter die positiven.
         Grundausrichtungen = Enum.GetValues<Grundausrichtung>().OrderBy(g => (int)g)
             .Select(g => new SpielweiseOption(Anzeige(g), (int)g, $"Mannschaften.Grundausrichtung.{g}",
-                o => Waehlen((Grundausrichtung)o.Wert, Flexibilitaet)))
+                o => OptionGewaehlt((Grundausrichtung)o.Wert, Flexibilitaet)))
             .ToList();
         Flexibilitaeten = Enum.GetValues<Flexibilitaet>().OrderBy(f => (int)f)
             .Select(f => new SpielweiseOption(Anzeige(f), (int)f, $"Mannschaften.Flexibilitaet.{f}",
-                o => Waehlen(Grundausrichtung, (Flexibilitaet)o.Wert)))
+                o => OptionGewaehlt(Grundausrichtung, (Flexibilitaet)o.Wert)))
             .ToList();
         Markieren();
     }
@@ -100,6 +117,13 @@ public partial class SpielweiseAuswahl : ObservableObject
         finally { _ladenAktiv = false; }
     }
 
+    /// <summary>Ein Knopf wurde gewählt – per Klick; beim Markieren selbst nicht (sonst liefe Markieren verschachtelt
+    /// in sich selbst, Befund aus dem KI-Review).</summary>
+    private void OptionGewaehlt(Grundausrichtung grundausrichtung, Flexibilitaet flexibilitaet)
+    {
+        if (!_markiertGerade) Waehlen(grundausrichtung, flexibilitaet);
+    }
+
     private void Waehlen(Grundausrichtung grundausrichtung, Flexibilitaet flexibilitaet)
     {
         bool geaendert = grundausrichtung != Grundausrichtung || flexibilitaet != Flexibilitaet;
@@ -112,10 +136,15 @@ public partial class SpielweiseAuswahl : ObservableObject
     /// <summary>Genau die Knöpfe der aktuellen Werte sind gewählt – auch wenn der Wert nicht per Klick kam.</summary>
     private void Markieren()
     {
-        foreach (var option in Grundausrichtungen)
-            option.IstGewaehlt = option.Wert == (int)Grundausrichtung;
-        foreach (var option in Flexibilitaeten)
-            option.IstGewaehlt = option.Wert == (int)Flexibilitaet;
+        _markiertGerade = true;
+        try
+        {
+            foreach (var option in Grundausrichtungen)
+                option.IstGewaehlt = option.Wert == (int)Grundausrichtung;
+            foreach (var option in Flexibilitaeten)
+                option.IstGewaehlt = option.Wert == (int)Flexibilitaet;
+        }
+        finally { _markiertGerade = false; }
     }
 
     private static string Anzeige(Grundausrichtung grundausrichtung) => grundausrichtung switch
