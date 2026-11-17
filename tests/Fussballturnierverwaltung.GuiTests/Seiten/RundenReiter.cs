@@ -25,8 +25,12 @@ public sealed class RundenReiter(Window fenster, Hauptfenster hauptfenster)
     public AutomationElement Feld(string feld) => fenster.FindById($"Runden.{feld}");
 
     /// <summary>„Platz von“ bzw. „bis“ (<paramref name="feld"/> = <c>PlatzVon</c>/<c>PlatzBis</c>) in Zeile
-    /// <paramref name="zeile"/> der offenen Übergangsregel.</summary>
-    public AutomationElement RegelFeld(string feld, int zeile) => fenster.FindAllById($"Runden.Regel{feld}")[zeile];
+    /// <paramref name="zeile"/> der offenen Übergangsregel. Wartet auf die Zeile: die App füllt die Zeilen erst nach der
+    /// Wahl des Ziels vor – sofort gesucht, war die Liste im CI-Lauf von #668 noch leer (Index außerhalb des Bereichs).</summary>
+    public AutomationElement RegelFeld(string feld, int zeile) => Wait.UntilFound(
+        () => fenster.FindAllById($"Runden.Regel{feld}").ElementAtOrDefault(zeile),
+        Wait.DefaultTimeout,
+        $"Zeile {zeile} der Übergangsregel ('{feld}')");
 
     /// <summary>Die Fehleranzahl am Symbol der Runde in der Liste (#601), sobald sie <paramref name="erwartet"/> ist; leer =
     /// kein Symbol.</summary>
