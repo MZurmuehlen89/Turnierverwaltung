@@ -47,7 +47,9 @@ public class MannschaftService(
             DefensivRating   = eingabe.DefensivRating,
             Heimstaerke      = eingabe.Heimstaerke,
             Auswaertsstaerke = eingabe.Auswaertsstaerke,
-            Wappen           = eingabe.Wappen
+            Wappen           = eingabe.Wappen,
+            Grundausrichtung = eingabe.Grundausrichtung,
+            Flexibilitaet    = eingabe.Flexibilitaet
         };
 
         await repository.HinzufuegenAsync(mannschaft, ct);
@@ -71,6 +73,8 @@ public class MannschaftService(
         mannschaft.Heimstaerke      = eingabe.Heimstaerke;
         mannschaft.Auswaertsstaerke = eingabe.Auswaertsstaerke;
         mannschaft.Wappen           = eingabe.Wappen;
+        mannschaft.Grundausrichtung = eingabe.Grundausrichtung ?? mannschaft.Grundausrichtung;
+        mannschaft.Flexibilitaet    = eingabe.Flexibilitaet ?? mannschaft.Flexibilitaet;
 
         await repository.AktualisierenAsync(mannschaft, ct);
         logger.LogInformation("Mannschaft '{Name}' (ID {Id}) aktualisiert.", mannschaft.Name, mannschaft.Id);

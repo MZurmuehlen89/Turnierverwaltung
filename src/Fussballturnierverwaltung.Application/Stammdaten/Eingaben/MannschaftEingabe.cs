@@ -12,8 +12,12 @@ public record MannschaftErstellenEingabe(
     int DefensivRating,
     int Heimstaerke,
     int Auswaertsstaerke,
-    byte[]? Wappen = null);
+    byte[]? Wappen = null,
+    Grundausrichtung Grundausrichtung = Grundausrichtung.Ausgeglichen,
+    Flexibilitaet Flexibilitaet = Flexibilitaet.Normal);
 
+/// <summary>Grundausrichtung und Flexibilität (#667): <c>null</c> lässt den gespeicherten Wert unverändert – etwa beim
+/// CSV-Import einer Datei ohne diese Spalten.</summary>
 public record MannschaftAktualisierenEingabe(
     string Name,
     string Kurzname,
@@ -23,4 +27,6 @@ public record MannschaftAktualisierenEingabe(
     int DefensivRating,
     int Heimstaerke,
     int Auswaertsstaerke,
-    byte[]? Wappen = null);
+    byte[]? Wappen = null,
+    Grundausrichtung? Grundausrichtung = null,
+    Flexibilitaet? Flexibilitaet = null);
