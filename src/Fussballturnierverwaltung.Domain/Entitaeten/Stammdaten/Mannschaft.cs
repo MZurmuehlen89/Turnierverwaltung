@@ -16,6 +16,10 @@ public class Mannschaft : BasisEntitaet
     public int Heimstaerke { get; set; }
     public int Auswaertsstaerke { get; set; }
 
+    // Spielweise in der Simulation (#667)
+    public Grundausrichtung Grundausrichtung { get; set; }
+    public Flexibilitaet Flexibilitaet { get; set; }
+
     public byte[]? Wappen { get; set; }
 
     // Nicht gespeichert, da aus den Teilratings berechenbar

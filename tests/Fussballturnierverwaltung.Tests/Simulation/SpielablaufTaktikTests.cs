@@ -1,5 +1,6 @@
 using FluentAssertions;
 using Fussballturnierverwaltung.Application.Simulation;
+using Fussballturnierverwaltung.Domain.Entitaeten.Stammdaten;
 using Fussballturnierverwaltung.Domain.Enums;
 using static Fussballturnierverwaltung.Tests.Simulation.Ablauffolge;
 using static Fussballturnierverwaltung.Tests.Simulation.SimulationsEngineTestdaten;
@@ -217,5 +218,73 @@ public class SpielablaufTaktikTests
         }
 
         unbegruendet.Should().BeEmpty();
+    }
+
+    // ── Grundausrichtung und Flexibilität (#667) ──────────────────────────
+
+    private static Mannschaft Mit(Mannschaft team, Grundausrichtung grundausrichtung, Flexibilitaet flexibilitaet)
+    {
+        team.Grundausrichtung = grundausrichtung;
+        team.Flexibilitaet    = flexibilitaet;
+        return team;
+    }
+
+    /// <summary>K3: Ein Team geht in seiner Grundausrichtung ins Spiel – das ist kein Taktikwechsel.</summary>
+    [Fact]
+    public void Anpfiff_InDerGrundausrichtung_OhneTaktikwechsel()
+    {
+        var e = SimulationsEngine.Simulieren(
+            Mit(HeimTeam(), Grundausrichtung.SehrOffensiv, Flexibilitaet.Starr),
+            Mit(GastTeam(), Grundausrichtung.SehrDefensiv, Flexibilitaet.Flexibel),
+            [], ausfuehrlich: true, new Ablauffolge().Zufall());
+
+        e.Ereignisse.Should().BeEmpty();
+    }
+
+    /// <summary>K6: 1:0 in Minute 1, jeder Wurf heißt „noch nicht“. Das flexible Heimteam (Stärkeanteil 2/3) wird ab
+    /// der 73. defensiv und ist es spätestens in der 76., mauert ab der 83. und spätestens in der 86.; der starre Gast
+    /// ist ab der 73. offensiv fällig und stellt erst elf Minuten danach um.</summary>
+    [Fact]
+    public void Flexibilitaet_BestimmtWieSchnellUmgestelltWird()
+    {
+        var e = SimulationsEngine.Simulieren(
+            Mit(HeimTeam(), Grundausrichtung.Ausgeglichen, Flexibilitaet.Flexibel),
+            Mit(GastTeam(), Grundausrichtung.Ausgeglichen, Flexibilitaet.Starr),
+            [], ausfuehrlich: true, new Ablauffolge().MinuteMitTor(heim: true).Zufall());
+
+        Kurz(e.Ereignisse.Where(x => x.Art == EreignisArt.Taktikwechsel)).Should().Equal(
+            (76, null, EreignisArt.Taktikwechsel, true, "Zieht sich etwas zurück und sichert die Führung"),
+            (84, null, EreignisArt.Taktikwechsel, false, "Stellt auf Offensive um"),
+            (86, null, EreignisArt.Taktikwechsel, true, "Zieht sich zurück und verteidigt die Führung"));
+    }
+
+    /// <summary>K3: Wer offensiv ins Spiel geht, schießt mehr Tore und kassiert überproportional mehr – gegen
+    /// denselben Gegner, mit denselben Zufallszahlen.</summary>
+    [Fact]
+    public void Grundausrichtung_OffensivMehrToreUndMehrGegentore_DefensivWeniger()
+    {
+        var (eigeneOff, gegenOff) = Tore(Grundausrichtung.SehrOffensiv);
+        var (eigeneAus, gegenAus) = Tore(Grundausrichtung.Ausgeglichen);
+        var (eigeneDef, gegenDef) = Tore(Grundausrichtung.SehrDefensiv);
+
+        eigeneOff.Should().BeGreaterThan(eigeneAus);
+        gegenOff.Should().BeGreaterThan(gegenAus);
+        (gegenOff / gegenAus).Should().BeGreaterThan(eigeneOff / eigeneAus, "die Abwehr öffnet sich überproportional");
+        eigeneDef.Should().BeLessThan(eigeneAus);
+        gegenDef.Should().BeLessThan(gegenAus);
+    }
+
+    private static (double Eigene, double Gegen) Tore(Grundausrichtung grundausrichtung)
+    {
+        var rng = new Random(667);
+        var heim = Mit(HeimTeam(), grundausrichtung, Flexibilitaet.Normal);
+        int eigene = 0, gegen = 0;
+        for (int i = 0; i < 4000; i++)
+        {
+            var e = SimulationsEngine.Simulieren(heim, GastTeam(), [], ausfuehrlich: true, rng);
+            eigene += e.HeimToreRegulaer;
+            gegen  += e.AuswaertsToreRegulaer;
+        }
+        return (eigene, gegen);
     }
 }

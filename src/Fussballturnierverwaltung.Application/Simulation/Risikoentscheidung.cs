@@ -5,7 +5,8 @@ namespace Fussballturnierverwaltung.Application.Simulation;
 /// <param name="Verbleibend">Minuten bis zum Ende des Abschnitts; in der Nachspielzeit negativ.</param>
 /// <param name="Staerkeanteil">Anteil des Teams an der Torerwartung beider Teams – 0,5 heißt gleich stark.</param>
 /// <param name="Unterzahl">Eigene minus gegnerische Platzverweise; negativ heißt Überzahl.</param>
-public readonly record struct Spiellage(int Vorsprung, int Verbleibend, double Staerkeanteil, int Unterzahl);
+public readonly record struct Spiellage(
+    int Vorsprung, int Verbleibend, double Staerkeanteil, int Unterzahl, Teamprofil Profil = default);
 
 /// <summary>Stufe, die in einer Lage fällig ist, und die Restzeit, ab der sie es ist.</summary>
 public readonly record struct FaelligeStufe(Risikostufe Stufe, int AbVerbleibend);
@@ -14,9 +15,10 @@ public readonly record struct FaelligeStufe(Risikostufe Stufe, int AbVerbleibend
 /// Entscheidungsmodell der Risikostufe (#673): Aus der Lage ergibt sich ein Stufenplan – je Stufe die Restzeit, ab
 /// der sie frühestens fällig ist. Je größer der Rückstand, desto früher wird umgestellt; ab drei Toren wird ein
 /// Rückstand mit schwindender Zeit aussichtslos. In Führung geht es erst auf Defensiv, dann aufs Mauern (#667). Ein
-/// Favorit im Rückstand drückt früher, ein Außenseiter in Führung mauert früher, Unterzahl verschiebt Richtung Mauern. Wann ein Team nach Erreichen der Schwelle tatsächlich umstellt,
+/// Favorit im Rückstand drückt früher, ein Außenseiter in Führung mauert früher, Unterzahl verschiebt Richtung Mauern;
+/// ebenso verschiebt die Grundausrichtung (#667) die Schwellen. Wann ein Team nach Erreichen der Schwelle tatsächlich umstellt,
 /// entscheidet der Zufall mit steigender Wahrscheinlichkeit (<see cref="Umstellwahrscheinlichkeit"/>). Rein und ohne
-/// Zufall; Grundausrichtung (#667) und Spielbedeutung (#668) setzen hier an.
+/// Zufall; die Spielbedeutung (#668) setzt hier an.
 /// </summary>
 public static class Risikoentscheidung
 {
@@ -34,10 +36,6 @@ public static class Risikoentscheidung
     private const int UNTERZAHL_OFFENSIV   = 10; // je Mann weniger später offensiv
     private const int UNTERZAHL_MAUERN     = 15; // je Mann weniger früher mauern
 
-    // Nach Erreichen der Schwelle steigt die Wahrscheinlichkeit je Minute um ein Achtel – spätestens sieben Minuten
-    // danach ist umgestellt.
-    private const double UMSTELLFENSTER = 8;
-
     /// <summary>Schwelle der gewohnten Ordnung vor der ersten Stufe des Plans: Die Zeit allein führt nie dorthin
     /// zurück (etwa zu Beginn der Verlängerung oder nach einem Platzverweis des Gegners) – das tut nur ein Tor.</summary>
     public const int OHNE_SCHWELLE = int.MaxValue;
@@ -50,10 +48,12 @@ public static class Risikoentscheidung
     public static IReadOnlyList<FaelligeStufe> Stufenplan(Spiellage lage)
     {
         if (lage.Vorsprung > 0)
-            return FuehrungsPlan(DEFENSIV_AB, MAUERN_AB, Kraefteverschiebung(lage) - UNTERZAHL_MAUERN * lage.Unterzahl);
+            return FuehrungsPlan(DEFENSIV_AB, MAUERN_AB, Drang(lage) - UNTERZAHL_MAUERN * lage.Unterzahl);
         if (lage.Vorsprung == 0)
-            return lage.Unterzahl > 0 ? [new(Risikostufe.Mauern, UNTERZAHL_MAUERN_AB * lage.Unterzahl)] : [];
-        return RueckstandsPlan(-lage.Vorsprung, Kraefteverschiebung(lage) - UNTERZAHL_OFFENSIV * lage.Unterzahl);
+            return lage.Unterzahl > 0
+                ? [new(Risikostufe.Mauern, UNTERZAHL_MAUERN_AB * lage.Unterzahl - lage.Profil.Offensivdrang)]
+                : [];
+        return RueckstandsPlan(-lage.Vorsprung, Drang(lage) - UNTERZAHL_OFFENSIV * lage.Unterzahl);
     }
 
     /// <summary>Erst defensiv, dann mauern (#667) – beides um <paramref name="spaeter"/> Minuten verschoben.</summary>
@@ -78,8 +78,10 @@ public static class Risikoentscheidung
         return plan;
     }
 
-    /// <summary>Minuten, um die ein Team stärker als der Gegner früher drückt (negativ: später).</summary>
-    private static double Kraefteverschiebung(Spiellage lage) => (lage.Staerkeanteil - 0.5) * KRAEFTE_MINUTEN;
+    /// <summary>Minuten, um die ein Team früher drückt und später mauert (negativ: umgekehrt): stärker als der Gegner
+    /// oder offensiver ausgerichtet (#667).</summary>
+    private static double Drang(Spiellage lage)
+        => (lage.Staerkeanteil - 0.5) * KRAEFTE_MINUTEN + lage.Profil.Offensivdrang;
 
     private static int Runden(double minuten) => (int)Math.Round(minuten, MidpointRounding.AwayFromZero);
 
@@ -96,9 +98,12 @@ public static class Risikoentscheidung
     }
 
     /// <summary>Wahrscheinlichkeit, in dieser Minute ohne Tor auf eine fällige Stufe umzustellen: in der Minute der
-    /// Schwelle 1/8, danach je Minute ein Achtel mehr; ohne Schwelle nie.</summary>
-    public static double Umstellwahrscheinlichkeit(FaelligeStufe faellig, int verbleibend)
+    /// Schwelle 1/Fenster, danach je Minute ein Fenster-Teil mehr – beim normalen Fenster von acht Minuten ist also
+    /// spätestens sieben Minuten nach der Schwelle umgestellt; ohne Schwelle nie. Das Fenster hängt seit #667 an der
+    /// Flexibilität.</summary>
+    public static double Umstellwahrscheinlichkeit(
+        FaelligeStufe faellig, int verbleibend, int umstellfenster = Teamprofil.NORMALES_UMSTELLFENSTER)
         => faellig.AbVerbleibend == OHNE_SCHWELLE
             ? 0
-            : Math.Clamp(((double)faellig.AbVerbleibend - verbleibend + 1) / UMSTELLFENSTER, 0, 1);
+            : Math.Clamp(((double)faellig.AbVerbleibend - verbleibend + 1) / umstellfenster, 0, 1);
 }

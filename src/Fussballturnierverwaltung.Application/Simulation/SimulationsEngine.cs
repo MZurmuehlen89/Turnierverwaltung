@@ -198,7 +198,8 @@ public static class SimulationsEngine
         public Spielablauf Anpfiff(
             Random rng, Platzverweise platzverweise = default, int gespielteMinuten = 0,
             Hinspielstand hinspielstand = default) =>
-            new(HeimTorerwartung, GastTorerwartung, rng, platzverweise, gespielteMinuten, hinspielstand);
+            new(HeimTorerwartung, GastTorerwartung, rng, platzverweise, gespielteMinuten, hinspielstand,
+                new Teamprofile(Teamprofil.Von(Heim), Teamprofil.Von(Auswaerts)));
     }
 
     /// <summary>Ausgang eines einzelnen Verfahrens. <see cref="Vorsprung"/> &gt; 0: Heimsieg, &lt; 0: Gastsieg,

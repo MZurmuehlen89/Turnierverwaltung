@@ -1,5 +1,6 @@
 using FluentAssertions;
 using Fussballturnierverwaltung.Application.Simulation;
+using Fussballturnierverwaltung.Domain.Enums;
 
 namespace Fussballturnierverwaltung.Tests.Simulation;
 
@@ -9,8 +10,10 @@ public class RisikoentscheidungTests
 {
     private const double GLEICH_STARK = 0.5;
 
-    private static Spiellage Lage(int vorsprung, int verbleibend = 90, double staerke = GLEICH_STARK, int unterzahl = 0)
-        => new(vorsprung, verbleibend, staerke, unterzahl);
+    private static Spiellage Lage(
+        int vorsprung, int verbleibend = 90, double staerke = GLEICH_STARK, int unterzahl = 0,
+        Grundausrichtung grundausrichtung = Grundausrichtung.Ausgeglichen)
+        => new(vorsprung, verbleibend, staerke, unterzahl, new Teamprofil(grundausrichtung, Flexibilitaet.Normal));
 
     private static IEnumerable<(Risikostufe, int)> Plan(Spiellage lage)
         => Risikoentscheidung.Stufenplan(lage).Select(s => (s.Stufe, s.AbVerbleibend));
@@ -144,6 +147,49 @@ public class RisikoentscheidungTests
             }
     }
 
+    // ── Grundausrichtung verschiebt die Schwellen (#667, K4) ──────────────
+
+    [Theory]
+    [InlineData(Grundausrichtung.SehrOffensiv, 50, 70)]
+    [InlineData(Grundausrichtung.Offensiv, 55, 75)]
+    [InlineData(Grundausrichtung.Ausgeglichen, 60, 80)]
+    [InlineData(Grundausrichtung.Defensiv, 65, 85)]
+    [InlineData(Grundausrichtung.SehrDefensiv, 70, null)] // alles nach vorn erst in der 90. – da gilt schon die Brechstange
+    public void Grundausrichtung_ImRueckstand_OffensiveTeamsDrueckenFrueher(
+        Grundausrichtung grundausrichtung, int offensiv, int? allesNachVorn)
+    {
+        AbMinute(Lage(-1, grundausrichtung: grundausrichtung), Risikostufe.Offensiv).Should().Be(offensiv);
+        AbMinute(Lage(-1, grundausrichtung: grundausrichtung), Risikostufe.AllesNachVorn).Should().Be(allesNachVorn);
+    }
+
+    [Theory]
+    [InlineData(Grundausrichtung.SehrOffensiv, 70, 80)]
+    [InlineData(Grundausrichtung.Offensiv, 65, 75)]
+    [InlineData(Grundausrichtung.Ausgeglichen, 60, 70)]
+    [InlineData(Grundausrichtung.SehrDefensiv, 50, 60)]
+    public void Grundausrichtung_InFuehrung_OffensiveTeamsMauernSpaeter(
+        Grundausrichtung grundausrichtung, int defensiv, int mauern)
+    {
+        AbMinute(Lage(1, grundausrichtung: grundausrichtung), Risikostufe.Defensiv).Should().Be(defensiv);
+        AbMinute(Lage(1, grundausrichtung: grundausrichtung), Risikostufe.Mauern).Should().Be(mauern);
+    }
+
+    [Fact]
+    public void Grundausrichtung_BeiGleichstandInUnterzahl_OffensiveTeamsMauernSpaeter()
+    {
+        AbMinute(Lage(0, unterzahl: 1, grundausrichtung: Grundausrichtung.Offensiv), Risikostufe.Mauern).Should().Be(80);
+        AbMinute(Lage(0, unterzahl: 1, grundausrichtung: Grundausrichtung.Defensiv), Risikostufe.Mauern).Should().Be(70);
+    }
+
+    [Fact]
+    public void Grundausrichtung_VerschiebtWederTorwartVornNochAussichtslos()
+    {
+        Risikoentscheidung.Stufenplan(Lage(-1, grundausrichtung: Grundausrichtung.SehrDefensiv))[^1]
+            .Should().Be(new FaelligeStufe(Risikostufe.Brechstange, 2));
+        Risikoentscheidung.Stufenplan(Lage(-3, grundausrichtung: Grundausrichtung.SehrOffensiv))[^1]
+            .Should().Be(new FaelligeStufe(Risikostufe.Neutral, 9));
+    }
+
     // ── Kräfteverhältnis (K5) ─────────────────────────────────────────────
 
     [Fact]
@@ -214,7 +260,20 @@ public class RisikoentscheidungTests
         AbMinute(Lage(-1, unterzahl: unterzahl), Risikostufe.Offensiv).Should().Be(abMinute);
     }
 
-    // ── Umstellwahrscheinlichkeit (K7) ────────────────────────────────────
+    // ── Umstellwahrscheinlichkeit (K7; #667 K6: Fenster je Flexibilität) ──
+
+    [Theory]
+    [InlineData(4, 31, 0.0)]
+    [InlineData(4, 30, 0.25)]
+    [InlineData(4, 27, 1.0)]     // flexibel: spätestens drei Minuten nach der Schwelle
+    [InlineData(12, 30, 1.0 / 12)]
+    [InlineData(12, 20, 11.0 / 12)]
+    [InlineData(12, 19, 1.0)]    // starr: spätestens elf Minuten danach
+    public void Umstellwahrscheinlichkeit_JeUmstellfenster(int fenster, int verbleibend, double erwartet)
+    {
+        Risikoentscheidung.Umstellwahrscheinlichkeit(new FaelligeStufe(Risikostufe.Offensiv, 30), verbleibend, fenster)
+            .Should().BeApproximately(erwartet, 1e-9);
+    }
 
     [Theory]
     [InlineData(31, 0.0)]

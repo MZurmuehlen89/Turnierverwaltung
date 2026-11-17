@@ -750,6 +750,12 @@ namespace Fussballturnierverwaltung.Infrastructure.Persistenz.Migrationen
                     b.Property<int>("DefensivRating")
                         .HasColumnType("integer");
 
+                    b.Property<int>("Flexibilitaet")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("Grundausrichtung")
+                        .HasColumnType("integer");
+
                     b.Property<int>("Heimstaerke")
                         .HasColumnType("integer");
 

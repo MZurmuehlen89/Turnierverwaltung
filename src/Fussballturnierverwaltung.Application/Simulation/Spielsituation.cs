@@ -16,10 +16,19 @@ public enum Risikostufe
     Brechstange
 }
 
-/// <summary>Zustand eines Teams, der seine Torerwartung und die des Gegners verändert.</summary>
-public readonly record struct Teamzustand(Risikostufe Stufe, int Platzverweise)
+/// <summary>Zustand eines Teams, der seine Torerwartung und die des Gegners verändert. <see cref="Position"/> ist der
+/// Platz auf der Risikoachse – seit #667 nicht immer genau die Stufe, sondern verschoben um die Grundausrichtung.</summary>
+public readonly record struct Teamzustand(Risikostufe Stufe, int Platzverweise, double Position)
 {
-    public static Teamzustand Anpfiff(int platzverweise = 0) => new(Risikostufe.Neutral, platzverweise);
+    /// <summary>Ein Team genau auf seiner Stufe.</summary>
+    public Teamzustand(Risikostufe stufe, int platzverweise) : this(stufe, platzverweise, Spielsituation.Position(stufe)) { }
+
+    public static Teamzustand Anpfiff(int platzverweise = 0, double startpunkt = 0)
+        => new(Risikostufe.Neutral, platzverweise, startpunkt);
+
+    /// <summary>Wechselt in die Stufe, auf dem Platz, den das Profil des Teams dafür vorsieht.</summary>
+    public Teamzustand Umstellen(Risikostufe stufe, Teamprofil profil)
+        => this with { Stufe = stufe, Position = profil.Ziel(stufe) };
 }
 
 /// <summary>Platzverweise je Team, mit denen ein Spielabschnitt beginnt – eine Verlängerung nach dem Rückspiel
@@ -98,8 +107,8 @@ public static class Spielsituation
 
     /// <summary>Faktor auf die Grund-Torerwartung des Angreifers in einer Minute.</summary>
     public static double Angriffsfaktor(Teamzustand angreifer, Teamzustand verteidiger, double ermuedung)
-        => EigenerAngriff(angreifer.Stufe)
-           * AngriffDesGegners(verteidiger.Stufe)
+        => EigenerAngriff(angreifer.Position)
+           * AngriffDesGegners(verteidiger.Position)
            * Math.Pow(UNTERZAHL_EIGENER_ANGRIFF, angreifer.Platzverweise)
            * Math.Pow(UNTERZAHL_ANGRIFF_GEGNER, verteidiger.Platzverweise)
            * Torfaktor(ermuedung);

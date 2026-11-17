@@ -36,6 +36,8 @@ internal sealed class Spielablauf
     // Kräfteverhältnis für die Risikoentscheidung (#673): Anteil des Heimteams an der Torerwartung beider Teams.
     private readonly double _heimAnteil;
     private readonly Hinspielstand _hinspielstand;
+    // Grundausrichtung und Flexibilität beider Teams (#667).
+    private readonly Teamprofile _profile;
     private readonly List<SimuliertesEreignis> _ereignisse = [];
     private Teamzustand _heim;
     private Teamzustand _gast;
@@ -47,10 +49,12 @@ internal sealed class Spielablauf
     /// <param name="gespielteMinuten">Bereits gespielte Minuten – bestimmt die Ermüdung.</param>
     /// <param name="hinspielstand">Im K.-o.-Rückspiel das Hinspiel – die Risikostufe richtet sich dann nach dem
     /// Gesamtstand (#671).</param>
-#pragma warning disable S107 // drei Angaben zum Spiel, drei zum Stand, mit dem es beginnt; nur die Paarung ruft auf
+    /// <param name="profile">Spielweise beider Teams (#667): Startpunkt, Umstellzeitpunkte und -tempo.</param>
+#pragma warning disable S107 // vier Angaben zum Spiel, drei zum Stand, mit dem es beginnt; nur die Paarung ruft auf
     public Spielablauf(
         double heimTorerwartung, double gastTorerwartung, Random rng,
-        Platzverweise platzverweise = default, int gespielteMinuten = 0, Hinspielstand hinspielstand = default)
+        Platzverweise platzverweise = default, int gespielteMinuten = 0, Hinspielstand hinspielstand = default,
+        Teamprofile profile = default)
 #pragma warning restore S107
     {
         _rng              = rng;
@@ -59,10 +63,11 @@ internal sealed class Spielablauf
         _heimAnteil       = heimTorerwartung + gastTorerwartung > 0
             ? heimTorerwartung / (heimTorerwartung + gastTorerwartung)
             : 0.5;
-        _heim             = Teamzustand.Anpfiff(platzverweise.Heim);
-        _gast             = Teamzustand.Anpfiff(platzverweise.Gast);
+        _heim             = Teamzustand.Anpfiff(platzverweise.Heim, profile.Heim.Startpunkt);
+        _gast             = Teamzustand.Anpfiff(platzverweise.Gast, profile.Gast.Startpunkt);
         _gespielteMinuten = gespielteMinuten;
         _hinspielstand    = hinspielstand;
+        _profile          = profile;
     }
 
     /// <summary>Tore und Ereignisse eines Abschnitts (reguläre Spielzeit, Verlängerung, …).</summary>
@@ -188,8 +193,10 @@ internal sealed class Spielablauf
     private void TaktikAnpassen(int minute, int? nachspielminute, int verbleibend, bool nachTor)
     {
         int heimVorsprung = _hinspielstand.VorsprungDesHeimteams(_heimTore, _gastTore);
-        var heimLage = new Spiellage(heimVorsprung, verbleibend, _heimAnteil, _heim.Platzverweise - _gast.Platzverweise);
-        var gastLage = new Spiellage(-heimVorsprung, verbleibend, 1 - _heimAnteil, _gast.Platzverweise - _heim.Platzverweise);
+        var heimLage = new Spiellage(
+            heimVorsprung, verbleibend, _heimAnteil, _heim.Platzverweise - _gast.Platzverweise, _profile.Heim);
+        var gastLage = new Spiellage(
+            -heimVorsprung, verbleibend, 1 - _heimAnteil, _gast.Platzverweise - _heim.Platzverweise, _profile.Gast);
         _heim = TaktikDesTeams(_heim, heimLage, istHeim: true, minute, nachspielminute, nachTor);
         _gast = TaktikDesTeams(_gast, gastLage, istHeim: false, minute, nachspielminute, nachTor);
     }
@@ -202,18 +209,18 @@ internal sealed class Spielablauf
         var faellig = Risikoentscheidung.Faellig(lage);
         if (faellig.Stufe == team.Stufe)
             return team;
-        if (!nachTor && !ZeitMachtWechselFaellig(faellig, lage.Verbleibend))
+        if (!nachTor && !ZeitMachtWechselFaellig(faellig, lage))
             return team;
 
         _ereignisse.Add(new(minute, EreignisArt.Taktikwechsel, istHeim, Spielsituation.Taktiktext(faellig.Stufe, lage.Vorsprung), nachspielminute));
-        return team with { Stufe = faellig.Stufe };
+        return team.Umstellen(faellig.Stufe, lage.Profil);
     }
 
     /// <summary>Würfelt, ob ein Team einen Wechsel vollzieht, den nur die Zeit fällig macht; ohne Schwelle (zurück zur
     /// gewohnten Ordnung) wird nicht gewürfelt.</summary>
-    private bool ZeitMachtWechselFaellig(FaelligeStufe faellig, int verbleibend)
+    private bool ZeitMachtWechselFaellig(FaelligeStufe faellig, Spiellage lage)
     {
-        double wahrscheinlichkeit = Risikoentscheidung.Umstellwahrscheinlichkeit(faellig, verbleibend);
+        double wahrscheinlichkeit = Risikoentscheidung.Umstellwahrscheinlichkeit(faellig, lage.Verbleibend, lage.Profil.Umstellfenster);
         return wahrscheinlichkeit > 0 && _rng.NextDouble() < wahrscheinlichkeit;
     }
 

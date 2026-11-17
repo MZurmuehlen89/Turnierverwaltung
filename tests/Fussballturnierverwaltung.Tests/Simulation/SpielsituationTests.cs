@@ -86,6 +86,28 @@ public class SpielsituationTests
     }
 
     [Fact]
+    public void Teamzustand_WirktUeberSeinePositionAufDerAchse()
+    {
+        var zwischen = new Teamzustand(Risikostufe.Neutral, 0, Position: 0.5);
+
+        Spielsituation.Angriffsfaktor(zwischen, _neutral, 0).Should().BeApproximately(
+            Spielsituation.EigenerAngriff(0.5) * Spielsituation.Torfaktor(0), 1e-9);
+        Spielsituation.Angriffsfaktor(_neutral, zwischen, 0).Should().BeApproximately(
+            Spielsituation.AngriffDesGegners(0.5) * Spielsituation.Torfaktor(0), 1e-9);
+        new Teamzustand(Risikostufe.Mauern, 0).Position.Should().Be(-2, "ohne Angabe liegt ein Team auf seiner Stufe");
+    }
+
+    [Fact]
+    public void Teamzustand_Umstellen_SetztStufeUndZielDesProfils()
+    {
+        var starrOffensiv = new Teamprofil(Grundausrichtung.Offensiv, Flexibilitaet.Starr);
+
+        Teamzustand.Anpfiff(startpunkt: starrOffensiv.Startpunkt).Position.Should().Be(0.5);
+        Teamzustand.Anpfiff(1).Umstellen(Risikostufe.Mauern, starrOffensiv)
+            .Should().Be(new Teamzustand(Risikostufe.Mauern, 1, Position: -1.5));
+    }
+
+    [Fact]
     public void Defensiv_SenktDieTorerwartungBeiderSeiten_WenigerAlsMauern()
     {
         var defensiv = new Teamzustand(Risikostufe.Defensiv, 0);
