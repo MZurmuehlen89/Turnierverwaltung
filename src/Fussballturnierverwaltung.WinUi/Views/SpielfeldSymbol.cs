@@ -17,8 +17,10 @@ public enum SpielfeldDarstellung
 
 /// <summary>
 /// Spielfeld-Symbol der Spielweise (#667): ein kleines Spielfeld (64 × 24, eigenes Tor links) mit dem
-/// Mannschaftsblock. Gezeichnet wird im Code mit der Vordergrundfarbe des Controls – die erbt es vom Knopf, dessen
-/// Stil sie bei Auswahl auf Text-auf-Akzent umstellt; das Symbol färbt sich so mit, ohne eigene Zustände.
+/// Mannschaftsblock, im Code gezeichnet. Die beiden Farben kommen per <c>{ThemeResource}</c> aus dem XAML, der Zustand
+/// aus <see cref="IstGewaehlt"/>: Die geerbte Vordergrundfarbe des Knopfs kommt bei einem eigenen Control nicht an –
+/// das Symbol blieb in der Farbe stehen, die es beim Laden hatte (im Hellmodus schwarz, im Dunkelmodus weiß, auch auf
+/// der Akzentfläche; Nutzerbefund in #667).
 /// </summary>
 public sealed class SpielfeldSymbol : UserControl
 {
@@ -32,6 +34,35 @@ public sealed class SpielfeldSymbol : UserControl
 
     public static readonly DependencyProperty StufeProperty = DependencyProperty.Register(
         nameof(Stufe), typeof(int), typeof(SpielfeldSymbol), new PropertyMetadata(0, (d, _) => ((SpielfeldSymbol)d).Zeichnen()));
+
+    public static readonly DependencyProperty FarbeProperty = DependencyProperty.Register(
+        nameof(Farbe), typeof(Brush), typeof(SpielfeldSymbol), new PropertyMetadata(null, (d, _) => ((SpielfeldSymbol)d).Zeichnen()));
+
+    public static readonly DependencyProperty GewaehltFarbeProperty = DependencyProperty.Register(
+        nameof(GewaehltFarbe), typeof(Brush), typeof(SpielfeldSymbol), new PropertyMetadata(null, (d, _) => ((SpielfeldSymbol)d).Zeichnen()));
+
+    public static readonly DependencyProperty IstGewaehltProperty = DependencyProperty.Register(
+        nameof(IstGewaehlt), typeof(bool), typeof(SpielfeldSymbol), new PropertyMetadata(false, (d, _) => ((SpielfeldSymbol)d).Zeichnen()));
+
+    /// <summary>Farbe auf dem nicht gewählten Knopf.</summary>
+    public Brush? Farbe
+    {
+        get => (Brush?)GetValue(FarbeProperty);
+        set => SetValue(FarbeProperty, value);
+    }
+
+    /// <summary>Farbe auf der Akzentfläche des gewählten Knopfs.</summary>
+    public Brush? GewaehltFarbe
+    {
+        get => (Brush?)GetValue(GewaehltFarbeProperty);
+        set => SetValue(GewaehltFarbeProperty, value);
+    }
+
+    public bool IstGewaehlt
+    {
+        get => (bool)GetValue(IstGewaehltProperty);
+        set => SetValue(IstGewaehltProperty, value);
+    }
 
     public SpielfeldDarstellung Darstellung
     {
@@ -49,14 +80,13 @@ public sealed class SpielfeldSymbol : UserControl
     {
         Content = _flaeche;
         IsTabStop = false;
-        RegisterPropertyChangedCallback(ForegroundProperty, (_, _) => Zeichnen());
         Loaded += (_, _) => Zeichnen();
     }
 
     private void Zeichnen()
     {
         _flaeche.Children.Clear();
-        if (Foreground is not { } farbe) return;
+        if ((IstGewaehlt ? GewaehltFarbe : Farbe) is not { } farbe) return;
 
         Hinzu(new Rectangle { Width = 62, Height = 22, Stroke = farbe, StrokeThickness = 1, RadiusX = 2, RadiusY = 2, Opacity = FELD_DECKKRAFT }, 1, 1);
         Hinzu(new Line { X1 = 32, Y1 = 1, X2 = 32, Y2 = 23, Stroke = farbe, StrokeThickness = 1, Opacity = FELD_DECKKRAFT }, 0, 0);

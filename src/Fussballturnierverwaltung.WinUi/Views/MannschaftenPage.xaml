@@ -8,7 +8,8 @@
     <UserControl.Resources>
         <!-- Knöpfe der Spielweise (#667): RadioButton im Look eines Umschaltknopfs. Gewählt = volle Akzentfläche mit
              Text auf Akzent; Hover = leichter Akzent-Tint als eigene Ebene darüber, damit er sich von der Auswahl und
-             vom Normalzustand unterscheidet (Zustandsmodell #270). Die Spielfeld-Symbole erben den Vordergrund. -->
+             vom Normalzustand unterscheidet (Zustandsmodell #270). Die Spielfeld-Symbole bekommen ihre Farben und den
+             Auswahlzustand ausdrücklich – den Vordergrund des Knopfs erben sie nicht. -->
         <Style x:Key="SpielweiseKnopfStil" TargetType="RadioButton">
             <Setter Property="Background" Value="{ThemeResource ControlFillColorDefaultBrush}" />
             <Setter Property="Foreground" Value="{ThemeResource TextFillColorPrimaryBrush}" />
@@ -75,7 +76,10 @@
 
         <DataTemplate x:Key="FlexibilitaetInhalt">
             <StackPanel Spacing="4" HorizontalAlignment="Center">
-                <views:SpielfeldSymbol Darstellung="Flexibilitaet" Stufe="{Binding Wert}" HorizontalAlignment="Center" />
+                <views:SpielfeldSymbol Darstellung="Flexibilitaet" Stufe="{Binding Wert}" HorizontalAlignment="Center"
+                                       IstGewaehlt="{Binding IstGewaehlt}"
+                                       Farbe="{ThemeResource TextFillColorPrimaryBrush}"
+                                       GewaehltFarbe="{ThemeResource TextOnAccentFillColorPrimaryBrush}" />
                 <TextBlock Text="{Binding Anzeige}" FontSize="12" HorizontalAlignment="Center" />
             </StackPanel>
         </DataTemplate>
@@ -322,7 +326,10 @@
                                              AutomationProperties.AutomationId="{Binding AutomationId}"
                                              AutomationProperties.Name="{Binding Anzeige}">
                                     <StackPanel Orientation="Horizontal" Spacing="12">
-                                        <views:SpielfeldSymbol Darstellung="Grundausrichtung" Stufe="{Binding Wert}" />
+                                        <views:SpielfeldSymbol Darstellung="Grundausrichtung" Stufe="{Binding Wert}"
+                                                               IstGewaehlt="{Binding IstGewaehlt}"
+                                                               Farbe="{ThemeResource TextFillColorPrimaryBrush}"
+                                                               GewaehltFarbe="{ThemeResource TextOnAccentFillColorPrimaryBrush}" />
                                         <TextBlock Text="{Binding Anzeige}" FontSize="13" VerticalAlignment="Center" />
                                     </StackPanel>
                                 </RadioButton>
