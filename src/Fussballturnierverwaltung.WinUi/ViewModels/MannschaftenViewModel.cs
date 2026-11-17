@@ -97,6 +97,9 @@ public partial class MannschaftenViewModel : ViewModelBase, IRibbonAware, IHatUn
     [ObservableProperty] private int _auswaertsstaerke = 65;
     [ObservableProperty] private byte[]? _wappenDaten;
 
+    /// <summary>Grundausrichtung und Flexibilität samt Rating-Vorschlag (#667).</summary>
+    public SpielweiseAuswahl Spielweise { get; } = new();
+
     // ── Filter ───────────────────────────────────────────────────────────────
     // Nullable, obwohl fachlich nie "leer": Bindet ein WinUI-ComboBox TwoWay an diese Property,
     // setzt sie SelectedItem beim Austausch der ItemsSource (Laender/Verbaende-Reload) kurzzeitig
@@ -132,10 +135,10 @@ public partial class MannschaftenViewModel : ViewModelBase, IRibbonAware, IHatUn
     // ── Berechnete Eigenschaften ──────────────────────────────────────────────
     public decimal GesamtRating => Math.Round((OffensivRating + MittelfeldRating + DefensivRating) / 3m, 1);
 
-    public IReadOnlyList<LandFilterOption> LandFilterOptionen =>
+    public List<LandFilterOption> LandFilterOptionen =>
         [AllesLand, ..Laender.Select(l => new LandFilterOption(l.Name, l))];
 
-    public IReadOnlyList<VerbandFilterOption> VerbandFilterOptionen
+    public List<VerbandFilterOption> VerbandFilterOptionen
     {
         get
         {
@@ -150,7 +153,7 @@ public partial class MannschaftenViewModel : ViewModelBase, IRibbonAware, IHatUn
         }
     }
 
-    public IReadOnlyList<ArtFilterOption> ArtFilterOptionen =>
+    public List<ArtFilterOption> ArtFilterOptionen =>
         [AllesArt, ..Enum.GetValues<Mannschaftsart>().Select(a => new ArtFilterOption(a.ToString(), a))];
 
     public IEnumerable<Mannschaft> MannschaftenGefiltert => Mannschaften
@@ -197,6 +200,8 @@ public partial class MannschaftenViewModel : ViewModelBase, IRibbonAware, IHatUn
         _validator = validator;
         _dialogService = dialogService;
         _logger = logger;
+        Spielweise.Geaendert += FormularFeldGeaendert;
+        Spielweise.RatingsAktualisieren(OffensivRating, DefensivRating);
     }
 
     public override async Task AktivierenAsync() => await LadenAsync();
@@ -242,6 +247,9 @@ public partial class MannschaftenViewModel : ViewModelBase, IRibbonAware, IHatUn
 
     partial void OnAusgewaehlteChanged(Mannschaft? value) => FormularAusFuellenMit(value);
 
+    partial void OnOffensivRatingChanged(int value) => Spielweise.RatingsAktualisieren(value, DefensivRating);
+    partial void OnDefensivRatingChanged(int value) => Spielweise.RatingsAktualisieren(OffensivRating, value);
+
     private void FormularAusFuellenMit(Mannschaft? mannschaft)
     {
         _populiertGerade++;
@@ -257,6 +265,7 @@ public partial class MannschaftenViewModel : ViewModelBase, IRibbonAware, IHatUn
                 Heimstaerke = 70;
                 Auswaertsstaerke = 65;
                 WappenDaten = null;
+                Spielweise.Zeigen(Grundausrichtung.Ausgeglichen, Flexibilitaet.Normal);
             }
             else
             {
@@ -272,6 +281,7 @@ public partial class MannschaftenViewModel : ViewModelBase, IRibbonAware, IHatUn
                 Heimstaerke = mannschaft.Heimstaerke;
                 Auswaertsstaerke = mannschaft.Auswaertsstaerke;
                 WappenDaten = mannschaft.Wappen;
+                Spielweise.Zeigen(mannschaft.Grundausrichtung, mannschaft.Flexibilitaet);
             }
             IsDirty = false;
             Fehlermeldung = null;
@@ -301,6 +311,7 @@ public partial class MannschaftenViewModel : ViewModelBase, IRibbonAware, IHatUn
             Heimstaerke = 70;
             Auswaertsstaerke = 65;
             WappenDaten = null;
+            Spielweise.Zeigen(Grundausrichtung.Ausgeglichen, Flexibilitaet.Normal);
             Fehlermeldung = null;
         }
         finally
@@ -395,13 +406,13 @@ public partial class MannschaftenViewModel : ViewModelBase, IRibbonAware, IHatUn
         Name, Kurzname, AusgewaehlteArt,
         AusgewaehltesLand?.Id ?? 0,
         OffensivRating, MittelfeldRating, DefensivRating,
-        Heimstaerke, Auswaertsstaerke, WappenDaten);
+        Heimstaerke, Auswaertsstaerke, WappenDaten, Spielweise.Grundausrichtung, Spielweise.Flexibilitaet);
 
     private MannschaftAktualisierenEingabe AktualisierenEingabe() => new(
         Name, Kurzname,
         AusgewaehltesLand?.Id ?? 0,
         OffensivRating, MittelfeldRating, DefensivRating,
-        Heimstaerke, Auswaertsstaerke, WappenDaten);
+        Heimstaerke, Auswaertsstaerke, WappenDaten, Spielweise.Grundausrichtung, Spielweise.Flexibilitaet);
 
     private void AktualisiereFormularFehler()
     {
@@ -417,11 +428,14 @@ public partial class MannschaftenViewModel : ViewModelBase, IRibbonAware, IHatUn
     {
         base.OnPropertyChanged(e);
         if (e.PropertyName == nameof(MannschaftenGefiltert)) OnPropertyChanged(nameof(AnzahlText));
-        if (_populiertGerade == 0 && _formFelder.Contains(e.PropertyName!))
-        {
-            IsDirty = true;
-            AktualisiereFormularFehler();
-        }
+        if (_formFelder.Contains(e.PropertyName!)) FormularFeldGeaendert();
+    }
+
+    private void FormularFeldGeaendert()
+    {
+        if (_populiertGerade != 0) return;
+        IsDirty = true;
+        AktualisiereFormularFehler();
     }
 
     private bool KannSpeichern() => FormularAktiv && IsDirty && FormularFehler.Count == 0;

@@ -5,6 +5,82 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:views="using:Fussballturnierverwaltung.WinUi.Views">
 
+    <UserControl.Resources>
+        <!-- Knöpfe der Spielweise (#667): RadioButton im Look eines Umschaltknopfs. Gewählt = volle Akzentfläche mit
+             Text auf Akzent; Hover = leichter Akzent-Tint als eigene Ebene darüber, damit er sich von der Auswahl und
+             vom Normalzustand unterscheidet (Zustandsmodell #270). Die Spielfeld-Symbole erben den Vordergrund. -->
+        <Style x:Key="SpielweiseKnopfStil" TargetType="RadioButton">
+            <Setter Property="Background" Value="{ThemeResource ControlFillColorDefaultBrush}" />
+            <Setter Property="Foreground" Value="{ThemeResource TextFillColorPrimaryBrush}" />
+            <Setter Property="BorderBrush" Value="{ThemeResource ControlStrokeColorDefaultBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="{ThemeResource ControlCornerRadius}" />
+            <Setter Property="Padding" Value="10,6" />
+            <Setter Property="MinWidth" Value="0" />
+            <Setter Property="HorizontalAlignment" Value="Stretch" />
+            <Setter Property="HorizontalContentAlignment" Value="Left" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="RadioButton">
+                        <Grid x:Name="Rahmen"
+                              Background="{TemplateBinding Background}"
+                              BorderBrush="{TemplateBinding BorderBrush}"
+                              BorderThickness="{TemplateBinding BorderThickness}"
+                              CornerRadius="{TemplateBinding CornerRadius}">
+                            <VisualStateManager.VisualStateGroups>
+                                <VisualStateGroup x:Name="CommonStates">
+                                    <VisualState x:Name="Normal" />
+                                    <VisualState x:Name="PointerOver">
+                                        <VisualState.Setters>
+                                            <Setter Target="Tint.Opacity" Value="0.12" />
+                                        </VisualState.Setters>
+                                    </VisualState>
+                                    <VisualState x:Name="Pressed">
+                                        <VisualState.Setters>
+                                            <Setter Target="Tint.Opacity" Value="0.22" />
+                                        </VisualState.Setters>
+                                    </VisualState>
+                                    <VisualState x:Name="Disabled">
+                                        <VisualState.Setters>
+                                            <Setter Target="Rahmen.Opacity" Value="0.5" />
+                                        </VisualState.Setters>
+                                    </VisualState>
+                                </VisualStateGroup>
+                                <VisualStateGroup x:Name="CheckStates">
+                                    <VisualState x:Name="Checked">
+                                        <VisualState.Setters>
+                                            <Setter Target="Rahmen.Background" Value="{ThemeResource AccentFillColorDefaultBrush}" />
+                                            <Setter Target="Rahmen.BorderBrush" Value="{ThemeResource AccentFillColorDefaultBrush}" />
+                                            <Setter Target="Inhalt.Foreground" Value="{ThemeResource TextOnAccentFillColorPrimaryBrush}" />
+                                        </VisualState.Setters>
+                                    </VisualState>
+                                    <VisualState x:Name="Unchecked" />
+                                    <VisualState x:Name="Indeterminate" />
+                                </VisualStateGroup>
+                            </VisualStateManager.VisualStateGroups>
+                            <Border x:Name="Tint" Background="{ThemeResource AccentFillColorDefaultBrush}" Opacity="0"
+                                    CornerRadius="{TemplateBinding CornerRadius}" />
+                            <ContentPresenter x:Name="Inhalt"
+                                              Margin="{TemplateBinding Padding}"
+                                              Content="{TemplateBinding Content}"
+                                              ContentTemplate="{TemplateBinding ContentTemplate}"
+                                              Foreground="{TemplateBinding Foreground}"
+                                              HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                              VerticalAlignment="Center" />
+                        </Grid>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <DataTemplate x:Key="FlexibilitaetInhalt">
+            <StackPanel Spacing="4" HorizontalAlignment="Center">
+                <views:SpielfeldSymbol Darstellung="Flexibilitaet" Stufe="{Binding Wert}" HorizontalAlignment="Center" />
+                <TextBlock Text="{Binding Anzeige}" FontSize="12" HorizontalAlignment="Center" />
+            </StackPanel>
+        </DataTemplate>
+    </UserControl.Resources>
+
     <Grid ColumnDefinitions="3*,1,2*">
 
         <!-- ── Linke Spalte: Filter-Leiste + Liste ── -->
@@ -232,6 +308,63 @@
                         <Slider Grid.Column="1" Value="{Binding Auswaertsstaerke, Mode=TwoWay}" Minimum="1" Maximum="99" VerticalAlignment="Center" />
                         <TextBlock Grid.Column="2" Text="{Binding Auswaertsstaerke}" FontSize="13" FontWeight="SemiBold" TextAlignment="Right" VerticalAlignment="Center" />
                     </Grid>
+
+                    <!-- Spielweise (#667): Grundausrichtung untereinander, Flexibilität nebeneinander, je mit
+                         Spielfeld-Symbol; darunter der Vorschlag aus den Ratings. -->
+                    <TextBlock Text="SPIELWEISE" FontWeight="SemiBold" FontSize="11" Opacity="0.6" Margin="0,0,0,12" />
+                    <TextBlock Text="Grundausrichtung" FontSize="12" Margin="0,0,0,6" />
+                    <ItemsControl ItemsSource="{Binding Spielweise.Grundausrichtungen}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <RadioButton GroupName="Grundausrichtung" Style="{StaticResource SpielweiseKnopfStil}"
+                                             Margin="0,0,0,4"
+                                             IsChecked="{Binding IstGewaehlt, Mode=TwoWay}"
+                                             AutomationProperties.AutomationId="{Binding AutomationId}"
+                                             AutomationProperties.Name="{Binding Anzeige}">
+                                    <StackPanel Orientation="Horizontal" Spacing="12">
+                                        <views:SpielfeldSymbol Darstellung="Grundausrichtung" Stufe="{Binding Wert}" />
+                                        <TextBlock Text="{Binding Anzeige}" FontSize="13" VerticalAlignment="Center" />
+                                    </StackPanel>
+                                </RadioButton>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                    <Grid Margin="0,4,0,16" ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                        <TextBlock Text="{Binding Spielweise.VorschlagText}" FontSize="12" Opacity="0.7"
+                                   VerticalAlignment="Center" TextWrapping="Wrap"
+                                   AutomationProperties.AutomationId="Mannschaften.SpielweiseVorschlag" />
+                        <Button Grid.Column="1" Content="Übernehmen" FontSize="12" Padding="10,3"
+                                Command="{Binding Spielweise.VorschlagUebernehmenCommand}"
+                                Visibility="{Binding Spielweise.WeichtVomVorschlagAb, Converter={StaticResource BoolToVisibility}}"
+                                AutomationProperties.AutomationId="Mannschaften.VorschlagUebernehmen" />
+                    </Grid>
+
+                    <TextBlock Text="Flexibilität" FontSize="12" Margin="0,0,0,6" />
+                    <Grid ColumnDefinitions="*,*,*" ColumnSpacing="4">
+                        <RadioButton GroupName="Flexibilitaet" Style="{StaticResource SpielweiseKnopfStil}"
+                                     DataContext="{Binding Spielweise.Flexibilitaeten[0]}"
+                                     Content="{Binding}" ContentTemplate="{StaticResource FlexibilitaetInhalt}"
+                                     HorizontalContentAlignment="Center"
+                                     IsChecked="{Binding IstGewaehlt, Mode=TwoWay}"
+                                     AutomationProperties.AutomationId="{Binding AutomationId}"
+                                     AutomationProperties.Name="{Binding Anzeige}" />
+                        <RadioButton Grid.Column="1" GroupName="Flexibilitaet" Style="{StaticResource SpielweiseKnopfStil}"
+                                     DataContext="{Binding Spielweise.Flexibilitaeten[1]}"
+                                     Content="{Binding}" ContentTemplate="{StaticResource FlexibilitaetInhalt}"
+                                     HorizontalContentAlignment="Center"
+                                     IsChecked="{Binding IstGewaehlt, Mode=TwoWay}"
+                                     AutomationProperties.AutomationId="{Binding AutomationId}"
+                                     AutomationProperties.Name="{Binding Anzeige}" />
+                        <RadioButton Grid.Column="2" GroupName="Flexibilitaet" Style="{StaticResource SpielweiseKnopfStil}"
+                                     DataContext="{Binding Spielweise.Flexibilitaeten[2]}"
+                                     Content="{Binding}" ContentTemplate="{StaticResource FlexibilitaetInhalt}"
+                                     HorizontalContentAlignment="Center"
+                                     IsChecked="{Binding IstGewaehlt, Mode=TwoWay}"
+                                     AutomationProperties.AutomationId="{Binding AutomationId}"
+                                     AutomationProperties.Name="{Binding Anzeige}" />
+                    </Grid>
+                    <TextBlock Text="{Binding Spielweise.FlexibilitaetErklaerung}" FontSize="12" Opacity="0.7"
+                               Margin="0,6,0,24" TextWrapping="Wrap" />
                 </StackPanel>
             </ScrollViewer>
 

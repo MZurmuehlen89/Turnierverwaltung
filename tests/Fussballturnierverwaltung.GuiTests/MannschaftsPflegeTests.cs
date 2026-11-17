@@ -95,6 +95,54 @@ public sealed class MannschaftsPflegeTests(TurnierverwaltungApp app) : IClassFix
         _seite.NichtMehrGelistetAbwarten(name).Should().BeTrue("die Mannschaft ist gelöscht");
     }
 
+    /// <summary>#667 K12, K13: Eine neue Mannschaft startet ausgeglichen und normal flexibel. Der Vorschlag aus den
+    /// Ratings folgt sofort dem Offensiv-Regler (Defensiv bleibt auf 70, Normalabstand +2): 70 → defensiv, 72 → passt,
+    /// 76 → offensiv. „Übernehmen“ steht nur bei Abweichung da und wählt den Vorschlag.</summary>
+    [Fact]
+    public void Spielweise_NeueMannschaft_VorschlagFolgtDenRatingsUndLaesstSichUebernehmen()
+    {
+        _seite.Neu();
+        _seite.GrundausrichtungAbwarten("Ausgeglichen").Should().Be("Ausgeglichen");
+        _seite.FlexibilitaetAbwarten("Normal").Should().Be("Normal");
+        _seite.VorschlagAbwarten(VORSCHLAG + "defensiv").Should().Be(VORSCHLAG + "defensiv");
+        _seite.UebernehmenSichtbarAbwarten(true).Should().BeTrue();
+
+        _seite.OffensivSetzen(72);
+        _seite.VorschlagAbwarten(PASST).Should().Be(PASST);
+        _seite.UebernehmenSichtbarAbwarten(false).Should().BeFalse("ohne Abweichung gibt es nichts zu übernehmen");
+
+        _seite.OffensivSetzen(76);
+        _seite.VorschlagAbwarten(VORSCHLAG + "offensiv").Should().Be(VORSCHLAG + "offensiv");
+        _seite.VorschlagUebernehmen();
+        _seite.GrundausrichtungAbwarten("Offensiv").Should().Be("Offensiv");
+        _seite.VorschlagAbwarten(PASST).Should().Be(PASST);
+
+        _seite.Abbrechen();
+    }
+
+    /// <summary>#667 K14: Grundausrichtung und Flexibilität machen das Formular „geändert“ und bleiben nach dem
+    /// Speichern erhalten.</summary>
+    [Fact]
+    public void Spielweise_WirdGespeichertUndWiederGezeigt()
+    {
+        string name = EindeutigerName();
+        _seite.Anlegen(name, "GTS", 72);
+        _seite.Auswaehlen(name);
+        _seite.SpeichernFreigabeAbwarten(false).Should().BeFalse("frisch geladen ist nichts geändert");
+
+        _seite.GrundausrichtungWaehlen("SehrDefensiv");
+        _seite.SpeichernFreigabeAbwarten(true).Should().BeTrue("die Grundausrichtung ist eine Änderung");
+        _seite.FlexibilitaetWaehlen("Starr");
+        _seite.Speichern();
+
+        _seite.Auswaehlen(name);
+        _seite.GrundausrichtungAbwarten("SehrDefensiv").Should().Be("SehrDefensiv");
+        _seite.FlexibilitaetAbwarten("Starr").Should().Be("Starr");
+    }
+
+    private const string VORSCHLAG = "Vorschlag aus den Ratings: ";
+    private const string PASST = "Entspricht dem Vorschlag aus den Ratings.";
+
     public void Dispose() => app.BeiFehlschlagBelegeSichern();
 
     private static string EindeutigerName() => $"GuiTest {Guid.NewGuid().ToString("N")[..8]}";

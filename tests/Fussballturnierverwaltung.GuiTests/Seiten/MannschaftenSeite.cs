@@ -58,6 +58,49 @@ public sealed class MannschaftenSeite(Window fenster, Hauptfenster hauptfenster)
     public void OffensivSetzen(int wert) =>
         fenster.FindById("Mannschaften.Offensiv").Patterns.RangeValue.Pattern.SetValue(wert);
 
+    // ── Spielweise (#667) ─────────────────────────────────────────────────
+    // Knöpfe als RadioButtons mit den AutomationIds Mannschaften.Grundausrichtung.<Wert> bzw.
+    // Mannschaften.Flexibilitaet.<Wert> (Enum-Namen); gewählt ist, wessen SelectionItem IsSelected meldet.
+
+    private static readonly string[] _grundausrichtungen = ["SehrDefensiv", "Defensiv", "Ausgeglichen", "Offensiv", "SehrOffensiv"];
+    private static readonly string[] _flexibilitaeten = ["Starr", "Normal", "Flexibel"];
+
+    public void GrundausrichtungWaehlen(string wert) => fenster.ActivateById($"Mannschaften.Grundausrichtung.{wert}");
+    public void FlexibilitaetWaehlen(string wert) => fenster.ActivateById($"Mannschaften.Flexibilitaet.{wert}");
+
+    /// <summary>Die gewählte Grundausrichtung, sobald es <paramref name="erwartet"/> ist.</summary>
+    public string GrundausrichtungAbwarten(string erwartet) => GewaehltAbwarten("Grundausrichtung", _grundausrichtungen, erwartet);
+
+    /// <summary>Die gewählte Flexibilität, sobald es <paramref name="erwartet"/> ist.</summary>
+    public string FlexibilitaetAbwarten(string erwartet) => GewaehltAbwarten("Flexibilitaet", _flexibilitaeten, erwartet);
+
+    /// <summary>Der Hinweis zum Rating-Vorschlag, sobald er <paramref name="erwartet"/> lautet.</summary>
+    public string VorschlagAbwarten(string erwartet)
+    {
+        Wait.Within(() => VorschlagText == erwartet, Wait.DefaultTimeout);
+        return VorschlagText;
+    }
+
+    /// <summary>Ob „Übernehmen“ zu sehen ist, sobald das <paramref name="erwartet"/> entspricht.</summary>
+    public bool UebernehmenSichtbarAbwarten(bool erwartet)
+    {
+        Wait.Within(() => UebernehmenSichtbar == erwartet, Wait.DefaultTimeout);
+        return UebernehmenSichtbar;
+    }
+
+    public void VorschlagUebernehmen() => fenster.ActivateById("Mannschaften.VorschlagUebernehmen");
+
+    private string VorschlagText => fenster.TextOf("Mannschaften.SpielweiseVorschlag");
+    private bool UebernehmenSichtbar => fenster.TryFindById("Mannschaften.VorschlagUebernehmen") is not null;
+
+    private string GewaehltAbwarten(string feld, string[] werte, string erwartet)
+    {
+        string Gewaehlt() => string.Join(",", werte.Where(w =>
+            fenster.TryFindById($"Mannschaften.{feld}.{w}")?.Patterns.SelectionItem.PatternOrDefault?.IsSelected.ValueOrDefault == true));
+        Wait.Within(() => Gewaehlt() == erwartet, Wait.DefaultTimeout);
+        return Gewaehlt();
+    }
+
     /// <summary>Speichert und wartet, bis die Seite neu geladen hat. Der gesperrte Speichern-Knopf zeigt nur, dass der
     /// Klick angekommen ist – der Befehl ist auch während der Ausführung gesperrt; das Ende meldet der Ladezustand,
     /// weil der Editor als Vorgang speichert (#597).</summary>
