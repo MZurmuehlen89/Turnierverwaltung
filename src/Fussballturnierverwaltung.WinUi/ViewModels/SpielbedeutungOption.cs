@@ -7,7 +7,7 @@ namespace Fussballturnierverwaltung.WinUi.ViewModels;
 public record SpielbedeutungOption(string Anzeige, Spielbedeutung Wert)
 {
     /// <summary>Feste Liste (Referenzabgleich der ComboBox), aufsteigend nach Bedeutung.</summary>
-    public static IReadOnlyList<SpielbedeutungOption> Alle { get; } =
+    public static IReadOnlyList<SpielbedeutungOption> Alle { get; } = (SpielbedeutungOption[])
     [
         new("gering – es wird offen gespielt", Spielbedeutung.Gering),
         new("normal", Spielbedeutung.Normal),
