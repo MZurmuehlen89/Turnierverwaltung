@@ -20,8 +20,11 @@ public sealed class EinzelspielSimulationsTests(TurnierverwaltungApp app) : ICla
     // GleichstandHerbeifuehren probiert je Gegner die Hinspiel-Differenzen der Reihe nach. Ohne Auswärtstorregel
     // kennt das Rückspiel vom Hinspiel nur die Tordifferenz, und mit festem Seed beginnt jedes Rückspiel mit derselben
     // Zufallsfolge – je Paarung gibt es also nur so viele verschiedene Rückspiele wie Differenzen (CI-Lauf nach #673:
-    // 16 Hinspiele gegen Frankreich, kein Gleichstand). Erst ein anderer Gegner bringt einen anderen Spielverlauf.
-    private static readonly string[] GLEICHSTARKE_GEGNER = [AUSWAERTS, "Spanien", "Italien", "England", "Niederlande", "Portugal"];
+    // 16 Hinspiele gegen Frankreich, kein Gleichstand). Erst ein Gegner anderer Stärke bringt einen anderen
+    // Spielverlauf – gleich starke spielen gleich (siehe SCHWACHE_GEGNER), darum in Stufen von 3–4 Rating-Punkten
+    // (Seed: Frankreich 88, England 84, Niederlande 82, Dänemark 78, Serbien 74, Wales 71, Island 67; Deutschland 83).
+    private static readonly string[] GESTAFFELTE_GEGNER =
+        [AUSWAERTS, "England", "Niederlande", "Dänemark", "Serbien", "Wales", "Island"];
     private static readonly int[] HINSPIEL_DIFFERENZEN = [0, 1, -1, 2, -2];
 
     private readonly EinzelspielSeite _seite = app.Hauptfenster.EinzelspielSimulationOeffnen();
@@ -126,7 +129,7 @@ public sealed class EinzelspielSimulationsTests(TurnierverwaltungApp app) : ICla
     private HinRueckAnzeige GleichstandHerbeifuehren()
     {
         var gelesen = new List<string>();
-        foreach (string gegner in GLEICHSTARKE_GEGNER)
+        foreach (string gegner in GESTAFFELTE_GEGNER)
         {
             _seite.MannschaftenWaehlen(HEIM, gegner);
             foreach (int differenz in HINSPIEL_DIFFERENZEN)
