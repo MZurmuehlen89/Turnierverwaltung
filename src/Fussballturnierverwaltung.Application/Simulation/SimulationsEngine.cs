@@ -21,13 +21,14 @@ public static class SimulationsEngine
         Random rng,
         Spielortvorteil spielortvorteil = Spielortvorteil.Heim,
         int ueberraschungsfaktor = 0,
-        Hinspielstand hinspielstand = default)
+        Hinspielstand hinspielstand = default,
+        Spielbedeutung spielbedeutung = Spielbedeutung.Normal)
 #pragma warning restore S107
     {
-        var paarung = new Paarung(heim, auswaerts, spielortvorteil, ueberraschungsfaktor);
+        var paarung = new Paarung(heim, auswaerts, spielortvorteil, ueberraschungsfaktor, spielbedeutung);
 
         // #361: ausführlich Minute für Minute mit Spielzustand, sonst reines Endergebnis per Poisson. Der
-        // Hinspielstand (#671) wirkt nur auf die Risikostufe und damit nur ausführlich.
+        // Hinspielstand (#671) und die Spielbedeutung (#668) wirken nur auf die Risikostufe und damit nur ausführlich.
         var ablauf = ausfuehrlich ? paarung.Anpfiff(rng, hinspielstand: hinspielstand) : null;
         var (heimTore, gastTore, ereignisse) = ablauf?.RegulaereSpielzeit()
             ?? new(ZiehePoisson(paarung.HeimTorerwartung, rng), ZiehePoisson(paarung.GastTorerwartung, rng), []);
@@ -70,6 +71,7 @@ public static class SimulationsEngine
     /// <c>LosGewinnerHeim</c> ist nur bei Losentscheid/Münzwurf gesetzt — dort geben die Tore den Sieger
     /// nicht her (Issue #383). <paramref name="platzverweise"/>: Platzverweise des Spiels, an das die Verlängerung
     /// anschließt (#361) – im Rückspiel die des Rückspiels; die Ermüdung setzt nach 90 Minuten fort.
+    /// <paramref name="spielbedeutung"/>: die der Runde (#668), wie im Spiel davor.
     /// </summary>
 #pragma warning disable S107 // wie bei Simulieren: Standardwerte, Bündeln hieße alle Aufrufer umstellen
     public static (int? HeimVerl, int? GastVerl, int? HeimElf, int? GastElf,
@@ -78,10 +80,10 @@ public static class SimulationsEngine
             Mannschaft heim, Mannschaft auswaerts,
             IReadOnlyList<EntscheidungsVerfahren> verfahren, bool ausfuehrlich, Random rng,
             Spielortvorteil spielortvorteil = Spielortvorteil.Heim, int ueberraschungsfaktor = 0,
-            Platzverweise platzverweise = default)
+            Platzverweise platzverweise = default, Spielbedeutung spielbedeutung = Spielbedeutung.Normal)
 #pragma warning restore S107
     {
-        var paarung = new Paarung(heim, auswaerts, spielortvorteil, ueberraschungsfaktor);
+        var paarung = new Paarung(heim, auswaerts, spielortvorteil, ueberraschungsfaktor, spielbedeutung);
         var ablauf = ausfuehrlich ? paarung.Anpfiff(rng, platzverweise, gespielteMinuten: 90) : null;
         return VerfahrenKetteAnwenden(paarung, verfahren, ablauf, rng);
     }
@@ -185,9 +187,10 @@ public static class SimulationsEngine
 
     // ── Verfahren bei Gleichstand ──────────────────────────────────────────
 
-    /// <summary>Die beiden Mannschaften samt Rahmen des Spiels — jedes Verfahren braucht alle vier Angaben.</summary>
+    /// <summary>Die beiden Mannschaften samt Rahmen des Spiels — jedes Verfahren braucht alle Angaben.</summary>
     private readonly record struct Paarung(
-        Mannschaft Heim, Mannschaft Auswaerts, Spielortvorteil Spielortvorteil, int Ueberraschungsfaktor)
+        Mannschaft Heim, Mannschaft Auswaerts, Spielortvorteil Spielortvorteil, int Ueberraschungsfaktor,
+        Spielbedeutung Spielbedeutung)
     {
         public double HeimTorerwartung =>
             BerechneErwartetesTore(Heim, Auswaerts, istHeim: true, Spielortvorteil, Ueberraschungsfaktor);
@@ -199,7 +202,7 @@ public static class SimulationsEngine
             Random rng, Platzverweise platzverweise = default, int gespielteMinuten = 0,
             Hinspielstand hinspielstand = default) =>
             new(HeimTorerwartung, GastTorerwartung, rng, platzverweise, gespielteMinuten, hinspielstand,
-                new Teamprofile(Teamprofil.Von(Heim), Teamprofil.Von(Auswaerts)));
+                new Teamprofile(Teamprofil.Von(Heim, Spielbedeutung), Teamprofil.Von(Auswaerts, Spielbedeutung)));
     }
 
     /// <summary>Ausgang eines einzelnen Verfahrens. <see cref="Vorsprung"/> &gt; 0: Heimsieg, &lt; 0: Gastsieg,

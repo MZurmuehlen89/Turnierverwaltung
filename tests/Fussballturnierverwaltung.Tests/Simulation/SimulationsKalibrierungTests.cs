@@ -158,6 +158,38 @@ public class SimulationsKalibrierungTests
             "Überraschungen bleiben möglich, aber selten");
     }
 
+    // ── Spielbedeutung (#668, K3) ─────────────────────────────────────────
+
+    [Fact]
+    public void Spielbedeutung_GeringMehrToreHochWeniger_EffektBleibtKlein()
+    {
+        double hoch   = ToreJeSpielGleichStarker(Spielbedeutung.Hoch);
+        double normal = ToreJeSpielGleichStarker(Spielbedeutung.Normal);
+        double gering = ToreJeSpielGleichStarker(Spielbedeutung.Gering);
+        TestContext.Current.TestOutputHelper?.WriteLine(
+            $"Tore je Spiel – hoch {hoch:F3}, normal {normal:F3}, gering {gering:F3}");
+
+        // Abgestimmt: Finale gut 5 % weniger Tore, Spiel um Platz 3 knapp 20 % mehr – kein „Wunder-Modus“ (#672).
+        (hoch / normal).Should().BeInRange(0.90, 0.98, "hohe Bedeutung: etwas vorsichtiger");
+        (gering / normal).Should().BeInRange(1.10, 1.25, "geringe Bedeutung: offener");
+    }
+
+    private static double ToreJeSpielGleichStarker(Spielbedeutung spielbedeutung)
+    {
+        var (heim, gast) = (Teams(_bundesliga[8..9], 1)[0], Teams(_bundesliga[8..9], 2)[0]);
+        var rng = new Random(668);
+        const int SPIELE = 40_000;
+
+        int tore = 0;
+        for (int i = 0; i < SPIELE; i++)
+        {
+            var erg = SimulationsEngine.Simulieren(
+                heim, gast, [], ausfuehrlich: true, rng, Spielortvorteil.Neutral, spielbedeutung: spielbedeutung);
+            tore += erg.HeimToreRegulaer + erg.AuswaertsToreRegulaer;
+        }
+        return (double)tore / SPIELE;
+    }
+
     private static bool HeimGewinnt(SimulationsErgebnis erg)
     {
         int heim = erg.HeimToreRegulaer + (erg.HeimToreVerlaengerung ?? 0);

@@ -21,6 +21,7 @@ public class TurnierRundeKonfiguration : IEntityTypeConfiguration<TurnierRunde>
         builder.Property(r => r.AuswaertstorRegelAktiv).IsRequired();
         builder.Property(r => r.NeutralerSpielort).IsRequired().HasDefaultValue(false);
         builder.Property(r => r.Ueberraschungsfaktor).IsRequired().HasDefaultValue(0);
+        builder.Property(r => r.Spielbedeutung).IsRequired().HasDefaultValue(Spielbedeutung.Normal);
         builder.Property(r => r.KonfigurationJson);
         builder.Property(r => r.KombinationstabelleJson);
         builder.Property(r => r.EingangUeberUebergangsregeln).IsRequired().HasDefaultValue(false);

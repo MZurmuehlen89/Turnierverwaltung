@@ -1136,6 +1136,11 @@ namespace Fussballturnierverwaltung.Infrastructure.Persistenz.Migrationen
                     b.Property<int>("Rundenart")
                         .HasColumnType("integer");
 
+                    b.Property<int>("Spielbedeutung")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(0);
+
                     b.Property<int?>("StandardRanglisteId")
                         .HasColumnType("integer");
 

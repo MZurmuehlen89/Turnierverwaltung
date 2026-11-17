@@ -111,7 +111,7 @@ public class SimulationsService(
         var ergebnis = SimulationsEngine.Simulieren(
             spiel.HeimMannschaft!, spiel.AuswaertsMannschaft!,
             istKoHinspiel || istKoRueckspiel ? [] : verfahren, ausfuehrlich: true, rng, spielortvorteil,
-            runde.Ueberraschungsfaktor, hinspielstand);
+            runde.Ueberraschungsfaktor, hinspielstand, runde.Spielbedeutung);
 
         if (istKoRueckspiel && verfahren.Count > 0)
             ergebnis = RueckspielEntscheiden(ergebnis, spiel, verfahren, rng, spielortvorteil);
@@ -180,7 +180,7 @@ public class SimulationsService(
         // #361: die Verlängerung setzt das Rückspiel fort – mit dessen Platzverweisen, nicht denen des Hinspiels.
         var (hv, gv, he, ge, art, extras, losGewinnerHeim) = SimulationsEngine.EntscheidungsverfahrenAnwenden(
             spiel.HeimMannschaft!, spiel.AuswaertsMannschaft!, verfahren, ausfuehrlich: true, rng, spielortvorteil,
-            runde.Ueberraschungsfaktor, Platzverweise.AusEreignissen(ergebnis.Ereignisse));
+            runde.Ueberraschungsfaktor, Platzverweise.AusEreignissen(ergebnis.Ereignisse), runde.Spielbedeutung);
         return ergebnis with
         {
             HeimToreVerlaengerung      = hv,

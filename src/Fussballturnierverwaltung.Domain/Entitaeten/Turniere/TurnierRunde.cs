@@ -31,6 +31,10 @@ public class TurnierRunde : BasisEntitaet
     // Rating-Differenz — „Pokal hat eigene Gesetze“. 0 = normale Simulation, 100 = Ratings spielen keine Rolle.
     public int Ueberraschungsfaktor { get; set; }
 
+    // Was in den Spielen der Runde auf dem Spiel steht (#668): verschiebt in der Simulation, wie riskant beide Teams
+    // ins Spiel gehen. Vorbelegt über die Rundenart (Finale hoch, Spiel um Platz 3 gering), frei änderbar.
+    public Spielbedeutung Spielbedeutung { get; set; }
+
     public string? KonfigurationJson { get; set; }
 
     // Wenn true, wird der Eingang dieser Runde nicht gegen die unmittelbar vorangehende Runde in der Liste

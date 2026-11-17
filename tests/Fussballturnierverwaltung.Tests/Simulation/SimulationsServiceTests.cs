@@ -264,4 +264,47 @@ public class SimulationsServiceTests
         (await service.SpieltageSimulierenAsync(1, 2, seed: 3)).Should().Be(2);
         Gespielt().Should().Equal(1, 2, 3, 4, 5, 6, 7, 8);
     }
+
+    // ── Spielbedeutung (#668, K4) ─────────────────────────────────────────────
+
+    // Der Service gibt die Spielbedeutung der Runde an die Engine weiter: gleicher Seed, gleiches Spiel wie ein
+    // direkter Engine-Aufruf mit dieser Bedeutung – und ein anderes als mit „normal“.
+    [Fact]
+    public async Task SpielSimulierenAsync_NimmtDieSpielbedeutungDerRunde()
+    {
+        await using var ctx = SimulationsDienste.NeuerContext();
+        GrunddatenAnlegen(ctx, mannschaften: 2);
+        ctx.TurnierRunden.Add(new TurnierRunde
+        {
+            Id = 1, TurnierInstanzId = 1, Name = "Spiel um Platz 3", Reihenfolge = 1,
+            Rundenart = Rundenart.SpielUmPlatzDrei, RegelwerkId = 1, Spielbedeutung = Spielbedeutung.Gering
+        });
+        ctx.Spiele.Add(new Spiel
+        {
+            Id = 1, TurnierInstanzId = 1, TurnierRundeId = 1, Spielnummer = 1, Spieltag = 1,
+            HeimMannschaftId = 1, AuswaertsMannschaftId = 2, Status = SpielStatus.Geplant
+        });
+        ctx.SaveChanges();
+        var (heim, gast) = (ctx.Mannschaften.Single(m => m.Id == 1), ctx.Mannschaften.Single(m => m.Id == 2));
+        EntscheidungsVerfahren[] verfahren = [.. ctx.Entscheidungsverfahren];
+
+        var service = SimulationsDienste.Service(ctx, new Zufallsquelle());
+
+        // Die Bedeutung verschiebt die Torerwartung nur um wenige Prozent – ein einzelner Seed liefert oft dasselbe
+        // Spiel wie „normal“, deshalb über mehrere Seeds.
+        int andersAlsNormal = 0;
+        for (int seed = 1; seed <= 20; seed++)
+        {
+            var ergebnis = await service.SpielSimulierenAsync(1, new Random(seed), ueberschreiben: true);
+
+            Ereignisse(ergebnis).Should().Equal(Ereignisse(Direkt(Spielbedeutung.Gering, seed)));
+            if (!Ereignisse(ergebnis).SequenceEqual(Ereignisse(Direkt(Spielbedeutung.Normal, seed))))
+                andersAlsNormal++;
+        }
+        andersAlsNormal.Should().BeGreaterThan(0);
+
+        SimulationsErgebnis Direkt(Spielbedeutung bedeutung, int seed) => SimulationsEngine.Simulieren(
+            heim, gast, verfahren, ausfuehrlich: true, new Random(seed), spielbedeutung: bedeutung);
+        static List<SimuliertesEreignis> Ereignisse(SimulationsErgebnis e) => [.. e.Ereignisse];
+    }
 }

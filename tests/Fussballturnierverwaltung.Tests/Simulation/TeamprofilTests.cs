@@ -100,4 +100,57 @@ public class TeamprofilTests
     {
         Profil(grundausrichtung).Offensivdrang.Should().Be(minuten);
     }
+
+    // ── Spielbedeutung der Runde (#668, K2) ───────────────────────────────
+
+    [Theory]
+    [InlineData(Spielbedeutung.Hoch, -0.25)]
+    [InlineData(Spielbedeutung.Normal, 0.0)]
+    [InlineData(Spielbedeutung.Gering, 0.5)]
+    public void Spielbedeutung_VerschiebtDenStartpunkt(Spielbedeutung spielbedeutung, double startpunkt)
+    {
+        new Teamprofil(Grundausrichtung.Ausgeglichen, Flexibilitaet.Normal, spielbedeutung).Startpunkt.Should().Be(startpunkt);
+    }
+
+    [Theory]
+    [InlineData(Grundausrichtung.SehrDefensiv, Spielbedeutung.Hoch, -1.25)]
+    [InlineData(Grundausrichtung.SehrOffensiv, Spielbedeutung.Gering, 1.5)]
+    [InlineData(Grundausrichtung.Defensiv, Spielbedeutung.Gering, 0.0)]
+    public void Spielbedeutung_KommtZurGrundausrichtungHinzu(
+        Grundausrichtung grundausrichtung, Spielbedeutung spielbedeutung, double startpunkt)
+    {
+        new Teamprofil(grundausrichtung, Flexibilitaet.Normal, spielbedeutung).Startpunkt.Should().Be(startpunkt);
+    }
+
+    [Theory]
+    [InlineData(Flexibilitaet.Starr, -1.25)]    // voller Versatz
+    [InlineData(Flexibilitaet.Normal, -1.125)]  // halber Versatz
+    [InlineData(Flexibilitaet.Flexibel, -1.0)]  // genau die verlangte Stufe
+    public void Spielbedeutung_Hoch_VerschiebtDieZiele_WieDieGrundausrichtung(Flexibilitaet flexibilitaet, double ziel)
+    {
+        var profil = new Teamprofil(Grundausrichtung.Ausgeglichen, flexibilitaet, Spielbedeutung.Hoch);
+
+        profil.Ziel(Risikostufe.Defensiv).Should().Be(ziel);
+        profil.Ziel(Risikostufe.Neutral).Should().Be(-0.25);
+        profil.Ziel(Risikostufe.Mauern).Should().Be(Spielsituation.ACHSE_ANFANG, "die Achse endet beim Mauern");
+    }
+
+    [Theory]
+    [InlineData(Flexibilitaet.Starr, 1.5)]
+    [InlineData(Flexibilitaet.Normal, 1.25)]
+    [InlineData(Flexibilitaet.Flexibel, 1.0)]
+    public void Spielbedeutung_Gering_OffensiveStufeJeNachFlexibilitaet(Flexibilitaet flexibilitaet, double ziel)
+    {
+        new Teamprofil(Grundausrichtung.Ausgeglichen, flexibilitaet, Spielbedeutung.Gering)
+            .Ziel(Risikostufe.Offensiv).Should().Be(ziel);
+    }
+
+    [Fact]
+    public void Spielbedeutung_AendertWederSchwellenNochTempo()
+    {
+        var profil = new Teamprofil(Grundausrichtung.Ausgeglichen, Flexibilitaet.Normal, Spielbedeutung.Hoch);
+
+        profil.Offensivdrang.Should().Be(0);
+        profil.Umstellfenster.Should().Be(Teamprofil.NORMALES_UMSTELLFENSTER);
+    }
 }
