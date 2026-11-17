@@ -75,6 +75,24 @@ public sealed class RundenReiter(Window fenster, Hauptfenster hauptfenster)
 
     public void AusgangSetzen(int ausgang) => WertSetzen("Ausgang", ausgang.ToString());
 
+    /// <summary>Wählt die Rundenart der gezeigten Runde, ohne die übrigen Felder anzufassen.</summary>
+    public void RundenartWaehlen(string rundenart) =>
+        fenster.FindById("Runden.Rundenart").AsComboBox().SelectItem(rundenart);
+
+    /// <summary>Angezeigte Spielbedeutung der gezeigten Runde (#668), z. B. „normal“.</summary>
+    public string Spielbedeutung =>
+        fenster.FindById("Runden.Spielbedeutung").AsComboBox().SelectedItem?.DisplayedTexts().FirstOrDefault() ?? string.Empty;
+
+    /// <summary>Wartet, bis die Spielbedeutung <paramref name="erwartet"/> anzeigt, und liefert die angezeigte.</summary>
+    public string SpielbedeutungAbwarten(string erwartet)
+    {
+        Wait.Within(() => Spielbedeutung == erwartet, Wait.DefaultTimeout);
+        return Spielbedeutung;
+    }
+
+    public void SpielbedeutungWaehlen(string spielbedeutung) =>
+        fenster.FindById("Runden.Spielbedeutung").AsComboBox().SelectItem(spielbedeutung);
+
     /// <summary>„Anzahl Spieltage“ einer Runde „Schweizer System“ – ausdrücklich gesetzt, damit ein Test nicht vom
     /// Vorschlag des Formulars abhängt.</summary>
     public void SpieltageSetzen(int spieltage) => WertSetzen("AnzahlSpieltage", spieltage.ToString());

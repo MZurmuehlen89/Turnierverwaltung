@@ -250,6 +250,13 @@
                                 </Grid>
                                 <TextBlock Text="Dämpft in der Simulation den Einfluss der Stärkeunterschiede – „Pokal hat eigene Gesetze“. 0 % = normal, 100 % = Stärke egal."
                                            FontSize="11" Opacity="0.6" TextWrapping="Wrap" />
+                                <!-- Issue #668 -->
+                                <TextBlock Text="Spielbedeutung" FontSize="12" Margin="0,12,0,3" />
+                                <ComboBox ItemsSource="{Binding Formular.SpielbedeutungOptionen}" AutomationProperties.AutomationId="Runden.Spielbedeutung"
+                                          SelectedItem="{Binding Formular.SpielbedeutungAuswahl, Mode=TwoWay}"
+                                          DisplayMemberPath="Anzeige" HorizontalAlignment="Stretch" />
+                                <TextBlock Text="Wie riskant beide Teams in der Simulation ins Spiel gehen. Vorbelegt nach der Rundenart: Finale hoch, Spiel um Platz 3 gering."
+                                           FontSize="11" Opacity="0.6" TextWrapping="Wrap" />
                             </StackPanel>
                             <StackPanel Grid.Column="2" Margin="0,22,0,0">
                                 <CheckBox Content="Mit Rückspiel" AutomationProperties.AutomationId="Runden.MitRueckspiel" IsChecked="{Binding Formular.MitRueckspiel, Mode=TwoWay}" Margin="0,0,0,4"

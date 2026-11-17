@@ -105,5 +105,47 @@ public sealed class RundenVonHandTests(TurnierverwaltungApp app) : IClassFixture
         Feldmarkierung.FokusAbwarten(runden.RegelFeld("PlatzBis", 0)).Should().BeTrue("und springt in die Zeile");
     }
 
+    /// <summary>Spielbedeutung (#668, K7): eine neue Runde steht auf „normal“; der Wechsel der Rundenart belegt neu vor
+    /// (Finale hoch, Spiel um Platz 3 gering, sonst normal), ein von Hand gewählter Wert wird gespeichert.</summary>
+    [Fact]
+    public void Spielbedeutung_FolgtDerRundenart_UndWirdGespeichert()
+    {
+        const string NORMAL = "normal";
+        const string HOCH = "hoch – beide Teams spielen vorsichtig";
+        const string GERING = "gering – es wird offen gespielt";
+        string name = EindeutigerName();
+        var turniere = app.Hauptfenster.TurniereOeffnen();
+        turniere.Anlegen(name, "2027", TEAMS, REGELWERK);
+        var runden = turniere.Runden();
+        runden.Anlegen(GRUPPENPHASE, "Gruppenphase", TEAMS, 4, gruppen: 2);
+        runden.SpielbedeutungAbwarten(NORMAL).Should().Be(NORMAL, "davor: Gruppenphase ohne Vorbelegung");
+        runden.Anlegen(HALBFINALE, "K.o.-Runde", 4, 2);
+        runden.SpielbedeutungAbwarten(NORMAL).Should().Be(NORMAL);
+        runden.Anlegen(FINALE, "Finale", 2, 1);
+        runden.SpielbedeutungAbwarten(HOCH).Should().Be(HOCH);
+
+        runden.RundenartWaehlen("Spiel um Platz 3");
+        runden.SpielbedeutungAbwarten(GERING).Should().Be(GERING);
+        runden.RundenartWaehlen("K.o.-Runde");
+        runden.SpielbedeutungAbwarten(NORMAL).Should().Be(NORMAL);
+        runden.RundenartWaehlen("Finale");
+        runden.SpielbedeutungAbwarten(HOCH).Should().Be(HOCH);
+
+        runden.Auswaehlen(HALBFINALE);
+        runden.SpielbedeutungWaehlen(GERING);
+        runden.SpielbedeutungAbwarten(GERING).Should().Be(GERING);
+        runden.KeineFehlerAbwarten().Should().BeEmpty();
+        runden.Speichern();
+
+        app.Hauptfenster.MannschaftenOeffnen();
+        var wieder = app.Hauptfenster.TurniereOeffnen();
+        wieder.Kopf().Auswaehlen(name);
+        var gespeichert = wieder.Runden();
+        gespeichert.Auswaehlen(HALBFINALE);
+        gespeichert.SpielbedeutungAbwarten(GERING).Should().Be(GERING, "von Hand gewählt und gespeichert");
+        gespeichert.Auswaehlen(FINALE);
+        gespeichert.SpielbedeutungAbwarten(HOCH).Should().Be(HOCH);
+    }
+
     public void Dispose() => app.BeiFehlschlagBelegeSichern();
 }

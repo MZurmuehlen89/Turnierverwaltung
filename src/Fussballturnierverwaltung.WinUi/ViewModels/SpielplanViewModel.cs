@@ -90,10 +90,11 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
     [NotifyPropertyChangedFor(nameof(KopfzeilenHinweis))]
     private TurnierRunde? _ausgewaehlteRunde;
 
-    /// <summary>Issue #352/#360: Zusatz in der Spiellisten-Kopfzeile und im Ergebnisformular.</summary>
+    /// <summary>Issue #352/#360/#668: Zusatz in der Spiellisten-Kopfzeile und im Ergebnisformular.</summary>
     public string RundenHinweis =>
         (AusgewaehlteRunde?.NeutralerSpielort == true ? " · neutraler Platz" : "")
-        + (AusgewaehlteRunde?.Ueberraschungsfaktor is int f and > 0 ? $" · Überraschungsfaktor {f} %" : "");
+        + (AusgewaehlteRunde?.Ueberraschungsfaktor is int f and > 0 ? $" · Überraschungsfaktor {f} %" : "")
+        + SpielbedeutungOption.Zusatz(AusgewaehlteRunde?.Spielbedeutung);
 
     public bool HatRunde => AusgewaehlteRunde is not null;
     public bool IstGruppenphase => AusgewaehlteRunde?.Rundenart == Rundenart.Gruppenphase;

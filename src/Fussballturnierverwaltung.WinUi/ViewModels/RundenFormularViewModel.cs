@@ -11,6 +11,18 @@ using System.ComponentModel;
 
 namespace Fussballturnierverwaltung.WinUi.ViewModels;
 
+/// <summary>Eintrag der Auswahl „Spielbedeutung“ im Rundenformular (#668).</summary>
+public record SpielbedeutungOption(string Anzeige, Spielbedeutung Wert)
+{
+    /// <summary>Zusatz für Rundenhinweis und Kontextzeile, wie beim Überraschungsfaktor (#360); bei „normal“ keiner.</summary>
+    public static string Zusatz(Spielbedeutung? spielbedeutung) => spielbedeutung switch
+    {
+        Spielbedeutung.Hoch   => " · Spielbedeutung hoch",
+        Spielbedeutung.Gering => " · Spielbedeutung gering",
+        _                     => ""
+    };
+}
+
 /// <summary>Rundenformular des „Runden“-Reiters (#435): die Felder der gewählten Runde samt abgeleiteten
 /// Schaltern, Vorschlägen und Auswahllisten. Kind-ViewModel von <see cref="RundenViewModel"/> — das Formular
 /// schreibt Nutzeränderungen in die gezeigte <see cref="RundeZeile"/> und meldet sie über
@@ -107,7 +119,7 @@ public partial class RundenFormularViewModel : ObservableObject
     [
         nameof(Name), nameof(Rundenart), nameof(EingangsMannschaftsanzahl), nameof(AusgangsMannschaftsanzahl),
         nameof(GruppenAnzahl), nameof(AnzahlSpieltage), nameof(MitRueckspiel), nameof(AuswaertstorRegelAktiv), nameof(NeutralerSpielort),
-        nameof(Ueberraschungsfaktor),
+        nameof(Ueberraschungsfaktor), nameof(Spielbedeutung),
         nameof(Regelwerk), nameof(PaarungFestVorgegeben), nameof(VorgegebeneAuslosungsart),
         nameof(StandardRangliste), nameof(TitelverteidigerInTopf1), nameof(EinGegnerJeTopf)
     ];
@@ -144,6 +156,10 @@ public partial class RundenFormularViewModel : ObservableObject
     [ObservableProperty] private bool _auswaertstorRegelAktiv;
     [ObservableProperty] private bool _neutralerSpielort;
     [ObservableProperty] private int _ueberraschungsfaktor;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(SpielbedeutungAuswahl))]
+    private Spielbedeutung _spielbedeutung;
     [ObservableProperty] private RegelwerkOption _regelwerk = RundeZeile.KeinRegelwerk;
     [ObservableProperty] private bool _paarungFestVorgegeben;
     [ObservableProperty] private VorgegebeneAuslosungsartOption _vorgegebeneAuslosungsart = RundeZeile.KeineAuslosungsartVorgabe;
@@ -167,6 +183,7 @@ public partial class RundenFormularViewModel : ObservableObject
         AuswaertstorRegelAktiv = zeile?.AuswaertstorRegelAktiv ?? false;
         NeutralerSpielort = zeile?.NeutralerSpielort ?? false;
         Ueberraschungsfaktor = zeile?.Ueberraschungsfaktor ?? 0;
+        Spielbedeutung = zeile?.Spielbedeutung ?? Spielbedeutung.Normal;
         Regelwerk = zeile?.Regelwerk ?? RundeZeile.KeinRegelwerk;
         PaarungFestVorgegeben = zeile?.PaarungFestVorgegeben ?? false;
         VorgegebeneAuslosungsart = zeile?.VorgegebeneAuslosungsart ?? RundeZeile.KeineAuslosungsartVorgabe;
@@ -191,6 +208,7 @@ public partial class RundenFormularViewModel : ObservableObject
         zeile.AuswaertstorRegelAktiv = AuswaertstorRegelAktiv;
         zeile.NeutralerSpielort = NeutralerSpielort;
         zeile.Ueberraschungsfaktor = Ueberraschungsfaktor;
+        zeile.Spielbedeutung = Spielbedeutung;
         zeile.Regelwerk = Regelwerk;
         zeile.PaarungFestVorgegeben = PaarungFestVorgegeben;
         // null kommt nur transient aus der ComboBox (Auswahl beim ItemsSource-Wechsel nicht gefunden) — nie übernehmen.
@@ -259,6 +277,8 @@ public partial class RundenFormularViewModel : ObservableObject
         AuswaertstorRegelBereinigen();
         AusgangVorschlagen();
         AnzahlSpieltageVorschlagen();
+        // #668: jeder Wechsel der Rundenart belegt neu vor (Finale hoch, Spiel um Platz 3 gering) – danach frei änderbar.
+        Spielbedeutung = SpielbedeutungVorbelegung.Fuer(value);
     }
 
     partial void OnEingangsMannschaftsanzahlChanged(int value)
@@ -479,6 +499,17 @@ public partial class RundenFormularViewModel : ObservableObject
 
     public IEnumerable<Rundenart> RundenartOptionen => Enum.GetValues<Rundenart>();
 
+    /// <summary>Feste Liste (Referenzabgleich der ComboBox), aufsteigend nach Bedeutung. Als Instanz-Property,
+    /// weil {Binding} keine statischen Properties findet.</summary>
+    public IReadOnlyList<SpielbedeutungOption> SpielbedeutungOptionen => _spielbedeutungOptionen;
+
+    private static readonly IReadOnlyList<SpielbedeutungOption> _spielbedeutungOptionen =
+    [
+        new("gering – es wird offen gespielt", Spielbedeutung.Gering),
+        new("normal", Spielbedeutung.Normal),
+        new("hoch – beide Teams spielen vorsichtig", Spielbedeutung.Hoch)
+    ];
+
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(RegelwerkOptionen))]
     private ObservableCollection<Regelwerk> _regelwerke = [];
@@ -521,6 +552,17 @@ public partial class RundenFormularViewModel : ObservableObject
         {
             if (value is { } art) Rundenart = art;
             else NachComboBoxResetWiederherstellen(() => OnPropertyChanged(nameof(RundenartAuswahl)));
+        }
+    }
+
+    /// <summary>Wie <see cref="RundenartAuswahl"/>: null aus dem ComboBox-Reset wird verworfen (#668).</summary>
+    public SpielbedeutungOption? SpielbedeutungAuswahl
+    {
+        get => _spielbedeutungOptionen.Single(o => o.Wert == Spielbedeutung);
+        set
+        {
+            if (value is not null) Spielbedeutung = value.Wert;
+            else NachComboBoxResetWiederherstellen(() => OnPropertyChanged(nameof(SpielbedeutungAuswahl)));
         }
     }
 

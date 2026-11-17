@@ -507,7 +507,8 @@ public partial class SimulationsViewModel : ViewModelBase, IRibbonAware
         string ort = spiel.TurnierRunde?.NeutralerSpielort == true ? " (neutraler Platz)" : "";
         // Issue #360: macht nachvollziehbar, warum hier ein Außenseiter öfter gewinnt.
         string ueberraschung = spiel.TurnierRunde?.Ueberraschungsfaktor is int f and > 0 ? $" · Überraschungsfaktor {f} %" : "";
-        return $"{spiel.TurnierInstanz?.Name}, {spiel.TurnierRunde?.Name}{bein}{ort}{ueberraschung}";
+        string bedeutung = SpielbedeutungOption.Zusatz(spiel.TurnierRunde?.Spielbedeutung);
+        return $"{spiel.TurnierInstanz?.Name}, {spiel.TurnierRunde?.Name}{bein}{ort}{ueberraschung}{bedeutung}";
     }
 
     private async Task LadeProtokollAsync(int spielId)
