@@ -7,9 +7,9 @@ namespace Fussballturnierverwaltung.Application.Stammdaten;
 /// Mannschaften bei genau +2, Abweichungen um einen Punkt gelten als Rundungsrauschen.</summary>
 public static class SpielweisenVorschlag
 {
-    private const int NORMALABSTAND = 2;
-    private const int EINE_STUFE    = 2; // Abweichung vom Normalabstand für „offensiv“/„defensiv“
-    private const int ZWEI_STUFEN   = 4; // … für „sehr offensiv“/„sehr defensiv“
+    public const int NORMALABSTAND = 2;
+    public const int EINE_STUFE    = 2; // Abweichung vom Normalabstand für „offensiv“/„defensiv“
+    public const int ZWEI_STUFEN   = 4; // … für „sehr offensiv“/„sehr defensiv“
 
     public static Grundausrichtung AusRatings(int offensivRating, int defensivRating)
     {

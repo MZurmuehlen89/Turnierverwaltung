@@ -159,6 +159,7 @@ public static class NationalmannschaftenSeedDaten
                     Auswaertsstaerke = e.Ausw
                 };
             })
+            .Select(SpielweiseSeedDaten.MitSpielweise)
             .ToList();
     }
 }

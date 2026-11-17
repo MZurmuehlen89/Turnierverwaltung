@@ -1102,5 +1102,6 @@ public static class VereinsmannschaftenSeedDaten
                 Heimstaerke      = e.Heim,
                 Auswaertsstaerke = e.Ausw
             })
+            .Select(SpielweiseSeedDaten.MitSpielweise)
             .ToList();
 }
