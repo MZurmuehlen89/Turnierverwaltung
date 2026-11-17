@@ -17,13 +17,12 @@ public sealed class EinzelspielSimulationsTests(TurnierverwaltungApp app) : ICla
     private const string MIT_VERLAENGERUNG = "FIFA Standard Modern (3-Punkte)";
     private const string DIREKTES_ELFMETERSCHIESSEN = "CONMEBOL Copa América (direktes Elfmeterschießen)";
 
-    // Hinspiele, mit denen GleichstandHerbeifuehren es der Reihe nach versucht – je knapper, desto eher gleicht das
-    // Rückspiel sie aus. Jeder Versuch trifft mit gut einem Viertel einen Gleichstand.
-    private static readonly (int Heim, int Auswaerts)[] HINSPIELE =
-    [
-        (0, 0), (1, 1), (1, 0), (0, 1), (2, 2), (2, 1), (1, 2), (2, 0),
-        (0, 2), (3, 3), (3, 2), (2, 3), (3, 1), (1, 3), (3, 0), (0, 3)
-    ];
+    // GleichstandHerbeifuehren probiert je Gegner die Hinspiel-Differenzen der Reihe nach. Ohne Auswärtstorregel
+    // kennt das Rückspiel vom Hinspiel nur die Tordifferenz, und mit festem Seed beginnt jedes Rückspiel mit derselben
+    // Zufallsfolge – je Paarung gibt es also nur so viele verschiedene Rückspiele wie Differenzen (CI-Lauf nach #673:
+    // 16 Hinspiele gegen Frankreich, kein Gleichstand). Erst ein anderer Gegner bringt einen anderen Spielverlauf.
+    private static readonly string[] GLEICHSTARKE_GEGNER = [AUSWAERTS, "Spanien", "Italien", "England", "Niederlande", "Portugal"];
+    private static readonly int[] HINSPIEL_DIFFERENZEN = [0, 1, -1, 2, -2];
 
     private readonly EinzelspielSeite _seite = app.Hauptfenster.EinzelspielSimulationOeffnen();
 
@@ -90,10 +89,10 @@ public sealed class EinzelspielSimulationsTests(TurnierverwaltungApp app) : ICla
         throw new InvalidOperationException($"Jedes Rückspiel endete nach 90 Minuten unentschieden: {string.Join("; ", gelesen.Select(g => g.Rueckspiel))}");
     }
 
-    /// <summary>Den Gleichstand nach 180 Minuten erzwingt die Hinspiel-Eingabe von Hand: verschiedene Hinspiele, bis
-    /// das Rückspiel eines ausgleicht. Mit festem Seed ist das Rückspiel zu jedem Hinspiel immer dasselbe, der Test
-    /// also wiederholbar. Bis #673 spiegelte der Test einfach das letzte Rückspiel, weil es sich unabhängig vom
-    /// Hinspiel wiederholte; seit die Taktik nach dem Gesamtstand würfelt, hängt die Zufallsfolge am Hinspiel.</summary>
+    /// <summary>Den Gleichstand nach 180 Minuten erzwingt die Hinspiel-Eingabe von Hand: verschiedene Gegner und
+    /// Hinspiele, bis das Rückspiel eines ausgleicht. Mit festem Seed ist das Rückspiel zu jedem Hinspiel immer
+    /// dasselbe, der Test also wiederholbar. Bis #673 spiegelte der Test einfach das letzte Rückspiel, weil es sich
+    /// unabhängig vom Hinspiel wiederholte; seit die Taktik nach dem Gesamtstand würfelt, hängt der Verlauf am Hinspiel.</summary>
     [Theory]
     [InlineData(MIT_VERLAENGERUNG)]
     [InlineData(DIREKTES_ELFMETERSCHIESSEN)]
@@ -127,13 +126,18 @@ public sealed class EinzelspielSimulationsTests(TurnierverwaltungApp app) : ICla
     private HinRueckAnzeige GleichstandHerbeifuehren()
     {
         var gelesen = new List<string>();
-        foreach (var (heim, auswaerts) in HINSPIELE)
+        foreach (string gegner in GLEICHSTARKE_GEGNER)
         {
-            _seite.HinspielEingeben(heim, auswaerts);
-            var paarung = _seite.RueckspielSimulieren();
-            if (HinUndRueckspiel.GleichstandNach180(paarung.Hinspiel, paarung.Rueckspiel))
-                return paarung;
-            gelesen.Add($"{heim}:{auswaerts} → {paarung.Rueckspiel.Score}");
+            _seite.MannschaftenWaehlen(HEIM, gegner);
+            foreach (int differenz in HINSPIEL_DIFFERENZEN)
+            {
+                int heim = Math.Max(differenz, 0), auswaerts = Math.Max(-differenz, 0);
+                _seite.HinspielEingeben(heim, auswaerts);
+                var paarung = _seite.RueckspielSimulieren();
+                if (HinUndRueckspiel.GleichstandNach180(paarung.Hinspiel, paarung.Rueckspiel))
+                    return paarung;
+                gelesen.Add($"{gegner} {heim}:{auswaerts} → {paarung.Rueckspiel.Score}");
+            }
         }
         throw new InvalidOperationException($"Kein Gleichstand nach 180 Minuten: {string.Join("; ", gelesen)}");
     }
