@@ -182,15 +182,27 @@ public class SimulationsServiceTests
     // ── Auswärtstorregel im Rückspiel ─────────────────────────────────────────
 
     // Entscheiden die Auswärtstore, gibt es im Rückspiel kein Elfmeterschießen — nur bei auch dort Gleichstand.
+    // Ob ein Seed beide Zweige trifft, hängt an der Engine; deshalb werden Seeds probiert, bis beide vorkamen (#667:
+    // mit dem Zwischenschritt Defensiv kam unter Seed 629 kein Elfmeterschießen mehr vor). Die Regel gilt in jedem Lauf.
     [Fact]
     public async Task RundeSimulierenAsync_Auswaertstorregel_ElfmeterschiessenNurBeiGleichenAuswaertstoren()
+    {
+        var arten = new HashSet<EntscheidungArt>();
+        for (int seed = 629; seed < 639 && !arten.IsSupersetOf([EntscheidungArt.Auswaertstorregel, EntscheidungArt.Elfmeterschiessen]); seed++)
+            arten.UnionWith(await AuswaertstorRundePruefen(seed));
+
+        arten.Should().Contain([EntscheidungArt.Auswaertstorregel, EntscheidungArt.Elfmeterschiessen],
+            "beide Zweige müssen vorkommen");
+    }
+
+    private static async Task<List<EntscheidungArt>> AuswaertstorRundePruefen(int seed)
     {
         await using var ctx = SimulationsDienste.NeuerContext();
         GrunddatenAnlegen(ctx, mannschaften: 120);
         KoRundeAnlegen(ctx, paarungen: 60, auswaertstorRegel: true);
         ctx.SaveChanges();
 
-        await SimulationsDienste.Service(ctx, new Zufallsquelle()).RundeSimulierenAsync(1, seed: 629);
+        await SimulationsDienste.Service(ctx, new Zufallsquelle()).RundeSimulierenAsync(1, seed: seed);
 
         var spiele = SpieleMitErgebnis(ctx);
         var arten = new List<EntscheidungArt>();
@@ -206,8 +218,7 @@ public class SimulationsServiceTests
                 r.EntscheidungArt.Should().Be(EntscheidungArt.Auswaertstorregel);
             arten.Add(r.EntscheidungArt);
         }
-        arten.Should().Contain([EntscheidungArt.Auswaertstorregel, EntscheidungArt.Elfmeterschiessen],
-            "beide Zweige müssen vorkommen");
+        return arten;
     }
 
     // ── Gruppe und Spieltag ───────────────────────────────────────────────────

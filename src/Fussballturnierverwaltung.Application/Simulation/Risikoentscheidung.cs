@@ -13,8 +13,8 @@ public readonly record struct FaelligeStufe(Risikostufe Stufe, int AbVerbleibend
 /// <summary>
 /// Entscheidungsmodell der Risikostufe (#673): Aus der Lage ergibt sich ein Stufenplan – je Stufe die Restzeit, ab
 /// der sie frühestens fällig ist. Je größer der Rückstand, desto früher wird umgestellt; ab drei Toren wird ein
-/// Rückstand mit schwindender Zeit aussichtslos. Ein Favorit im Rückstand drückt früher, ein Außenseiter in Führung
-/// mauert früher, Unterzahl verschiebt Richtung Mauern. Wann ein Team nach Erreichen der Schwelle tatsächlich umstellt,
+/// Rückstand mit schwindender Zeit aussichtslos. In Führung geht es erst auf Defensiv, dann aufs Mauern (#667). Ein
+/// Favorit im Rückstand drückt früher, ein Außenseiter in Führung mauert früher, Unterzahl verschiebt Richtung Mauern. Wann ein Team nach Erreichen der Schwelle tatsächlich umstellt,
 /// entscheidet der Zufall mit steigender Wahrscheinlichkeit (<see cref="Umstellwahrscheinlichkeit"/>). Rein und ohne
 /// Zufall; Grundausrichtung (#667) und Spielbedeutung (#668) setzen hier an.
 /// </summary>
@@ -26,7 +26,8 @@ public static class Risikoentscheidung
     private const int FRUEHER_JE_TOR       = 15; // jedes weitere Tor Rückstand: eine Viertelstunde früher
     private const int BRECHSTANGE_AB       = 2;  // 88. Minute, nur bei genau einem Tor Rückstand
     private const int AUSSICHTSLOS_JE_TOR  = 10; // ab drei Toren: unter 10·(Rückstand − 2) Minuten Restzeit
-    private const int MAUERN_AB            = 20; // 70. Minute
+    private const int DEFENSIV_AB          = 30; // 60. Minute (#667: erst defensiv …)
+    private const int MAUERN_AB            = 20; // 70. Minute (… dann mauern)
     private const int UNTERZAHL_MAUERN_AB  = 15; // bei Gleichstand je Mann weniger
     // Verschiebungen in Minuten
     private const double KRAEFTE_MINUTEN   = 80; // je vollem Stärkeanteil über/unter 0,5
@@ -49,11 +50,18 @@ public static class Risikoentscheidung
     public static IReadOnlyList<FaelligeStufe> Stufenplan(Spiellage lage)
     {
         if (lage.Vorsprung > 0)
-            return [new(Risikostufe.Mauern, Runden(MAUERN_AB - Kraefteverschiebung(lage) + UNTERZAHL_MAUERN * lage.Unterzahl))];
+            return FuehrungsPlan(DEFENSIV_AB, MAUERN_AB, Kraefteverschiebung(lage) - UNTERZAHL_MAUERN * lage.Unterzahl);
         if (lage.Vorsprung == 0)
             return lage.Unterzahl > 0 ? [new(Risikostufe.Mauern, UNTERZAHL_MAUERN_AB * lage.Unterzahl)] : [];
         return RueckstandsPlan(-lage.Vorsprung, Kraefteverschiebung(lage) - UNTERZAHL_OFFENSIV * lage.Unterzahl);
     }
+
+    /// <summary>Erst defensiv, dann mauern (#667) – beides um <paramref name="spaeter"/> Minuten verschoben.</summary>
+    private static List<FaelligeStufe> FuehrungsPlan(int defensivAb, int mauernAb, double spaeter) =>
+    [
+        new(Risikostufe.Defensiv, Runden(defensivAb - spaeter)),
+        new(Risikostufe.Mauern, Runden(mauernAb - spaeter))
+    ];
 
     private static List<FaelligeStufe> RueckstandsPlan(int rueckstand, double frueher)
     {

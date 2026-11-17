@@ -46,7 +46,61 @@ public class SpielsituationTests
         gegner.Should().BeGreaterThan(eigener * 1.5);
     }
 
+    // ── Risikoachse (#667, K1) ────────────────────────────────────────────
+
     [Theory]
+    [InlineData(Risikostufe.Mauern, -2, 0.75, 0.85)]
+    [InlineData(Risikostufe.Defensiv, -1, 0.875, 0.925)]
+    [InlineData(Risikostufe.Neutral, 0, 1.0, 1.0)]
+    [InlineData(Risikostufe.Offensiv, 1, 1.10, 1.30)]
+    [InlineData(Risikostufe.AllesNachVorn, 2, 1.20, 1.60)]
+    [InlineData(Risikostufe.Brechstange, 3, 1.30, 2.00)]
+    public void Risikoachse_GanzePositionen_LiefernDieWerteDerStufe(Risikostufe stufe, double position, double eigener, double gegner)
+    {
+        Spielsituation.Position(stufe).Should().Be(position);
+        Spielsituation.EigenerAngriff(position).Should().BeApproximately(eigener, 1e-9);
+        Spielsituation.AngriffDesGegners(position).Should().BeApproximately(gegner, 1e-9);
+        Spielsituation.EigenerAngriff(stufe).Should().BeApproximately(eigener, 1e-9);
+        Spielsituation.AngriffDesGegners(stufe).Should().BeApproximately(gegner, 1e-9);
+    }
+
+    [Theory]
+    [InlineData(-1.5, 0.8125, 0.8875)]
+    [InlineData(-0.5, 0.9375, 0.9625)]
+    [InlineData(0.5, 1.05, 1.15)]
+    [InlineData(2.5, 1.25, 1.80)]
+    [InlineData(0.25, 1.025, 1.075)]
+    public void Risikoachse_ZwischenDenStufen_LinearInterpoliert(double position, double eigener, double gegner)
+    {
+        Spielsituation.EigenerAngriff(position).Should().BeApproximately(eigener, 1e-9);
+        Spielsituation.AngriffDesGegners(position).Should().BeApproximately(gegner, 1e-9);
+    }
+
+    [Theory]
+    [InlineData(-2.5, -2)]
+    [InlineData(3.5, 3)]
+    public void Risikoachse_JenseitsDerEnden_BleibtAufDerAeusserstenStufe(double position, double rand)
+    {
+        Spielsituation.EigenerAngriff(position).Should().Be(Spielsituation.EigenerAngriff(rand));
+        Spielsituation.AngriffDesGegners(position).Should().Be(Spielsituation.AngriffDesGegners(rand));
+    }
+
+    [Fact]
+    public void Defensiv_SenktDieTorerwartungBeiderSeiten_WenigerAlsMauern()
+    {
+        var defensiv = new Teamzustand(Risikostufe.Defensiv, 0);
+        var mauernd  = new Teamzustand(Risikostufe.Mauern, 0);
+        double neutral = Spielsituation.Angriffsfaktor(_neutral, _neutral, 0.5);
+
+        Spielsituation.Angriffsfaktor(defensiv, _neutral, 0.5).Should().BeLessThan(neutral)
+            .And.BeGreaterThan(Spielsituation.Angriffsfaktor(mauernd, _neutral, 0.5));
+        Spielsituation.Angriffsfaktor(_neutral, defensiv, 0.5).Should().BeLessThan(neutral)
+            .And.BeGreaterThan(Spielsituation.Angriffsfaktor(_neutral, mauernd, 0.5));
+    }
+
+    [Theory]
+    [InlineData(Risikostufe.Defensiv, 1, "Zieht sich etwas zurück und sichert die Führung")]
+    [InlineData(Risikostufe.Defensiv, 0, "Zieht sich etwas zurück und sichert das Unentschieden")]
     [InlineData(Risikostufe.Mauern, 1, "Zieht sich zurück und verteidigt die Führung")]
     [InlineData(Risikostufe.Mauern, 0, "Zieht sich zurück und verteidigt das Unentschieden")]
     [InlineData(Risikostufe.Neutral, -3, "Kehrt zur gewohnten Ordnung zurück")]

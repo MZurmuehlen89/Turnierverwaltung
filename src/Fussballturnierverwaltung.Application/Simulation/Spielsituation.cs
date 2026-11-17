@@ -7,6 +7,8 @@ public enum Risikostufe
 {
     /// <summary>Führendes Team verteidigt den Vorsprung – weniger Tore auf beiden Seiten.</summary>
     Mauern,
+    /// <summary>Zwischenschritt vor dem Mauern (#667): etwas tiefer stehen, weniger Risiko nach vorn.</summary>
+    Defensiv,
     Neutral,
     Offensiv,
     AllesNachVorn,
@@ -38,29 +40,38 @@ public readonly record struct Platzverweise(int Heim, int Gast)
 /// </summary>
 public static class Spielsituation
 {
-    // ── Risikostufe ───────────────────────────────────────────────────────
-    // Welche Stufe ein Team wählt, entscheidet seit #673 die Risikoentscheidung; hier steht nur ihre Wirkung.
+    // ── Risikoachse ───────────────────────────────────────────────────────
+    // Welche Stufe ein Team wählt, entscheidet seit #673 die Risikoentscheidung; hier steht nur ihre Wirkung. Seit
+    // #667 liegen die Stufen auf einer Achse (Mauern −2 … Brechstange 3): Grundausrichtung und Flexibilität lassen ein
+    // Team auch zwischen zwei Stufen spielen, die Faktoren werden dazwischen linear interpoliert.
 
-    /// <summary>Wirkung der eigenen Risikostufe auf den eigenen Angriff: mit dem Risiko nur leicht stärker.</summary>
-    public static double EigenerAngriff(Risikostufe stufe) => stufe switch
-    {
-        Risikostufe.Mauern        => 0.75,
-        Risikostufe.Offensiv      => 1.10,
-        Risikostufe.AllesNachVorn => 1.20,
-        Risikostufe.Brechstange   => 1.30,
-        _                         => 1.0
-    };
+    private const int ACHSE_ANFANG = -2;
 
-    /// <summary>Wirkung der eigenen Risikostufe auf den Angriff des Gegners: die Abwehr wird überproportional
-    /// schwächer (Konter, Lucky Punch); bei der Brechstange steht das Tor leer.</summary>
-    public static double AngriffDesGegners(Risikostufe stufe) => stufe switch
+    // Je Position der Achse, beginnend bei Mauern. Defensiv liegt vorläufig in der Mitte zwischen Mauern und Neutral.
+    /// <summary>Wirkung auf den eigenen Angriff: mit dem Risiko nur leicht stärker.</summary>
+    private static readonly double[] _eigenerAngriff   = [0.75, 0.875, 1.0, 1.10, 1.20, 1.30];
+    /// <summary>Wirkung auf den Angriff des Gegners: die Abwehr wird überproportional schwächer (Konter, Lucky
+    /// Punch); bei der Brechstange steht das Tor leer.</summary>
+    private static readonly double[] _angriffDesGegners = [0.85, 0.925, 1.0, 1.30, 1.60, 2.00];
+
+    /// <summary>Position der Stufe auf der Risikoachse: Mauern −2, Defensiv −1, Neutral 0 … Brechstange 3.</summary>
+    public static double Position(Risikostufe stufe) => (int)stufe + ACHSE_ANFANG;
+
+    public static double EigenerAngriff(Risikostufe stufe) => EigenerAngriff(Position(stufe));
+    public static double AngriffDesGegners(Risikostufe stufe) => AngriffDesGegners(Position(stufe));
+
+    /// <summary>Wirkung einer Position der Risikoachse auf den eigenen Angriff; jenseits der Enden wie das Ende.</summary>
+    public static double EigenerAngriff(double position) => Interpoliert(_eigenerAngriff, position);
+
+    /// <summary>Wirkung einer Position der Risikoachse auf den Angriff des Gegners; jenseits der Enden wie das Ende.</summary>
+    public static double AngriffDesGegners(double position) => Interpoliert(_angriffDesGegners, position);
+
+    private static double Interpoliert(double[] werte, double position)
     {
-        Risikostufe.Mauern        => 0.85,
-        Risikostufe.Offensiv      => 1.30,
-        Risikostufe.AllesNachVorn => 1.60,
-        Risikostufe.Brechstange   => 2.00,
-        _                         => 1.0
-    };
+        double index = Math.Clamp(position - ACHSE_ANFANG, 0, werte.Length - 1);
+        int unten = Math.Min((int)index, werte.Length - 2);
+        return werte[unten] + (werte[unten + 1] - werte[unten]) * (index - unten);
+    }
 
     // ── Platzverweise ─────────────────────────────────────────────────────
 
@@ -97,6 +108,8 @@ public static class Spielsituation
     /// bei Gleichstand (in Unterzahl).</summary>
     public static string Taktiktext(Risikostufe stufe, int vorsprung) => stufe switch
     {
+        Risikostufe.Defensiv when vorsprung == 0 => "Zieht sich etwas zurück und sichert das Unentschieden",
+        Risikostufe.Defensiv      => "Zieht sich etwas zurück und sichert die Führung",
         Risikostufe.Mauern when vorsprung == 0 => "Zieht sich zurück und verteidigt das Unentschieden",
         Risikostufe.Mauern        => "Zieht sich zurück und verteidigt die Führung",
         Risikostufe.Offensiv      => "Stellt auf Offensive um",

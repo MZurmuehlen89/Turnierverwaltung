@@ -60,8 +60,10 @@ public class RisikoentscheidungTests
     [InlineData(-3, 10, Risikostufe.AllesNachVorn)]
     [InlineData(-3, 9, Risikostufe.Neutral)]
     [InlineData(0, 0, Risikostufe.Neutral)]
-    [InlineData(1, 21, Risikostufe.Neutral)]
-    [InlineData(1, 20, Risikostufe.Mauern)]
+    [InlineData(1, 31, Risikostufe.Neutral)]
+    [InlineData(1, 30, Risikostufe.Defensiv)]   // #667: erst defensiv …
+    [InlineData(1, 21, Risikostufe.Defensiv)]
+    [InlineData(1, 20, Risikostufe.Mauern)]     // … dann mauern
     [InlineData(3, -2, Risikostufe.Mauern)]
     public void Faellig_NachVorsprungUndRestzeit(int vorsprung, int verbleibend, Risikostufe erwartet)
     {
@@ -117,6 +119,31 @@ public class RisikoentscheidungTests
         }
     }
 
+    // ── Führung: erst defensiv, dann mauern (#667, K2) ────────────────────
+
+    [Fact]
+    public void Plan_Fuehrung_Defensiv60Mauern70()
+    {
+        Plan(Lage(1)).Should().Equal((Risikostufe.Defensiv, 30), (Risikostufe.Mauern, 20));
+    }
+
+    [Fact]
+    public void Stufenfolge_InFuehrungOhneToreNurAbwaerts()
+    {
+        foreach (int vorsprung in new[] { 1, 2, 4 })
+            foreach (int unterzahl in new[] { -1, 0, 1 })
+            {
+                var bisher = Risikostufe.Neutral;
+                for (int verbleibend = 90; verbleibend >= -6; verbleibend--)
+                {
+                    var stufe = Risikoentscheidung.Faellig(Lage(vorsprung, verbleibend, unterzahl: unterzahl)).Stufe;
+                    ((int)stufe).Should().BeLessThanOrEqualTo((int)bisher, "in Führung geht es ohne Tor nur Richtung Mauern");
+                    bisher = stufe;
+                }
+                bisher.Should().Be(Risikostufe.Mauern);
+            }
+    }
+
     // ── Kräfteverhältnis (K5) ─────────────────────────────────────────────
 
     [Fact]
@@ -131,6 +158,7 @@ public class RisikoentscheidungTests
     [Fact]
     public void Aussenseiter_MauertInFuehrungFrueher_FavoritSpaeter()
     {
+        AbMinute(Lage(1, staerke: 0.3), Risikostufe.Defensiv).Should().Be(44);
         AbMinute(Lage(1, staerke: 0.3), Risikostufe.Mauern).Should().Be(54);
         AbMinute(Lage(1), Risikostufe.Mauern).Should().Be(70);
         AbMinute(Lage(1, staerke: 0.7), Risikostufe.Mauern).Should().Be(86);

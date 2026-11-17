@@ -17,14 +17,15 @@ public class SpielablaufTaktikTests
 
     /// <summary>#673 K7: Ohne weiteres Tor stellt ein Team, das jeden Wurf mit „noch nicht“ beantwortet, sieben
     /// Minuten nach der Schwelle um. 1:0 in Minute 1 – der Gast (Stärkeanteil 1/3) ist frühestens ab der 73.
-    /// offensiv, ab der 88. mit Torwart; das Heimteam (2/3) mauert frühestens ab der 83. In der Nachspielzeit läuft
-    /// die Restzeit weiter, der Torwart geht in der 90.+5 nach vorn.</summary>
+    /// offensiv, ab der 88. mit Torwart; das Heimteam (2/3) wird frühestens ab der 73. defensiv (#667) und mauert
+    /// frühestens ab der 83. In der Nachspielzeit läuft die Restzeit weiter, der Torwart geht in der 90.+5 nach vorn.</summary>
     [Fact]
     public void Rueckstand_TaktikwechselSpaetestensSiebenMinutenNachDerSchwelle()
     {
         var e = Simulieren(new Ablauffolge().MinuteMitTor(heim: true).Zufall());
 
         Kurz(e.Ereignisse.Where(x => x.Art == EreignisArt.Taktikwechsel)).Should().Equal(
+            (80, null, EreignisArt.Taktikwechsel, true, "Zieht sich etwas zurück und sichert die Führung"),
             (80, null, EreignisArt.Taktikwechsel, false, "Stellt auf Offensive um"),
             (90, null, EreignisArt.Taktikwechsel, true, "Zieht sich zurück und verteidigt die Führung"),
             (90, 5, EreignisArt.Taktikwechsel, false, "Torwart geht mit nach vorn"));
@@ -33,7 +34,8 @@ public class SpielablaufTaktikTests
     /// <summary>#671 K3 und #673 K3: im Rückspiel zählt der Gesamtstand – bei 0:0 nach einem 0:5 im Hinspiel liegt
     /// das Rückspiel-Heimteam fünf Tore zurück: offensiv vom Anpfiff, alles nach vorn frühestens ab der 7., und als
     /// es ab der 61. aussichtslos ist, zurück zur gewohnten Ordnung – nie mit dem Torwart vorn. Der Gast mauert
-    /// frühestens ab der 57. Jeder Wurf heißt „noch nicht“, umgestellt wird also sieben Minuten nach der Schwelle.</summary>
+    /// frühestens ab der 57., defensiv ist er frühestens ab der 47. (#667). Jeder Wurf heißt „noch nicht“, umgestellt
+    /// wird also sieben Minuten nach der Schwelle.</summary>
     [Fact]
     public void Rueckspiel_TaktikNachGesamtstand_AussichtslosOhneTorwartVorn()
     {
@@ -45,6 +47,7 @@ public class SpielablaufTaktikTests
         Kurz(e.Ereignisse).Should().Equal(
             (1, null, EreignisArt.Taktikwechsel, true, "Stellt auf Offensive um"),
             (14, null, EreignisArt.Taktikwechsel, true, "Wirft alles nach vorn"),
+            (54, null, EreignisArt.Taktikwechsel, false, "Zieht sich etwas zurück und sichert die Führung"),
             (64, null, EreignisArt.Taktikwechsel, false, "Zieht sich zurück und verteidigt die Führung"),
             (68, null, EreignisArt.Taktikwechsel, true, "Kehrt zur gewohnten Ordnung zurück"));
     }
@@ -61,7 +64,7 @@ public class SpielablaufTaktikTests
             .Ruhig(6).RuhigMitTaktikwurf(8)             // offensiv ab der 32. fällig, in der 39. sicher
             .MinuteMitTor(heim: true)                   // 40.: 1:1 – ein Tor reicht wieder
             .Ruhig(5).Nachspielzeit(JA).Ruhig(1)
-            .Ruhig(1).RuhigMitTaktikwurf(8)             // BVB offensiv ab der 47. fällig
+            .Ruhig(1).RuhigMitTaktikwurf(8, teams: 2)   // BVB offensiv, Málaga defensiv (#667) ab der 47. fällig
             .Ruhig(2).RuhigMitTaktikwurf(8)             // Málaga mauert ab der 57. fällig
             .Ruhig(2).RuhigMitTaktikwurf(8)             // BVB alles nach vorn ab der 67. fällig
             .Ruhig(7).MinuteMitTor(heim: false)         // 82.: 1:2
@@ -79,6 +82,7 @@ public class SpielablaufTaktikTests
             (39, null, EreignisArt.Taktikwechsel, true, "Stellt auf Offensive um"),
             (40, null, EreignisArt.Taktikwechsel, true, "Kehrt zur gewohnten Ordnung zurück"),
             (54, null, EreignisArt.Taktikwechsel, true, "Stellt auf Offensive um"),
+            (54, null, EreignisArt.Taktikwechsel, false, "Zieht sich etwas zurück und sichert die Führung"),
             (64, null, EreignisArt.Taktikwechsel, false, "Zieht sich zurück und verteidigt die Führung"),
             (74, null, EreignisArt.Taktikwechsel, true, "Wirft alles nach vorn"),
             (90, 1, EreignisArt.Taktikwechsel, true, "Torwart geht mit nach vorn"),
@@ -113,11 +117,12 @@ public class SpielablaufTaktikTests
     [InlineData(false, KOPFBALL)]
     public void Brechstange_EinTeilDerGegentoreGehtInsLeereTor(bool insLeereTor, string erwartet)
     {
-        // 1:0 in Minute 1; der Gast wird ab der 73. offensiv (Wurf je Minute, in der 80. sicher), das Heimteam
-        // könnte ab der 83. mauern, in der 88. geht der Torhüter des Gasts mit nach vorn, in der 89. trifft das Heimteam.
+        // 1:0 in Minute 1; der Gast wird ab der 73. offensiv und das Heimteam defensiv (#667; Wurf je Minute und Team,
+        // in der 80. sicher), das Heimteam könnte ab der 83. mauern, in der 88. geht der Torhüter des Gasts mit nach
+        // vorn, in der 89. trifft das Heimteam.
         var folge = new Ablauffolge()
             .MinuteMitTor(heim: true).Ruhig(44).Nachspielzeit(JA).Ruhig(1).Ruhig(27)
-            .RuhigMitTaktikwurf(8).Ruhig(2).RuhigMitTaktikwurf(5)
+            .RuhigMitTaktikwurf(8, teams: 2).Ruhig(2).RuhigMitTaktikwurf(5)
             .Taktikwurf().Taktikwurf(JA).Ruhig(1)
             .Taktikwurf().Hinzu(JA, JA, insLeereTor ? JA : NEIN);
         if (!insLeereTor)

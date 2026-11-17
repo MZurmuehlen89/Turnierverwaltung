@@ -30,11 +30,16 @@ internal sealed class Ablauffolge
     /// <summary>Wurf, ob ein Team einen fälligen Taktikwechsel vollzieht (#673): <see cref="JA"/> sofort.</summary>
     public Ablauffolge Taktikwurf(double wert = NEIN) => Hinzu(wert);
 
-    /// <summary>Ruhige Minuten, in denen ein Team einen fälligen Taktikwechsel noch aufschiebt.</summary>
-    public Ablauffolge RuhigMitTaktikwurf(int minuten)
+    /// <summary>Ruhige Minuten, in denen ein Team – oder mit <paramref name="teams"/> = 2 beide – einen fälligen
+    /// Taktikwechsel noch aufschiebt.</summary>
+    public Ablauffolge RuhigMitTaktikwurf(int minuten, int teams = 1)
     {
         for (int i = 0; i < minuten; i++)
-            Taktikwurf().Ruhig(1);
+        {
+            for (int team = 0; team < teams; team++)
+                Taktikwurf();
+            Ruhig(1);
+        }
         return this;
     }
 

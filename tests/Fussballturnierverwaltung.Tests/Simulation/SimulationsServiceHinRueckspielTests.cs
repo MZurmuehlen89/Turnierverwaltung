@@ -170,11 +170,12 @@ public class SimulationsServiceHinRueckspielTests
     /// <summary>Taktikwechsel eines ruhigen Rückspiels (0:0), dessen Heimteam das Hinspiel 0:5 verloren hat (K3, K4;
     /// seit #673 nach dem Entscheidungsmodell, jeder Wurf „noch nicht“, also sieben Minuten nach der Schwelle). Die
     /// Teams aus <c>SetupAnlegen</c> sind gleich stark: offensiv in der 7., alles nach vorn in der 27., aussichtslos
-    /// in der 68. – ohne Torwart vorn; der Gast mauert in der 77.</summary>
+    /// in der 68. – ohne Torwart vorn; der Gast wird in der 67. defensiv (#667) und mauert in der 77.</summary>
     private static readonly (int, bool, string)[] TaktikNachHinspielNullZuFuenfGleichStark =
     [
         (7, true, "Stellt auf Offensive um"),
         (27, true, "Wirft alles nach vorn"),
+        (67, false, "Zieht sich etwas zurück und sichert die Führung"),
         (68, true, "Kehrt zur gewohnten Ordnung zurück"),
         (77, false, "Zieht sich zurück und verteidigt die Führung"),
     ];
@@ -185,6 +186,7 @@ public class SimulationsServiceHinRueckspielTests
     [
         (1, true, "Stellt auf Offensive um"),
         (14, true, "Wirft alles nach vorn"),
+        (54, false, "Zieht sich etwas zurück und sichert die Führung"),
         (64, false, "Zieht sich zurück und verteidigt die Führung"),
         (68, true, "Kehrt zur gewohnten Ordnung zurück"),
     ];
