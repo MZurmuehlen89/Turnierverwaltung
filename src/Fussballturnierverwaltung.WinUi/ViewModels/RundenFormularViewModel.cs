@@ -11,18 +11,6 @@ using System.ComponentModel;
 
 namespace Fussballturnierverwaltung.WinUi.ViewModels;
 
-/// <summary>Eintrag der Auswahl „Spielbedeutung“ im Rundenformular (#668).</summary>
-public record SpielbedeutungOption(string Anzeige, Spielbedeutung Wert)
-{
-    /// <summary>Zusatz für Rundenhinweis und Kontextzeile, wie beim Überraschungsfaktor (#360); bei „normal“ keiner.</summary>
-    public static string Zusatz(Spielbedeutung? spielbedeutung) => spielbedeutung switch
-    {
-        Spielbedeutung.Hoch   => " · Spielbedeutung hoch",
-        Spielbedeutung.Gering => " · Spielbedeutung gering",
-        _                     => ""
-    };
-}
-
 /// <summary>Rundenformular des „Runden“-Reiters (#435): die Felder der gewählten Runde samt abgeleiteten
 /// Schaltern, Vorschlägen und Auswahllisten. Kind-ViewModel von <see cref="RundenViewModel"/> — das Formular
 /// schreibt Nutzeränderungen in die gezeigte <see cref="RundeZeile"/> und meldet sie über
@@ -499,16 +487,8 @@ public partial class RundenFormularViewModel : ObservableObject
 
     public IEnumerable<Rundenart> RundenartOptionen => Enum.GetValues<Rundenart>();
 
-    /// <summary>Feste Liste (Referenzabgleich der ComboBox), aufsteigend nach Bedeutung. Als Instanz-Property,
-    /// weil {Binding} keine statischen Properties findet.</summary>
-    public IReadOnlyList<SpielbedeutungOption> SpielbedeutungOptionen => _spielbedeutungOptionen;
-
-    private static readonly IReadOnlyList<SpielbedeutungOption> _spielbedeutungOptionen =
-    [
-        new("gering – es wird offen gespielt", Spielbedeutung.Gering),
-        new("normal", Spielbedeutung.Normal),
-        new("hoch – beide Teams spielen vorsichtig", Spielbedeutung.Hoch)
-    ];
+    /// <summary>Als Instanz-Property, weil {Binding} keine statischen Properties findet.</summary>
+    public IReadOnlyList<SpielbedeutungOption> SpielbedeutungOptionen => SpielbedeutungOption.Alle;
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(RegelwerkOptionen))]
@@ -558,7 +538,7 @@ public partial class RundenFormularViewModel : ObservableObject
     /// <summary>Wie <see cref="RundenartAuswahl"/>: null aus dem ComboBox-Reset wird verworfen (#668).</summary>
     public SpielbedeutungOption? SpielbedeutungAuswahl
     {
-        get => _spielbedeutungOptionen.Single(o => o.Wert == Spielbedeutung);
+        get => SpielbedeutungOption.Fuer(Spielbedeutung);
         set
         {
             if (value is not null) Spielbedeutung = value.Wert;

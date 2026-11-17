@@ -307,4 +307,56 @@ public class SimulationsServiceTests
             heim, gast, verfahren, ausfuehrlich: true, new Random(seed), spielbedeutung: bedeutung);
         static List<SimuliertesEreignis> Ereignisse(SimulationsErgebnis e) => [.. e.Ereignisse];
     }
+
+    // Auch die Verlängerung nach einem ausgeglichenen Rückspiel spielt mit der Bedeutung der Runde (#668, K4): das
+    // Rückspiel nach 0:0 im Hinspiel, bei Gleichstand Verlängerung und Elfmeterschießen – Zug für Zug wie die Engine.
+    [Fact]
+    public async Task SpielSimulierenAsync_RueckspielMitVerlaengerung_NimmtDieSpielbedeutungDerRunde()
+    {
+        await using var ctx = SimulationsDienste.NeuerContext();
+        GrunddatenAnlegen(ctx, mannschaften: 2);
+        ctx.Entscheidungsverfahren.Local.Single().Reihenfolge = 2;
+        ctx.Entscheidungsverfahren.Add(new EntscheidungsVerfahren
+            { Id = 2, RegelwerkId = 1, Reihenfolge = 1, VerfahrenArt = VerfahrenArt.VerlaengerungKlassisch });
+        KoRundeAnlegen(ctx, paarungen: 1);
+        ctx.TurnierRunden.Local.Single().Spielbedeutung = Spielbedeutung.Gering;
+        ctx.Spiele.Local.Single(s => s.Id == 1).Status = SpielStatus.Abgeschlossen;
+        ctx.SpielErgebnisse.Add(new SpielErgebnis
+            { SpielId = 1, HeimToreRegulaer = 0, AuswaertsToreRegulaer = 0, EntscheidungArt = EntscheidungArt.RegulaereSpielzeit });
+        ctx.SaveChanges();
+        var (heim, gast) = (ctx.Mannschaften.Single(m => m.Id == 2), ctx.Mannschaften.Single(m => m.Id == 1));
+        EntscheidungsVerfahren[] verfahren = [.. ctx.Entscheidungsverfahren.OrderBy(v => v.Reihenfolge)];
+        var service = SimulationsDienste.Service(ctx, new Zufallsquelle());
+
+        int verlaengerungen = 0, andersOhneBedeutung = 0;
+        for (int seed = 1; seed <= 300; seed++)
+        {
+            var ergebnis = await service.SpielSimulierenAsync(2, new Random(seed), ueberschreiben: true);
+            if (ergebnis.HeimToreVerlaengerung is null) continue;
+            verlaengerungen++;
+
+            Verlaengerung(ergebnis).Should().Equal(Direkt(Spielbedeutung.Gering, seed));
+            // Gegenstück: Verlängerung ohne die Bedeutung – an mindestens einem Seed muss das einen Unterschied machen,
+            // sonst prüfte der Test die Weitergabe gar nicht.
+            if (!Verlaengerung(ergebnis).SequenceEqual(Direkt(Spielbedeutung.Normal, seed)))
+                andersOhneBedeutung++;
+        }
+        verlaengerungen.Should().BeGreaterThan(20);
+        andersOhneBedeutung.Should().BeGreaterThan(0);
+
+        // So, wie der Service ein Rückspiel spielt: reguläre Spielzeit (immer mit der Bedeutung der Runde) nach dem
+        // Gesamtstand, bei Gleichstand die Kette – diese mit der übergebenen Bedeutung.
+        List<SimuliertesEreignis> Direkt(Spielbedeutung inDerVerlaengerung, int seed)
+        {
+            var rng = new Random(seed);
+            var rueckspiel = SimulationsEngine.Simulieren(heim, gast, [], ausfuehrlich: true, rng,
+                hinspielstand: Hinspielstand.AusHinspiel(0, 0, auswaertstorRegelAktiv: false),
+                spielbedeutung: Spielbedeutung.Gering);
+            if (rueckspiel.HeimToreRegulaer != rueckspiel.AuswaertsToreRegulaer) return [];
+            var kette = SimulationsEngine.EntscheidungsverfahrenAnwenden(heim, gast, verfahren, ausfuehrlich: true, rng,
+                platzverweise: Platzverweise.AusEreignissen(rueckspiel.Ereignisse), spielbedeutung: inDerVerlaengerung);
+            return [.. kette.Ereignisse.Where(x => x.Minute > 90)];
+        }
+        static List<SimuliertesEreignis> Verlaengerung(SimulationsErgebnis e) => [.. e.Ereignisse.Where(x => x.Minute > 90)];
+    }
 }

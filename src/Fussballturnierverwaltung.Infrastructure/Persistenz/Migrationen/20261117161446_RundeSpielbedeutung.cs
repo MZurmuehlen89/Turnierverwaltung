@@ -1,11 +1,13 @@
-﻿using Microsoft.EntityFrameworkCore.Migrations;
+﻿using Fussballturnierverwaltung.Application.Turniere;
+using Fussballturnierverwaltung.Domain.Enums;
+using Microsoft.EntityFrameworkCore.Migrations;
 
 #nullable disable
 
 namespace Fussballturnierverwaltung.Infrastructure.Persistenz.Migrationen
 {
     /// <summary>#668: Spielbedeutung je Runde. Bestehende Runden (Turniere wie Vorlagen) werden nach der Rundenart
-    /// vorbelegt wie in <c>SpielbedeutungVorbelegung</c>: Finale (7) hoch (1), Spiel um Platz 3 (8) gering (−1).</summary>
+    /// vorbelegt – mit derselben Regel wie Formular und Vorlagen (<see cref="SpielbedeutungVorbelegung"/>).</summary>
     public partial class RundeSpielbedeutung : Migration
     {
         /// <inheritdoc />
@@ -18,8 +20,13 @@ namespace Fussballturnierverwaltung.Infrastructure.Persistenz.Migrationen
                 nullable: false,
                 defaultValue: 0);
 
-            migrationBuilder.Sql("""UPDATE "TurnierRunden" SET "Spielbedeutung" = 1 WHERE "Rundenart" = 7;""");
-            migrationBuilder.Sql("""UPDATE "TurnierRunden" SET "Spielbedeutung" = -1 WHERE "Rundenart" = 8;""");
+            foreach (var rundenart in Enum.GetValues<Rundenart>())
+            {
+                var bedeutung = SpielbedeutungVorbelegung.Fuer(rundenart);
+                if (bedeutung != Spielbedeutung.Normal)
+                    migrationBuilder.Sql(
+                        $"""UPDATE "TurnierRunden" SET "Spielbedeutung" = {(int)bedeutung} WHERE "Rundenart" = {(int)rundenart};""");
+            }
         }
 
         /// <inheritdoc />
