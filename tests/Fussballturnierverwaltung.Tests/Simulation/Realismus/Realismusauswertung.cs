@@ -48,7 +48,7 @@ internal static class Realismusauswertung
 
     /// <summary>Anteil der Spiele mit mindestens einem Tor der regulären Spielzeit ab <paramref name="minute"/> (90+ zählt mit).</summary>
     public static double AnteilMitTorAb(IEnumerable<SimuliertesSpiel> spiele, int minute) =>
-        Anteil(spiele, s => RegulaereTore([s]).Any(e => e.Minute >= minute));
+        Anteil(spiele, s => s.Ergebnis.Ereignisse.Any(e => e.Art == EreignisArt.Tor && e.Minute >= minute && e.Minute <= ENDE_REGULAER));
 
     /// <summary>Länge der längsten Phase ohne Tor in Minuten (0 bis 90; Nachspielzeit-Tore zählen zu 45 bzw. 90).</summary>
     public static int LaengsteTorlosePhase(IEnumerable<SimuliertesEreignis> ereignisse)

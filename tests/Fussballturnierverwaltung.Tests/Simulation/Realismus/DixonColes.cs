@@ -10,9 +10,9 @@ internal static class DixonColes
 
     public static double Poisson(int k, double lambda)
     {
-        double fakultaet = 1;
-        for (int i = 2; i <= k; i++) fakultaet *= i;
-        return Math.Exp(-lambda) * Math.Pow(lambda, k) / fakultaet;
+        double p = Math.Exp(-lambda);
+        for (int i = 1; i <= k; i++) p *= lambda / i;
+        return p;
     }
 
     public static double Tau(int x, int y, double lambda, double mu, double rho) => (x, y) switch

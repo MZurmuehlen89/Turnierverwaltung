@@ -47,11 +47,12 @@ public sealed class RealismusStichprobe
         var rng = new Random(SEED);
         var roh = new List<Rohspiel>();
         for (int d = 0; d < DURCHLAEUFE; d++)
-        foreach (var heim in teams)
-        foreach (var gast in teams)
         {
-            if (heim == gast) continue;
-            roh.Add(new(heim.Id, gast.Id, d, SimulationsEngine.Simulieren(heim, gast, [], ausfuehrlich: true, rng)));
+            foreach (var heim in teams)
+            {
+                foreach (var gast in teams.Where(t => t != heim))
+                    roh.Add(new(heim.Id, gast.Id, d, SimulationsEngine.Simulieren(heim, gast, [], ausfuehrlich: true, rng)));
+            }
         }
 
         var paarungen = roh.GroupBy(r => (r.Heim, r.Gast)).ToDictionary(g => g.Key, g => PaarungBilden(g.ToList()));
