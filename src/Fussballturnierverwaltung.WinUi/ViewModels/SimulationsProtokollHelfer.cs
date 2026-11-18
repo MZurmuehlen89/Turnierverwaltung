@@ -219,7 +219,7 @@ internal static class SimulationsProtokollHelfer
             EreignisArt.ElfmeterVerschossen => "Elfmeter verschossen",
             // #431: vergebene Großchance oder vergebener Elfmeter im Spiel; der Detailtext nennt den Hergang.
             EreignisArt.Grosschance         => "Großchance",
-            _                             => art.ToString()
+            _                               => art.ToString()
         };
 
         // Issue #341: Beschreibung aus der Simulation (z. B. "Tor per Kopfball nach Konter (oben links)")

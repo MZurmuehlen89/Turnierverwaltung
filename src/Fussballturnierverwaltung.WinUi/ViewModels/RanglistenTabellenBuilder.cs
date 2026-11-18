@@ -15,16 +15,16 @@ public static class RanglistenTabellenBuilder
 
     public static StatistikTabelle Erstellen(StatistikAuswertungsart art, IReadOnlyList<MannschaftsSpiel> spiele) => art switch
     {
-        StatistikAuswertungsart.Heim      => BilanzTabelle(StatistikBerechnung.BilanzRangliste(spiele, SpielortFilter.Heim)),
-        StatistikAuswertungsart.Auswaerts => BilanzTabelle(StatistikBerechnung.BilanzRangliste(spiele, SpielortFilter.Auswaerts)),
-        StatistikAuswertungsart.Form      => FormTabelle(StatistikBerechnung.Formtabelle(spiele, FORM_SPIELE)),
-        StatistikAuswertungsart.Halbzeit  => HalbzeitTabelle(StatistikBerechnung.Halbzeittabelle(spiele)),
-        StatistikAuswertungsart.Serien    => SerienTabelle(StatistikBerechnung.Serien(spiele)),
-        StatistikAuswertungsart.Tore      => ToreTabelle(StatistikBerechnung.ToreUndZuNull(spiele)),
-        StatistikAuswertungsart.Fairplay  => FairplayTabelle(StatistikBerechnung.Fairplay(spiele)),
+        StatistikAuswertungsart.Heim         => BilanzTabelle(StatistikBerechnung.BilanzRangliste(spiele, SpielortFilter.Heim)),
+        StatistikAuswertungsart.Auswaerts    => BilanzTabelle(StatistikBerechnung.BilanzRangliste(spiele, SpielortFilter.Auswaerts)),
+        StatistikAuswertungsart.Form         => FormTabelle(StatistikBerechnung.Formtabelle(spiele, FORM_SPIELE)),
+        StatistikAuswertungsart.Halbzeit     => HalbzeitTabelle(StatistikBerechnung.Halbzeittabelle(spiele)),
+        StatistikAuswertungsart.Serien       => SerienTabelle(StatistikBerechnung.Serien(spiele)),
+        StatistikAuswertungsart.Tore         => ToreTabelle(StatistikBerechnung.ToreUndZuNull(spiele)),
+        StatistikAuswertungsart.Fairplay     => FairplayTabelle(StatistikBerechnung.Fairplay(spiele)),
         StatistikAuswertungsart.Grosschancen => GrosschancenTabelle(StatistikBerechnung.Grosschancen(spiele)),
-        StatistikAuswertungsart.Verbaende =>VerbaendeTabelle(StatistikBerechnung.Verbaende(spiele)),
-        _                                 => BilanzTabelle(StatistikBerechnung.BilanzRangliste(spiele))
+        StatistikAuswertungsart.Verbaende    => VerbaendeTabelle(StatistikBerechnung.Verbaende(spiele)),
+        _                                    => BilanzTabelle(StatistikBerechnung.BilanzRangliste(spiele))
     };
 
     // ── Tabellen je Auswertung ────────────────────────────────────────────
