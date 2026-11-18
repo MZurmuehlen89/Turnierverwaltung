@@ -72,6 +72,44 @@ public sealed class MannschaftenCsvTests : IDisposable
         (neu.Grundausrichtung, neu.Flexibilitaet).Should().Be((Grundausrichtung.SehrOffensiv, Flexibilitaet.Starr));
     }
 
+    // ── Kondition (#677, K9) ──────────────────────────────────────────────
+
+    [Fact]
+    public async Task ExportUndReimport_StelltDieKonditionWiederHer_UndExportHatDieSpalte()
+    {
+        var team = TeamAnlegen(Grundausrichtung.Ausgeglichen, Flexibilitaet.Normal);
+        team.Kondition = Kondition.Stark;
+        _ctx.SaveChanges();
+        await Service().MannschaftenExportierenCsvAsync(_datei);
+        File.ReadAllLines(_datei)[0].Should().EndWith(";Kondition");
+        team.Kondition = Kondition.Schwach;
+        _ctx.SaveChanges();
+
+        await Service().MannschaftenImportierenAsync(_datei);
+
+        (await Neugeladen(team.Id)).Kondition.Should().Be(Kondition.Stark);
+    }
+
+    [Fact]
+    public async Task ImportOhneKonditionSpalte_LaesstBestehendeUnveraendert_NeueBekommenNormal()
+    {
+        var team = TeamAnlegen(Grundausrichtung.Ausgeglichen, Flexibilitaet.Normal);
+        team.Kondition = Kondition.Schwach;
+        _ctx.SaveChanges();
+        File.WriteAllLines(_datei,
+        [
+            "Name;Kurzname;Mannschaftsart;LandFifaCode;OffensivRating;MittelfeldRating;DefensivRating;Heimstaerke;Auswaertsstaerke",
+            "Testelf;TE;Verein;TST;81;78;76;75;65",
+            "Neuelf;NE;Verein;TST;70;70;70;75;65"
+        ]);
+
+        await Service().MannschaftenImportierenAsync(_datei);
+
+        (await Neugeladen(team.Id)).Kondition.Should().Be(Kondition.Schwach);
+        _ctx.ChangeTracker.Clear();
+        (await _ctx.Mannschaften.SingleAsync(m => m.Name == "Neuelf")).Kondition.Should().Be(Kondition.Normal);
+    }
+
     [Fact]
     public async Task ImportOhneSpielweiseSpalten_LaesstSieUnveraendert()
     {
