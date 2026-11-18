@@ -146,12 +146,12 @@ public class SimulationsRealismusTests(RealismusStichprobe stichprobe) : IClassF
     {
         var dreiUndMehr = Realismusauswertung.FuehrungsAusgang(Spiele, 45, 3, mindestens: true);
         Bericht($"+3 und mehr zur Pause: n = {dreiUndMehr.Anzahl}, Sieg {dreiUndMehr.Sieg:P1} (BL 95,9 %)");
+        string[] stand = ["Gleichstand (Heim / Gast)", "+1", "+2", "+3 und mehr"];
         string[] real = ["0,86 / 0,68", "0,93 / 0,80", "1,12 / 0,78", "1,22 / 0,71"];
         for (int vorsprung = 0; vorsprung <= 3; vorsprung++)
         {
             var (fuehrender, zurueckliegender) = Realismusauswertung.ToreZweiteHalbzeit(Spiele, vorsprung, mindestens: vorsprung == 3);
-            Bericht($"2. Halbzeit bei {(vorsprung == 0 ? "Gleichstand (Heim / Gast)" : $"+{vorsprung}{(vorsprung == 3 ? " und mehr" : "")}")}: " +
-                    $"{fuehrender:F2} / {zurueckliegender:F2} (BL {real[vorsprung]})");
+            Bericht($"2. Halbzeit bei {stand[vorsprung]}: {fuehrender:F2} / {zurueckliegender:F2} (BL {real[vorsprung]})");
         }
         dreiUndMehr.Anzahl.Should().BePositive();
     }

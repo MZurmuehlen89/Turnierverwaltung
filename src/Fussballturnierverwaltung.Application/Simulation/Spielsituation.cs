@@ -74,17 +74,17 @@ public static class Spielsituation
     /// <summary>Wirkung der Stufe auf den eigenen Angriff, für ein Team genau auf der Stufe (Rückzug eingerechnet).</summary>
     public static double EigenerAngriff(Risikostufe stufe) => EigenerAngriff(new Teamzustand(stufe, 0));
 
-    /// <summary>Wirkung der Stufe auf den Angriff des Gegners, für ein Team genau auf der Stufe (Rückzug eingerechnet).</summary>
-    public static double AngriffDesGegners(Risikostufe stufe) => AngriffDesGegners(new Teamzustand(stufe, 0));
-
     /// <summary>Wirkung eines Teams auf seinen eigenen Angriff: Platz auf der Achse, dazu der Rückzug seiner Stufe.</summary>
     public static double EigenerAngriff(Teamzustand team) => EigenerAngriff(team.Position) * Rueckzug(team.Stufe).Eigener;
 
-    /// <summary>Wirkung eines Teams auf den Angriff des Gegners: Platz auf der Achse, dazu der Rückzug seiner Stufe.</summary>
-    public static double AngriffDesGegners(Teamzustand team) => AngriffDesGegners(team.Position) * Rueckzug(team.Stufe).Gegner;
-
     /// <summary>Wirkung einer Position der Risikoachse auf den eigenen Angriff; jenseits der Enden wie das Ende.</summary>
     public static double EigenerAngriff(double position) => Interpoliert(_eigenerAngriff, position);
+
+    /// <summary>Wirkung der Stufe auf den Angriff des Gegners, für ein Team genau auf der Stufe (Rückzug eingerechnet).</summary>
+    public static double AngriffDesGegners(Risikostufe stufe) => AngriffDesGegners(new Teamzustand(stufe, 0));
+
+    /// <summary>Wirkung eines Teams auf den Angriff des Gegners: Platz auf der Achse, dazu der Rückzug seiner Stufe.</summary>
+    public static double AngriffDesGegners(Teamzustand team) => AngriffDesGegners(team.Position) * Rueckzug(team.Stufe).Gegner;
 
     /// <summary>Wirkung einer Position der Risikoachse auf den Angriff des Gegners; jenseits der Enden wie das Ende.</summary>
     public static double AngriffDesGegners(double position) => Interpoliert(_angriffDesGegners, position);
