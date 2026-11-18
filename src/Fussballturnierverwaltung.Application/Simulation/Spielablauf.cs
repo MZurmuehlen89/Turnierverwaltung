@@ -230,18 +230,19 @@ internal sealed class Spielablauf
     private void KartenZiehen(int minute, int? nachspielminute, double ermuedung)
     {
         double faktor = Spielsituation.Kartenfaktor(ermuedung) * KARTEN_KORREKTUR;
-        _heim = KartenDesTeams(_heim, istHeim: true, minute, nachspielminute, faktor);
-        _gast = KartenDesTeams(_gast, istHeim: false, minute, nachspielminute, faktor);
+        // Wie bei der Taktik zählt der Gesamtstand inklusive Hinspiel: Wer im Rückspiel aggregiert knapp hinten liegt,
+        // gerät ebenso unter Druck (die Kalibrierung #682 läuft ohne Hinspiel, dort ist es der reine Spielstand).
+        int heimVorsprung = _hinspielstand.VorsprungDesHeimteams(_heimTore, _gastTore);
+        _heim = KartenDesTeams(_heim, istHeim: true, minute, nachspielminute, faktor, heimVorsprung);
+        _gast = KartenDesTeams(_gast, istHeim: false, minute, nachspielminute, faktor, -heimVorsprung);
     }
 
-    private Teamzustand KartenDesTeams(Teamzustand team, bool istHeim, int minute, int? nachspielminute, double faktor)
+    private Teamzustand KartenDesTeams(Teamzustand team, bool istHeim, int minute, int? nachspielminute, double faktor, int vorsprung)
     {
         if (_rng.NextDouble() < GELBE_KARTEN_JE_90 / ENDE_REGULAER * faktor)
             _ereignisse.Add(new(minute, EreignisArt.GelbeKarte, istHeim, "Gelbe Karte", nachspielminute));
 
-        int heimVorsprung = _hinspielstand.VorsprungDesHeimteams(_heimTore, _gastTore);
-        double rotfaktor = Spielsituation.Rotfaktor(istHeim ? heimVorsprung : -heimVorsprung);
-        if (_rng.NextDouble() >= ROTE_KARTEN_JE_90 / ENDE_REGULAER * faktor * rotfaktor || team.Platzverweise >= MAX_PLATZVERWEISE)
+        if (_rng.NextDouble() >= ROTE_KARTEN_JE_90 / ENDE_REGULAER * faktor * Spielsituation.Rotfaktor(vorsprung) || team.Platzverweise >= MAX_PLATZVERWEISE)
             return team;
 
         _ereignisse.Add(new(minute, EreignisArt.RoteKarte, istHeim, "Rote Karte", nachspielminute));
