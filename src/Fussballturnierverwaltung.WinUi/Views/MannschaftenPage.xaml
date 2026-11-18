@@ -371,6 +371,31 @@
                                      AutomationProperties.Name="{Binding Anzeige}" />
                     </Grid>
                     <TextBlock Text="{Binding Spielweise.FlexibilitaetErklaerung}" FontSize="12" Opacity="0.7"
+                               Margin="0,6,0,16" TextWrapping="Wrap" />
+
+                    <!-- Kondition (#677): wie die Flexibilität drei Knöpfe, aber ohne Symbol – nur der Name. -->
+                    <TextBlock Text="Kondition" FontSize="12" Margin="0,0,0,6" />
+                    <Grid ColumnDefinitions="*,*,*" ColumnSpacing="4">
+                        <RadioButton GroupName="Kondition" Style="{StaticResource SpielweiseKnopfStil}"
+                                     DataContext="{Binding Spielweise.Konditionen[0]}"
+                                     Content="{Binding Anzeige}" HorizontalContentAlignment="Center"
+                                     IsChecked="{Binding IstGewaehlt, Mode=TwoWay}"
+                                     AutomationProperties.AutomationId="{Binding AutomationId}"
+                                     AutomationProperties.Name="{Binding Anzeige}" />
+                        <RadioButton Grid.Column="1" GroupName="Kondition" Style="{StaticResource SpielweiseKnopfStil}"
+                                     DataContext="{Binding Spielweise.Konditionen[1]}"
+                                     Content="{Binding Anzeige}" HorizontalContentAlignment="Center"
+                                     IsChecked="{Binding IstGewaehlt, Mode=TwoWay}"
+                                     AutomationProperties.AutomationId="{Binding AutomationId}"
+                                     AutomationProperties.Name="{Binding Anzeige}" />
+                        <RadioButton Grid.Column="2" GroupName="Kondition" Style="{StaticResource SpielweiseKnopfStil}"
+                                     DataContext="{Binding Spielweise.Konditionen[2]}"
+                                     Content="{Binding Anzeige}" HorizontalContentAlignment="Center"
+                                     IsChecked="{Binding IstGewaehlt, Mode=TwoWay}"
+                                     AutomationProperties.AutomationId="{Binding AutomationId}"
+                                     AutomationProperties.Name="{Binding Anzeige}" />
+                    </Grid>
+                    <TextBlock Text="{Binding Spielweise.KonditionErklaerung}" FontSize="12" Opacity="0.7"
                                Margin="0,6,0,24" TextWrapping="Wrap" />
                 </StackPanel>
             </ScrollViewer>

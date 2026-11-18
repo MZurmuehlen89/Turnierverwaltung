@@ -140,6 +140,29 @@ public sealed class MannschaftsPflegeTests(TurnierverwaltungApp app) : IClassFix
         _seite.FlexibilitaetAbwarten("Starr").Should().Be("Starr");
     }
 
+    /// <summary>#677 K8: Eine neue und eine bestehende Mannschaft zeigen die Kondition „normal“; eine gewählte
+    /// „schwach“ macht das Formular „geändert“ und steht nach dem Speichern und erneuten Öffnen da.</summary>
+    [Fact]
+    public void Kondition_StartetNormal_WirdGespeichertUndWiederGezeigt()
+    {
+        _seite.Neu();
+        _seite.KonditionAbwarten("Normal").Should().Be("Normal");
+        _seite.Abbrechen();
+
+        string name = EindeutigerName();
+        _seite.Anlegen(name, "GTK", 72);
+        _seite.Auswaehlen(name);
+        _seite.KonditionAbwarten("Normal").Should().Be("Normal");
+        _seite.SpeichernFreigabeAbwarten(false).Should().BeFalse("frisch geladen ist nichts geändert");
+
+        _seite.KonditionWaehlen("Schwach");
+        _seite.SpeichernFreigabeAbwarten(true).Should().BeTrue("die Kondition ist eine Änderung");
+        _seite.Speichern();
+
+        _seite.Auswaehlen(name);
+        _seite.KonditionAbwarten("Schwach").Should().Be("Schwach");
+    }
+
     private const string VORSCHLAG = "Vorschlag aus den Ratings: ";
     private const string PASST = "Entspricht dem Vorschlag aus den Ratings.";
 

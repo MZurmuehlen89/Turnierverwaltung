@@ -64,15 +64,20 @@ public sealed class MannschaftenSeite(Window fenster, Hauptfenster hauptfenster)
 
     private static readonly string[] _grundausrichtungen = ["SehrDefensiv", "Defensiv", "Ausgeglichen", "Offensiv", "SehrOffensiv"];
     private static readonly string[] _flexibilitaeten = ["Starr", "Normal", "Flexibel"];
+    private static readonly string[] _konditionen = ["Schwach", "Normal", "Stark"];
 
     public void GrundausrichtungWaehlen(string wert) => fenster.ActivateById($"Mannschaften.Grundausrichtung.{wert}");
     public void FlexibilitaetWaehlen(string wert) => fenster.ActivateById($"Mannschaften.Flexibilitaet.{wert}");
+    public void KonditionWaehlen(string wert) => fenster.ActivateById($"Mannschaften.Kondition.{wert}");
 
     /// <summary>Die gewählte Grundausrichtung, sobald es <paramref name="erwartet"/> ist.</summary>
     public string GrundausrichtungAbwarten(string erwartet) => GewaehltAbwarten("Grundausrichtung", _grundausrichtungen, erwartet);
 
     /// <summary>Die gewählte Flexibilität, sobald es <paramref name="erwartet"/> ist.</summary>
     public string FlexibilitaetAbwarten(string erwartet) => GewaehltAbwarten("Flexibilitaet", _flexibilitaeten, erwartet);
+
+    /// <summary>Die gewählte Kondition (#677), sobald es <paramref name="erwartet"/> ist.</summary>
+    public string KonditionAbwarten(string erwartet) => GewaehltAbwarten("Kondition", _konditionen, erwartet);
 
     /// <summary>Der Hinweis zum Rating-Vorschlag, sobald er <paramref name="erwartet"/> lautet.</summary>
     public string VorschlagAbwarten(string erwartet)
