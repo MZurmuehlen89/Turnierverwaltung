@@ -491,7 +491,8 @@ public class SimulationsService(
                 Nachspielminute = e.Nachspielminute,
                 EreignisArt  = e.Art,
                 MannschaftId = e.IstHeim ? spiel.HeimMannschaftId : spiel.AuswaertsMannschaftId,
-                Beschreibung = e.Beschreibung
+                Beschreibung = e.Beschreibung,
+                Chancenart   = e.Chancenart
             });
             await spielRepository.EreignisseHinzufuegenAsync(spiel.Id, dbEreignisse, ct);
         }

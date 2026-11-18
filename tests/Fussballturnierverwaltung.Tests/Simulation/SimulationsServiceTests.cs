@@ -139,6 +139,25 @@ public class SimulationsServiceTests
         });
     }
 
+    // #431 (K7): Tore und vergebene Großchancen speichern ihre Chancenart, alle anderen Ereignisse nicht.
+    [Fact]
+    public async Task RundeSimulierenAsync_SpeichertDieChancenartAnToreUndGrosschancen()
+    {
+        await using var ctx = SimulationsDienste.NeuerContext();
+        GrunddatenAnlegen(ctx, mannschaften: 20);
+        KoRundeAnlegen(ctx, paarungen: 10);
+        ctx.SaveChanges();
+
+        await SimulationsDienste.Service(ctx, new Zufallsquelle()).RundeSimulierenAsync(1, seed: 431);
+
+        var ereignisse = SpieleMitErgebnis(ctx).SelectMany(s => s.Ereignisse).ToList();
+        ereignisse.Should().Contain(e => e.EreignisArt == EreignisArt.Grosschance);
+        ereignisse.Where(e => e.EreignisArt is EreignisArt.Tor or EreignisArt.GoldenGoal or EreignisArt.Grosschance)
+            .Should().OnlyContain(e => e.Chancenart != null);
+        ereignisse.Where(e => e.EreignisArt is not (EreignisArt.Tor or EreignisArt.GoldenGoal or EreignisArt.Grosschance))
+            .Should().OnlyContain(e => e.Chancenart == null);
+    }
+
     // ── Freie Auswahl ─────────────────────────────────────────────────────────
 
     [Fact]
