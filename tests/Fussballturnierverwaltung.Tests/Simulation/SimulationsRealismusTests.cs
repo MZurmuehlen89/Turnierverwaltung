@@ -170,6 +170,20 @@ public class SimulationsRealismusTests(RealismusStichprobe stichprobe) : IClassF
         geprueft.Should().BeGreaterThanOrEqualTo(4, "genug Klassen mit mindestens 1000 Spielen");
     }
 
+    // ── Chancen (#431, K3) ────────────────────────────────────────────────
+
+    [Fact(Skip = SKIP_MUTATION, SkipWhen = nameof(Mutationslauf.Aktiv), SkipType = typeof(Mutationslauf))]
+    public void Chancen_HaeufigkeitUndVerwertung()
+    {
+        // Zielwerte und Herleitung der Bänder: Kommentar „Schritt 1“ zu #431.
+        var c = Realismusauswertung.Chancen([.. Spiele]);
+        ImBand("Großchancen inkl. Elfmeter je Team und Spiel", c.GrosschancenJeTeam, 1.6, 2.6, "Ziel 2,0", format: "F2");
+        ImBand("Verwertung der Großchancen", c.Verwertung, 0.35, 0.45, "Ziel 40 %");
+        ImBand("Elfmeter je Spiel", c.ElfmeterJeSpiel, 0.26, 0.38, "Ziel 0,32", format: "F2");
+        ImBand("Elfmeterquote", c.ElfmeterQuote, 0.72, 0.84, "Ziel 78,5 %");
+        ImBand("Anteil der Elfmetertore an allen Toren", c.AnteilElfmeterTore, 0.065, 0.100, "Ziel 8 %");
+    }
+
     // ── K6 Platzverweise ──────────────────────────────────────────────────
 
     [Fact(Skip = SKIP_MUTATION, SkipWhen = nameof(Mutationslauf.Aktiv), SkipType = typeof(Mutationslauf))]

@@ -112,4 +112,50 @@ public class RealismusauswertungTests
         var spiele = new[] { Spiel(1, 0), Spiel(0, 0), Spiel(2, 2), Spiel(0, 1) };
         Realismusauswertung.Anteil(spiele, s => s.HeimTore == s.GastTore).Should().Be(0.5);
     }
+
+    // ── Chancen (#431, K3) ────────────────────────────────────────────────
+
+    private static SimuliertesEreignis Chance(EreignisArt art, Chancenart chancenart, int minute = 10, int? nachspiel = null) =>
+        new(minute, art, true, "x", nachspiel, chancenart);
+
+    [Fact]
+    public void Chancen_ZaehltGrosschancenInklusiveElfmeterUndDerenTore()
+    {
+        var spiel = Spiel(2, 0,
+            Chance(EreignisArt.Tor, Chancenart.Grosschance),           // Großchance, Tor
+            Chance(EreignisArt.Grosschance, Chancenart.Grosschance),   // Großchance vergeben
+            Chance(EreignisArt.Tor, Chancenart.Elfmeter),              // Elfmeter, Tor
+            Chance(EreignisArt.Grosschance, Chancenart.Elfmeter),      // Elfmeter vergeben
+            Chance(EreignisArt.Tor, Chancenart.Normal));               // normales Tor: keine Großchance
+
+        var c = Realismusauswertung.Chancen([spiel]);
+
+        c.Should().Be(new Chancenbilanz(Spiele: 1, Grosschancen: 4, GrosschancenTore: 2, Elfmeter: 2, ElfmeterTore: 1, Tore: 3));
+        c.GrosschancenJeTeam.Should().Be(2.0);
+        c.Verwertung.Should().Be(0.5);
+        c.ElfmeterJeSpiel.Should().Be(2.0);
+        c.ElfmeterQuote.Should().Be(0.5);
+        c.AnteilElfmeterTore.Should().BeApproximately(1.0 / 3, 1e-12);
+    }
+
+    [Fact]
+    public void Chancen_ZaehltNurRegulaereSpielzeitUndIgnoriertGoldenGoalUndAltdaten()
+    {
+        var spiel = Spiel(0, 0,
+            Chance(EreignisArt.Grosschance, Chancenart.Grosschance, minute: 91),
+            Chance(EreignisArt.GoldenGoal, Chancenart.Normal, minute: 100),
+            new SimuliertesEreignis(20, EreignisArt.Tor, true, "Tor ohne Chancenart"));
+
+        var c = Realismusauswertung.Chancen([spiel]);
+
+        c.Should().Be(new Chancenbilanz(1, 0, 0, 0, 0, 0));
+    }
+
+    [Fact]
+    public void Chancen_OhneElfmeterOderGrosschancen_GibtNullStattDivisionDurchNull()
+    {
+        var c = Realismusauswertung.Chancen([Spiel(0, 0)]);
+
+        (c.Verwertung, c.ElfmeterQuote, c.AnteilElfmeterTore).Should().Be((0.0, 0.0, 0.0));
+    }
 }

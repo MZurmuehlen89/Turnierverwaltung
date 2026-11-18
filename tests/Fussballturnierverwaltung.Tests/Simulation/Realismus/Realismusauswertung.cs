@@ -6,6 +6,18 @@ namespace Fussballturnierverwaltung.Tests.Simulation.Realismus;
 /// <summary>Ausgang aus Sicht des Führenden: Anteile von Sieg, Remis und Niederlage bei <paramref name="Anzahl"/> Spielen.</summary>
 internal readonly record struct Fuehrungsausgang(int Anzahl, double Sieg, double Remis, double Niederlage);
 
+/// <summary>Chancen der regulären Spielzeit (#431): <paramref name="Grosschancen"/> zählt Großchancen und Elfmeter, ob
+/// Tor oder vergeben; <paramref name="Tore"/> sind alle Tore mit Chancenart (Elfmetertore eingeschlossen).</summary>
+internal readonly record struct Chancenbilanz(
+    int Spiele, int Grosschancen, int GrosschancenTore, int Elfmeter, int ElfmeterTore, int Tore)
+{
+    public double GrosschancenJeTeam => Grosschancen / (2.0 * Spiele);
+    public double Verwertung => Grosschancen > 0 ? (double)GrosschancenTore / Grosschancen : 0;
+    public double ElfmeterJeSpiel => (double)Elfmeter / Spiele;
+    public double ElfmeterQuote => Elfmeter > 0 ? (double)ElfmeterTore / Elfmeter : 0;
+    public double AnteilElfmeterTore => Tore > 0 ? (double)ElfmeterTore / Tore : 0;
+}
+
 /// <summary>#678: reine Auswertungsfunktionen über die Ereignisse und Ergebnisse der Realismus-Stichprobe.</summary>
 internal static class Realismusauswertung
 {
@@ -83,6 +95,21 @@ internal static class Realismusauswertung
     {
         var rote = spiel.Ergebnis.Ereignisse.Where(e => e.Art == EreignisArt.RoteKarte && e.Minute <= ENDE_REGULAER).ToList();
         return (rote.Count(e => e.IstHeim), rote.Count(e => !e.IstHeim));
+    }
+
+    /// <summary>Großchancen, Elfmeter und deren Tore der regulären Spielzeit (#431). Ereignisse ohne Chancenart
+    /// (Altdaten) und Golden Goals zählen nicht.</summary>
+    public static Chancenbilanz Chancen(IReadOnlyCollection<SimuliertesSpiel> spiele)
+    {
+        var ereignisse = spiele.SelectMany(s => s.Ergebnis.Ereignisse)
+            .Where(e => e.Minute <= ENDE_REGULAER && e.Chancenart != null
+                        && e.Art is EreignisArt.Tor or EreignisArt.Grosschance)
+            .ToList();
+        var grosschancen = ereignisse.Where(e => e.Chancenart != Chancenart.Normal).ToList();
+        var elfmeter = grosschancen.Where(e => e.Chancenart == Chancenart.Elfmeter).ToList();
+        return new Chancenbilanz(
+            spiele.Count, grosschancen.Count, grosschancen.Count(e => e.Art == EreignisArt.Tor),
+            elfmeter.Count, elfmeter.Count(e => e.Art == EreignisArt.Tor), ereignisse.Count(e => e.Art == EreignisArt.Tor));
     }
 
     /// <summary>Stückweise lineare Interpolation über die nach x aufsteigenden Stützstellen; außerhalb gilt der Randwert.</summary>
