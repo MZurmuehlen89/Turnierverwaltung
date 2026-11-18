@@ -19,6 +19,7 @@ public enum StatistikAuswertungsart
     Serien,
     Tore,
     Fairplay,
+    Grosschancen,
     Verbaende
 }
 
@@ -45,7 +46,8 @@ public record StatistikTabelle(
     IReadOnlyList<StatistikSpalte> Spalten,
     IReadOnlyList<StatistikZeile> Zeilen,
     double FormBreite = 0,
-    string NamensTitel = "Mannschaft")
+    string NamensTitel = "Mannschaft",
+    string? Fussnote = null)
 {
     public bool HatZeilen => Zeilen.Count > 0;
 }

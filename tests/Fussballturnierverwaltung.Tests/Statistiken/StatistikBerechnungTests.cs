@@ -259,6 +259,97 @@ public class StatistikBerechnungTests
         fairplay[1].Wertung.Should().Be(4);
     }
 
+    // ── Großchancen (#431, K8) ────────────────────────────────────────────
+
+    private static SpielEreignis Chance(Mannschaft mannschaft, EreignisArt art, Chancenart? chancenart) =>
+        new() { MannschaftId = mannschaft.Id, EreignisArt = art, Chancenart = chancenart };
+
+    [Fact]
+    public void Grosschancen_ZaehltGrosschancenElfmeterUndToreDaraus_BesteVerwertungZuerst()
+    {
+        var spiel = Spiel(_a, _b, 2, 0);
+        spiel.Ereignisse =
+        [
+            Chance(_a, EreignisArt.Tor, Chancenart.Grosschance),
+            Chance(_a, EreignisArt.Grosschance, Chancenart.Grosschance),
+            Chance(_a, EreignisArt.Tor, Chancenart.Normal),                 // normales Tor: keine Großchance
+            Chance(_b, EreignisArt.Grosschance, Chancenart.Elfmeter),       // vergebener Elfmeter
+            Chance(_b, EreignisArt.Grosschance, Chancenart.Grosschance),
+            Chance(_b, EreignisArt.Tor, Chancenart.Elfmeter)                // Elfmetertor zählt als Großchance mit Tor
+        ];
+
+        var auswertung = StatistikBerechnung.Grosschancen(Sicht(spiel));
+
+        auswertung.SpieleMitChancendaten.Should().Be(1);
+        auswertung.Spiele.Should().Be(1);
+        auswertung.Eintraege.Select(e => e.Mannschaft.Name).Should().Equal("Team A", "Team B"); // 1/2 = 50 % vor 1/3
+        auswertung.Eintraege[0].Should().Be(new GrosschancenEintrag(_a, 1, 2, 1, 0));
+        auswertung.Eintraege[1].Should().Be(new GrosschancenEintrag(_b, 1, 3, 1, 1));
+        auswertung.Eintraege[0].Verwertung.Should().Be(0.5);
+    }
+
+    [Fact]
+    public void Grosschancen_SpieleOhneChancendatenZaehlenNicht_UndWerdenGenannt()
+    {
+        var mitDaten = Spiel(_a, _b, 1, 0);
+        mitDaten.Ereignisse = [Chance(_a, EreignisArt.Tor, Chancenart.Grosschance)];
+        var altdaten = Spiel(_a, _c, 3, 0);                                   // schnell simuliert, keine Ereignisse
+        var ohneChancenart = Spiel(_b, _c, 1, 0);                             // vor #431: Tor ohne Chancenart
+        ohneChancenart.Ereignisse = [Chance(_b, EreignisArt.Tor, null)];
+
+        var auswertung = StatistikBerechnung.Grosschancen(Sicht(mitDaten, altdaten, ohneChancenart));
+
+        auswertung.SpieleMitChancendaten.Should().Be(1);
+        auswertung.Spiele.Should().Be(3);
+        auswertung.Eintraege.Should().HaveCount(2).And.OnlyContain(e => e.Spiele == 1);
+        auswertung.Eintraege.Select(e => e.Mannschaft.Name).Should().NotContain("Team C");
+    }
+
+    [Fact]
+    public void HatSpieleMitChancendaten_NurWennEinEreignisEineChancenartTraegt()
+    {
+        var altdaten = Spiel(_a, _b, 1, 0);
+        altdaten.Ereignisse = [Chance(_a, EreignisArt.Tor, null)];
+        var neu = Spiel(_a, _c, 1, 0);
+        neu.Ereignisse = [Chance(_a, EreignisArt.Tor, Chancenart.Normal)];
+
+        StatistikBerechnung.HatSpieleMitChancendaten(Sicht(altdaten)).Should().BeFalse();
+        StatistikBerechnung.HatSpieleMitChancendaten(Sicht(altdaten, neu)).Should().BeTrue();
+        StatistikBerechnung.HatSpieleMitChancendaten([]).Should().BeFalse();
+    }
+
+    [Fact]
+    public void Grosschancen_Elfmeterschiessen_ZaehltNicht()
+    {
+        var spiel = Spiel(_a, _b, 1, 1);
+        spiel.Ereignisse =
+        [
+            Chance(_a, EreignisArt.Tor, Chancenart.Normal),
+            Chance(_a, EreignisArt.ElfmeterTor, null),
+            Chance(_b, EreignisArt.ElfmeterVerschossen, null)
+        ];
+
+        var auswertung = StatistikBerechnung.Grosschancen(Sicht(spiel));
+
+        auswertung.Eintraege.Should().OnlyContain(e => e.Grosschancen == 0 && e.ElfmeterVergeben == 0);
+    }
+
+    [Fact]
+    public void Grosschancen_GleicheVerwertung_MehrGrosschancenZuerst_DannName()
+    {
+        var spiel = Spiel(_a, _b, 0, 0);
+        spiel.Ereignisse =
+        [
+            Chance(_a, EreignisArt.Grosschance, Chancenart.Grosschance),
+            Chance(_b, EreignisArt.Grosschance, Chancenart.Grosschance),
+            Chance(_b, EreignisArt.Grosschance, Chancenart.Grosschance)
+        ];
+
+        var auswertung = StatistikBerechnung.Grosschancen(Sicht(spiel));
+
+        auswertung.Eintraege.Select(e => e.Mannschaft.Name).Should().Equal("Team B", "Team A");
+    }
+
     // ── Verbände ──────────────────────────────────────────────────────────
 
     [Fact]

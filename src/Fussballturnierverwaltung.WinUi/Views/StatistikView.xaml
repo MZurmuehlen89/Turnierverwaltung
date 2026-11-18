@@ -305,6 +305,10 @@
                                               ItemsPanel="{StaticResource ZellenReihe}" />
                             </Grid>
                             <ItemsControl ItemsSource="{Binding Tabelle.Zeilen}" ItemTemplate="{StaticResource RanglistenZeileTemplate}" />
+                            <TextBlock Text="{Binding Tabelle.Fussnote}" FontSize="12" Opacity="0.8" TextWrapping="Wrap"
+                                       Padding="12,8,12,10"
+                                       AutomationProperties.AutomationId="Statistik.Fussnote"
+                                       Visibility="{Binding Tabelle.Fussnote, Converter={StaticResource NullToCollapsed}}" />
                         </StackPanel>
                     </Border>
 

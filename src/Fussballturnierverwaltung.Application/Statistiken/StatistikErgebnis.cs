@@ -102,6 +102,17 @@ public record FairplayEintrag(Mannschaft Mannschaft, int Spiele, int GelbeKarten
     public int Wertung => GelbeKarten + RoteKarten * 3;
 }
 
+/// <summary>Großchancen einer Mannschaft (#431) in Spielen mit Chancendaten: <paramref name="Grosschancen"/> zählt
+/// Großchancen und Elfmeter im Spiel (Tor oder vergeben), <paramref name="Tore"/> die daraus gefallenen Tore.</summary>
+public record GrosschancenEintrag(Mannschaft Mannschaft, int Spiele, int Grosschancen, int Tore, int ElfmeterVergeben)
+{
+    public double Verwertung => Grosschancen > 0 ? (double)Tore / Grosschancen : 0;
+}
+
+/// <summary>Großchancen-Rangliste (#431). Nur Spiele mit Chancendaten zählen (<paramref name="SpieleMitChancendaten"/>
+/// von <paramref name="Spiele"/>) — Chancenarten gibt es nur bei ausführlicher Simulation ab #431.</summary>
+public record GrosschancenAuswertung(IReadOnlyList<GrosschancenEintrag> Eintraege, int SpieleMitChancendaten, int Spiele);
+
 /// <summary>Gemeinsame Bilanz aller Mannschaften eines Verbands (Nationalmannschaften) bzw. Landes (Vereine).</summary>
 public record VerbandEintrag(string Name, int Mannschaften, Bilanz Bilanz);
 

@@ -18,6 +18,7 @@ namespace Fussballturnierverwaltung.WinUi.ViewModels;
 public partial class StatistikViewModel : ViewModelBase, IMannschaftsAnzeige
 {
     private const string GRUND_NEUTRALER_SPIELORT = "Alle Spiele fanden auf neutralem Platz statt.";
+    private const string GRUND_KEINE_CHANCEN = "Großchancen gibt es nur in ausführlich simulierten Spielen.";
     private const string GRUND_KEINE_TABELLE = "Das Turnier hat keine Runde mit Tabelle (Liga oder Gruppenphase).";
     private const string HINWEIS_KEINE_SPIELE = "Noch keine abgeschlossenen Spiele. Die Statistik erscheint, sobald Ergebnisse vorliegen.";
 
@@ -42,6 +43,7 @@ public partial class StatistikViewModel : ViewModelBase, IMannschaftsAnzeige
         new(StatistikAuswertungsart.Serien, "Serien"),
         new(StatistikAuswertungsart.Tore, "Tore und Zu-Null"),
         new(StatistikAuswertungsart.Fairplay, "Fairplay"),
+        new(StatistikAuswertungsart.Grosschancen, "Großchancen", GRUND_KEINE_CHANCEN),
         new(StatistikAuswertungsart.Verbaende, "Verbände")
     ];
 
@@ -202,6 +204,9 @@ public partial class StatistikViewModel : ViewModelBase, IMannschaftsAnzeige
         bool hatHeimUndAuswaerts = spiele.Count == 0 || StatistikBerechnung.HatHeimUndAuswaertsSpiele(spiele);
         foreach (var auswertung in Auswertungen.Where(a => a.Art is StatistikAuswertungsart.Heim or StatistikAuswertungsart.Auswaerts))
             auswertung.IstVerfuegbar = hatHeimUndAuswaerts;
+        // Ohne ein Spiel mit Chancendaten (schnell simuliert, von Hand, vor #431) wäre die Tabelle leer – lieber ausgegraut mit Grund.
+        Auswertung(StatistikAuswertungsart.Grosschancen).IstVerfuegbar =
+            spiele.Count == 0 || StatistikBerechnung.HatSpieleMitChancendaten(spiele);
 
         MannschaftUebernehmen(spiele, turnierGewechselt);
         TurnierSeite = spiele.Count > 0 ? TurnierSeitenBuilder.Erstellen(spiele, ausgang) : null;

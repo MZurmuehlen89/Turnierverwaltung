@@ -95,6 +95,40 @@ public static class StatistikBerechnung
             .ThenBy(e => e.RoteKarten)
             .ThenBy(e => e.Mannschaft.Name)];
 
+    /// <summary>Großchancen und ihre Verwertung je Mannschaft (#431); die beste Verwertung steht oben. Ein Spiel hat
+    /// Chancendaten, wenn eines seiner Ereignisse eine Chancenart trägt – ein ausführlich simuliertes Spiel ganz ohne
+    /// Tor und Großchance (rund 2 %) fehlt deshalb. Ereignisse des Elfmeterschießens tragen keine Chancenart.</summary>
+    public static GrosschancenAuswertung Grosschancen(IEnumerable<MannschaftsSpiel> spiele)
+    {
+        var alle = spiele as IReadOnlyCollection<MannschaftsSpiel> ?? [.. spiele];
+        var mitDaten = alle.Where(HatChancendaten).ToList();
+        var eintraege = JeMannschaft(mitDaten)
+            .Select(g => GrosschancenAus(g.Mannschaft, g.Spiele))
+            .OrderByDescending(e => e.Verwertung)
+            .ThenByDescending(e => e.Grosschancen)
+            .ThenBy(e => e.Mannschaft.Name)
+            .ToList();
+        return new GrosschancenAuswertung(eintraege, mitDaten.Count(s => s.IstHeim), alle.Count(s => s.IstHeim));
+    }
+
+    /// <summary>Gibt es mindestens ein Spiel mit Chancendaten? Sonst ist die Großchancen-Auswertung nicht verfügbar.</summary>
+    public static bool HatSpieleMitChancendaten(IEnumerable<MannschaftsSpiel> spiele) => spiele.Any(HatChancendaten);
+
+    private static bool HatChancendaten(MannschaftsSpiel spiel) => spiel.Spiel.Ereignisse.Any(e => e.Chancenart is not null);
+
+    private static GrosschancenEintrag GrosschancenAus(Mannschaft mannschaft, IReadOnlyList<MannschaftsSpiel> spiele)
+    {
+        var eigene = spiele
+            .SelectMany(s => s.Spiel.Ereignisse)
+            .Where(e => e.MannschaftId == mannschaft.Id && e.Chancenart is Chancenart.Grosschance or Chancenart.Elfmeter
+                        && e.EreignisArt is EreignisArt.Tor or EreignisArt.GoldenGoal or EreignisArt.SilverGoal or EreignisArt.Grosschance)
+            .ToList();
+        return new GrosschancenEintrag(
+            mannschaft, spiele.Count, eigene.Count,
+            eigene.Count(e => e.EreignisArt != EreignisArt.Grosschance),
+            eigene.Count(e => e.EreignisArt == EreignisArt.Grosschance && e.Chancenart == Chancenart.Elfmeter));
+    }
+
     /// <summary>Nationalmannschaften werden je Verband zusammengefasst, Vereine je Land.</summary>
     public static IReadOnlyList<VerbandEintrag> Verbaende(IEnumerable<MannschaftsSpiel> spiele)
         => [.. spiele

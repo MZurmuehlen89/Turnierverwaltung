@@ -22,7 +22,8 @@ public static class RanglistenTabellenBuilder
         StatistikAuswertungsart.Serien    => SerienTabelle(StatistikBerechnung.Serien(spiele)),
         StatistikAuswertungsart.Tore      => ToreTabelle(StatistikBerechnung.ToreUndZuNull(spiele)),
         StatistikAuswertungsart.Fairplay  => FairplayTabelle(StatistikBerechnung.Fairplay(spiele)),
-        StatistikAuswertungsart.Verbaende => VerbaendeTabelle(StatistikBerechnung.Verbaende(spiele)),
+        StatistikAuswertungsart.Grosschancen => GrosschancenTabelle(StatistikBerechnung.Grosschancen(spiele)),
+        StatistikAuswertungsart.Verbaende =>VerbaendeTabelle(StatistikBerechnung.Verbaende(spiele)),
         _                                 => BilanzTabelle(StatistikBerechnung.BilanzRangliste(spiele))
     };
 
@@ -101,6 +102,29 @@ public static class RanglistenTabellenBuilder
             Zahl(e.RoteKarten, breite: BREIT),
             Zahl(e.Wertung, hervorgehoben: true, breite: BREIT)
         ]));
+
+    private static StatistikTabelle GrosschancenTabelle(GrosschancenAuswertung auswertung) => new(
+        [
+            new("Sp", "Spiele mit Chancendaten", SCHMAL),
+            new("GC", "Großchancen inklusive Elfmeter im Spiel", BREIT),
+            new("Tore", "Tore aus Großchancen", BREIT),
+            new("Quote", "Anteil der Großchancen, die ein Tor wurden", BREIT),
+            new("Elf. vg.", "Vergebene Elfmeter im Spiel", SEHR_BREIT)
+        ],
+        Zeilen(auswertung.Eintraege, e => e.Mannschaft, e =>
+        [
+            Zahl(e.Spiele),
+            Zahl(e.Grosschancen, breite: BREIT),
+            Zahl(e.Tore, breite: BREIT),
+            new StatistikZelle(e.Verwertung.ToString("P0"), BREIT, Hervorgehoben: true),
+            Zahl(e.ElfmeterVergeben, breite: SEHR_BREIT)
+        ]),
+        Fussnote: GrosschancenFussnote(auswertung));
+
+    private static string? GrosschancenFussnote(GrosschancenAuswertung auswertung)
+        => auswertung.SpieleMitChancendaten < auswertung.Spiele
+            ? $"Aus {auswertung.SpieleMitChancendaten} von {auswertung.Spiele} Spielen – nur ausführlich simulierte Spiele haben Chancendaten."
+            : null;
 
     private static StatistikTabelle VerbaendeTabelle(IReadOnlyList<VerbandEintrag> rangliste) => new(
         [new("Teams", "Mannschaften im Turnier", BREIT), .. BilanzSpalten],
