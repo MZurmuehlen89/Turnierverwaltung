@@ -1101,6 +1101,6 @@ public static class VereinsmannschaftenSeedDaten
                 DefensivRating   = e.Def,
                 Heimstaerke      = e.Heim,
                 Auswaertsstaerke = e.Ausw
-            }.MitSpielweise(e.Land))
+            }.MitSpielweise(e.Land).MitKondition(e.Land))
             .ToList();
 }
