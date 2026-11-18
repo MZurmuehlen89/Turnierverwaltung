@@ -215,8 +215,10 @@ def main():
     for code, stufe in sorted(nat_stufen.items()):
         zeilen.append(zeile("Nationalmannschaft", code, code, stufe))
     schluessel = [(z.split('"')[1], z.split('"')[3]) for z in zeilen if ".Verein," in z]
-    bericht.append(f"Liste: {len(verein_stufen)} Vereine, {len(nat_stufen)} Nationalteams; "
-                   f"doppelte Vereinsschlüssel: {sorted({k for k in schluessel if schluessel.count(k) > 1})}")
+    doppelt = sorted({k for k in schluessel if schluessel.count(k) > 1})
+    bericht.append(f"Liste: {len(verein_stufen)} Vereine, {len(nat_stufen)} Nationalteams; doppelte Vereinsschlüssel: {doppelt}")
+    if doppelt:  # das statische Wörterbuch im Seed würde beim Start werfen – nichts schreiben
+        raise SystemExit("Abbruch, mehrere EA-Teams auf derselben Seed-Mannschaft: " + str(doppelt))
 
     ziel = Path(wurzel) / "src/Fussballturnierverwaltung.Infrastructure/Seed/Daten/KonditionSeedListe.cs"
     kopf = ("using Fussballturnierverwaltung.Domain.Entitaeten.Stammdaten;\n"

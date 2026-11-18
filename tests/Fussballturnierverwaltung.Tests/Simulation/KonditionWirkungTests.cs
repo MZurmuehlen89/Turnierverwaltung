@@ -12,9 +12,18 @@ public sealed class KonditionStichprobe
     public const int SEED = 677;
     public const int SPIELE = 30_000;
 
-    public int StarkToreErsteHaelfte, SchwachToreErsteHaelfte, StarkToreSchluss, SchwachToreSchluss;
-    public int StarkToreVerlaengerung, SchwachToreVerlaengerung, StarkSiege, SchwachSiege;
-    public int StarkGelbZweiteHaelfte, SchwachGelbZweiteHaelfte;
+    /// <summary>Tore und gelbe Karten eines Teams nach Phase.</summary>
+    public sealed class Zaehler
+    {
+        public int ToreErsteHaelfte { get; set; }
+        public int ToreSchluss { get; set; }
+        public int ToreVerlaengerung { get; set; }
+        public int GelbZweiteHaelfte { get; set; }
+        public int Siege { get; set; }
+    }
+
+    public Zaehler Stark { get; } = new();
+    public Zaehler Schwach { get; } = new();
 
     public KonditionStichprobe()
     {
@@ -43,29 +52,26 @@ public sealed class KonditionStichprobe
     private void Auswerten(SimulationsErgebnis e, bool starkDaheim)
     {
         foreach (var x in e.Ereignisse)
-        {
-            bool istStark = x.IstHeim == starkDaheim;
-            switch (x.Art)
-            {
-                case EreignisArt.Tor when x.Minute <= 45:
-                    if (istStark) StarkToreErsteHaelfte++; else SchwachToreErsteHaelfte++;
-                    break;
-                case EreignisArt.Tor when x.Minute is >= 76 and <= 90:
-                    if (istStark) StarkToreSchluss++; else SchwachToreSchluss++;
-                    break;
-                case EreignisArt.Tor when x.Minute > 90:
-                    if (istStark) StarkToreVerlaengerung++; else SchwachToreVerlaengerung++;
-                    break;
-                case EreignisArt.GelbeKarte when x.Minute is > 45 and <= 90:
-                    if (istStark) StarkGelbZweiteHaelfte++; else SchwachGelbZweiteHaelfte++;
-                    break;
-            }
-        }
+            Zaehlen(x.IstHeim == starkDaheim ? Stark : Schwach, x);
 
         int starkTore = starkDaheim ? e.HeimToreRegulaer : e.AuswaertsToreRegulaer;
         int schwachTore = starkDaheim ? e.AuswaertsToreRegulaer : e.HeimToreRegulaer;
-        if (starkTore > schwachTore) StarkSiege++;
-        else if (schwachTore > starkTore) SchwachSiege++;
+        if (starkTore > schwachTore) Stark.Siege++;
+        else if (schwachTore > starkTore) Schwach.Siege++;
+    }
+
+    private static void Zaehlen(Zaehler team, SimuliertesEreignis x)
+    {
+        if (x.Art == EreignisArt.GelbeKarte)
+        {
+            if (x.Minute is > 45 and <= 90) team.GelbZweiteHaelfte++;
+            return;
+        }
+
+        if (x.Art != EreignisArt.Tor) return;
+        if (x.Minute <= 45) team.ToreErsteHaelfte++;
+        else if (x.Minute is >= 76 and <= 90) team.ToreSchluss++;
+        else if (x.Minute > 90) team.ToreVerlaengerung++;
     }
 }
 
@@ -73,40 +79,42 @@ public sealed class KonditionStichprobe
 /// kalibriert.</summary>
 public class KonditionWirkungTests(KonditionStichprobe s) : IClassFixture<KonditionStichprobe>
 {
+    private const string SKIP_MUTATION = "Im Mutationslauf zu langsam (#677)";
+
     private static void Bericht(string zeile) => TestContext.Current.TestOutputHelper?.WriteLine(zeile);
 
     private static double Anteil(int stark, int schwach) => (double)stark / (stark + schwach);
 
-    [Fact]
+    [Fact(Skip = SKIP_MUTATION, SkipWhen = nameof(Mutationslauf.Aktiv), SkipType = typeof(Mutationslauf))]
     public void Schlussphase_StarkesTeamTrifftInDerSchlussphaseMehr_NichtInDerErstenHaelfte()
     {
-        double erste = Anteil(s.StarkToreErsteHaelfte, s.SchwachToreErsteHaelfte);
-        double schluss = Anteil(s.StarkToreSchluss, s.SchwachToreSchluss);
+        double erste = Anteil(s.Stark.ToreErsteHaelfte, s.Schwach.ToreErsteHaelfte);
+        double schluss = Anteil(s.Stark.ToreSchluss, s.Schwach.ToreSchluss);
         Bericht($"Torenanteil stark: Minute 1–45 {erste:P1} (Band 48–52 %), Minute 76–90 {schluss:P1} (Band 55–62 %)");
         erste.Should().BeInRange(0.48, 0.52);
         schluss.Should().BeInRange(0.55, 0.62);
     }
 
-    [Fact]
+    [Fact(Skip = SKIP_MUTATION, SkipWhen = nameof(Mutationslauf.Aktiv), SkipType = typeof(Mutationslauf))]
     public void Verlaengerung_StarkesTeamTrifftAmMeisten()
     {
-        double anteil = Anteil(s.StarkToreVerlaengerung, s.SchwachToreVerlaengerung);
-        Bericht($"Torenanteil stark in der Verlängerung: {anteil:P1} (Band 57–66 %), Tore {s.StarkToreVerlaengerung + s.SchwachToreVerlaengerung}");
+        double anteil = Anteil(s.Stark.ToreVerlaengerung, s.Schwach.ToreVerlaengerung);
+        Bericht($"Torenanteil stark in der Verlängerung: {anteil:P1} (Band 57–66 %), Tore {s.Stark.ToreVerlaengerung + s.Schwach.ToreVerlaengerung}");
         anteil.Should().BeInRange(0.57, 0.66);
     }
 
-    [Fact]
+    [Fact(Skip = SKIP_MUTATION, SkipWhen = nameof(Mutationslauf.Aktiv), SkipType = typeof(Mutationslauf))]
     public void Gesamtwirkung_SiegquoteStarkMinusSchwach_Moderat()
     {
-        double differenz = (double)(s.StarkSiege - s.SchwachSiege) / KonditionStichprobe.SPIELE;
+        double differenz = (double)(s.Stark.Siege - s.Schwach.Siege) / KonditionStichprobe.SPIELE;
         Bericht($"Siegquote stark − schwach: {differenz * 100:F1} Punkte (Band +2 … +7)");
         (differenz * 100).Should().BeInRange(2, 7);
     }
 
-    [Fact]
+    [Fact(Skip = SKIP_MUTATION, SkipWhen = nameof(Mutationslauf.Aktiv), SkipType = typeof(Mutationslauf))]
     public void Karten_SchwachesTeamSiehtInDerZweitenHaelfteMehrGelb()
     {
-        double verhaeltnis = (double)s.SchwachGelbZweiteHaelfte / s.StarkGelbZweiteHaelfte;
+        double verhaeltnis = (double)s.Schwach.GelbZweiteHaelfte / s.Stark.GelbZweiteHaelfte;
         Bericht($"Gelbe Karten 2. Halbzeit schwach/stark: {verhaeltnis:F2} (mindestens 1,1)");
         verhaeltnis.Should().BeGreaterThanOrEqualTo(1.1);
     }

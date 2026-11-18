@@ -75,14 +75,33 @@ public class KonditionTests
     }
 
     [Fact]
-    public void Risikoentscheidung_SchwachesTeamMauertInFuehrungFrueher()
+    public void Stufenplan_Fuehrung_SchwachesTeamStelltFuenfMinutenFruehererUm_StarkWieNormal()
     {
-        var normal = Risikoentscheidung.Faellig(new Spiellage(1, 13, 0.5, 0, Profil(Kondition.Normal)));
-        var schwach = Risikoentscheidung.Faellig(new Spiellage(1, 13, 0.5, 0, Profil(Kondition.Schwach)));
-        var stark = Risikoentscheidung.Faellig(new Spiellage(1, 13, 0.5, 0, Profil(Kondition.Stark)));
-        stark.Should().Be(normal);
-        ((int)schwach.Stufe).Should().BeLessThanOrEqualTo((int)normal.Stufe);
+        var normal = Risikoentscheidung.Stufenplan(Lage(vorsprung: 1, Kondition.Normal));
+        var schwach = Risikoentscheidung.Stufenplan(Lage(vorsprung: 1, Kondition.Schwach));
+        var stark = Risikoentscheidung.Stufenplan(Lage(vorsprung: 1, Kondition.Stark));
+
+        stark.Should().Equal(normal);
+        schwach.Select(f => f.Stufe).Should().Equal(normal.Select(f => f.Stufe));
+        schwach.Zip(normal).Should().AllSatisfy(p => p.First.AbVerbleibend.Should().Be(p.Second.AbVerbleibend + 5),
+            "in Führung wird fünf Minuten früher defensiv bzw. gemauert");
     }
+
+    [Fact]
+    public void Stufenplan_Rueckstand_SchwachesTeamDruecktFuenfMinutenSpaeter_StarkWieNormal()
+    {
+        var normal = Risikoentscheidung.Stufenplan(Lage(vorsprung: -1, Kondition.Normal));
+        var schwach = Risikoentscheidung.Stufenplan(Lage(vorsprung: -1, Kondition.Schwach));
+        var stark = Risikoentscheidung.Stufenplan(Lage(vorsprung: -1, Kondition.Stark));
+
+        stark.Should().Equal(normal);
+        // Offensiv und alles nach vorn verschieben sich; die Brechstange hängt an der Restzeit, nicht am Drang.
+        schwach[0].AbVerbleibend.Should().Be(normal[0].AbVerbleibend - 5);
+        schwach[1].AbVerbleibend.Should().Be(normal[1].AbVerbleibend - 5);
+    }
+
+    private static Spiellage Lage(int vorsprung, Kondition kondition)
+        => new(vorsprung, 90, 0.5, 0, Profil(kondition));
 
     // ── Teamprofil.Von ────────────────────────────────────────────────────
 
