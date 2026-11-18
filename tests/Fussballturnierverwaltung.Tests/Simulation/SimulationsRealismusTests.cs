@@ -77,7 +77,7 @@ public class SimulationsRealismusTests(RealismusStichprobe stichprobe) : IClassF
 
     // ── K3 Zeitprofil ─────────────────────────────────────────────────────
 
-    [Fact(Skip = "Abweichung: 1. Halbzeit 46,7 %, Minute 1–15 14,4 %, 76–90 20,9 % – Korrektur in #431 (Chancenrate je Spielphase)")]
+    [Fact(Skip = SKIP_MUTATION, SkipWhen = nameof(Mutationslauf.Aktiv), SkipType = typeof(Mutationslauf))]
     public void Torminuten_ZeitprofilDerTore()
     {
         var anteile = Realismusauswertung.TorminutenAnteile(Spiele);

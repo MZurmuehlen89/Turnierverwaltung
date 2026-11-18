@@ -120,12 +120,13 @@ public class SpielablaufTaktikTests
     {
         // 1:0 in Minute 1; der Gast wird ab der 73. offensiv und das Heimteam defensiv (#667; Wurf je Minute und Team,
         // in der 80. sicher), das Heimteam könnte ab der 83. mauern, in der 88. geht der Torhüter des Gasts mit nach
-        // vorn, in der 89. trifft das Heimteam.
+        // vorn, in der 89. trifft das Heimteam mit einer normalen Chance. Ins leere Tor geht sie, wenn der Torwurf nur
+        // dank der offenen Abwehr trifft (#431): über der Quote ohne sie, unter der Quote mit ihr.
         var folge = new Ablauffolge()
             .MinuteMitTor(heim: true).Ruhig(44).Nachspielzeit(JA).Ruhig(1).Ruhig(27)
             .RuhigMitTaktikwurf(8, teams: 2).Ruhig(2).RuhigMitTaktikwurf(5)
             .Taktikwurf().Taktikwurf(JA).Ruhig(1)
-            .Taktikwurf().Hinzu(JA, JA, NEIN, JA, insLeereTor ? JA : NEIN);
+            .Taktikwurf().Hinzu(JA, JA, NEIN, insLeereTor ? NurDankOffenerAbwehr() : JA);
         if (!insLeereTor)
             folge.Hinzu(TorstilOhneKonter);
 
@@ -133,6 +134,17 @@ public class SpielablaufTaktikTests
 
         e.Ereignisse.Last(x => x.Art == EreignisArt.Tor)
             .Should().Be(new SimuliertesEreignis(89, EreignisArt.Tor, true, erwartet, null, Chancenart.Normal));
+    }
+
+    /// <summary>Torwurf einer normalen Chance des Heimteams (Verwertung 1, zwischen neutral und mauernd), der gegen eine
+    /// geordnete Abwehr vorbeigeht, gegen die Brechstange aber trifft – gleich, wo genau das Heimteam auf der Achse steht.</summary>
+    private static double NurDankOffenerAbwehr()
+    {
+        double ohneHoechstens = Chancenmodell.Quote(Chancenart.Normal, Spielsituation.EigeneGuete(Spielsituation.ACHSE_ANFANG));
+        double mitMindestens  = Chancenmodell.Quote(Chancenart.Normal,
+            Spielsituation.EigeneGuete(0) * Spielsituation.GueteDesGegners(Spielsituation.ACHSE_ENDE));
+        ohneHoechstens.Should().BeLessThan(mitMindestens);
+        return (ohneHoechstens + mitMindestens) / 2;
     }
 
     // ── Entscheidungsmodell der Risikostufe (#673, K5, K7) ────────────────

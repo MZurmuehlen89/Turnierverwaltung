@@ -9,6 +9,10 @@ public class SpielsituationTests
 {
     private static readonly Teamzustand _neutral = Teamzustand.Anpfiff();
 
+    /// <summary>Wirkung auf die Torerwartung des Angreifers: Chancenrate × Quote (seit #431 getrennt).</summary>
+    private static double Torwirkung(Teamzustand angreifer, Teamzustand verteidiger)
+        => Spielsituation.Angriffsfaktor(angreifer, verteidiger, 1) * Spielsituation.Verwertungsfaktor(angreifer, verteidiger);
+
     // ── Wirkung der Risikostufe (K3, K4) ───────────────────────────────────────────────────────────────────────────
 
     [Fact]
@@ -30,8 +34,8 @@ public class SpielsituationTests
     {
         var mauernd = new Teamzustand(Risikostufe.Mauern, 0);
 
-        Spielsituation.Angriffsfaktor(mauernd, _neutral, 0.5).Should().BeLessThan(Spielsituation.Angriffsfaktor(_neutral, _neutral, 0.5));
-        Spielsituation.Angriffsfaktor(_neutral, mauernd, 0.5).Should().BeLessThan(Spielsituation.Angriffsfaktor(_neutral, _neutral, 0.5));
+        Torwirkung(mauernd, _neutral).Should().BeLessThan(Torwirkung(_neutral, _neutral));
+        Torwirkung(_neutral, mauernd).Should().BeLessThan(Torwirkung(_neutral, _neutral));
     }
 
     [Fact]
@@ -39,11 +43,55 @@ public class SpielsituationTests
     {
         var brechstange = new Teamzustand(Risikostufe.Brechstange, 0);
 
-        double eigener = Spielsituation.Angriffsfaktor(brechstange, _neutral, 1) / Spielsituation.Angriffsfaktor(_neutral, _neutral, 1);
-        double gegner  = Spielsituation.Angriffsfaktor(_neutral, brechstange, 1) / Spielsituation.Angriffsfaktor(_neutral, _neutral, 1);
+        double eigener = Torwirkung(brechstange, _neutral) / Torwirkung(_neutral, _neutral);
+        double gegner  = Torwirkung(_neutral, brechstange) / Torwirkung(_neutral, _neutral);
 
         eigener.Should().BeGreaterThan(1);
         gegner.Should().BeGreaterThan(eigener * 1.5);
+    }
+
+    // ── Menge und Güte (#431, K4) ─────────────────────────────────────────
+
+    [Theory]
+    [InlineData(Risikostufe.Offensiv)]
+    [InlineData(Risikostufe.AllesNachVorn)]
+    [InlineData(Risikostufe.Brechstange)]
+    public void Rueckstand_HoehereStufe_MehrChancenAberSchlechtereQuote(Risikostufe stufe)
+    {
+        var zurueckliegend = new Teamzustand(stufe, 0);
+
+        Spielsituation.Angriffsfaktor(zurueckliegend, _neutral, 1).Should().BeGreaterThan(Spielsituation.Angriffsfaktor(_neutral, _neutral, 1));
+        Spielsituation.Verwertungsfaktor(zurueckliegend, _neutral).Should().BeLessThan(Spielsituation.Verwertungsfaktor(_neutral, _neutral));
+    }
+
+    [Fact]
+    public void GegenBrechstange_SteigtDieVerwertung_StaerkerAlsGegenAllesNachVorn()
+    {
+        var allesNachVorn = new Teamzustand(Risikostufe.AllesNachVorn, 0);
+        var brechstange   = new Teamzustand(Risikostufe.Brechstange, 0);
+
+        Spielsituation.Verwertungsfaktor(_neutral, allesNachVorn).Should().BeGreaterThan(Spielsituation.Verwertungsfaktor(_neutral, _neutral));
+        Spielsituation.Verwertungsfaktor(_neutral, brechstange).Should().BeGreaterThan(Spielsituation.Verwertungsfaktor(_neutral, allesNachVorn));
+    }
+
+    [Fact]
+    public void Mauern_WenigeAberGuteChancen()
+    {
+        var mauernd = new Teamzustand(Risikostufe.Mauern, 0);
+
+        Spielsituation.Angriffsfaktor(mauernd, _neutral, 1).Should().BeLessThan(Spielsituation.Angriffsfaktor(_neutral, _neutral, 1));
+        Spielsituation.Verwertungsfaktor(mauernd, _neutral).Should().BeGreaterThan(1);
+    }
+
+    [Fact]
+    public void MengeMalGuete_ErgibtDieWirkungAufDieTorerwartung()
+    {
+        foreach (var eigene in Enum.GetValues<Risikostufe>())
+        foreach (var gegner in Enum.GetValues<Risikostufe>())
+        {
+            Torwirkung(new Teamzustand(eigene, 0), new Teamzustand(gegner, 0)).Should().BeApproximately(
+                Spielsituation.EigenerAngriff(eigene) * Spielsituation.AngriffDesGegners(gegner), 1e-9, $"{eigene} gegen {gegner}");
+        }
     }
 
     // ── Risikoachse (#667, K1) ────────────────────────────────────────────
@@ -90,10 +138,8 @@ public class SpielsituationTests
     {
         var zwischen = new Teamzustand(Risikostufe.Neutral, 0, Position: 0.5);
 
-        Spielsituation.Angriffsfaktor(zwischen, _neutral, 0).Should().BeApproximately(
-            Spielsituation.EigenerAngriff(0.5) * Spielsituation.Torfaktor(0), 1e-9);
-        Spielsituation.Angriffsfaktor(_neutral, zwischen, 0).Should().BeApproximately(
-            Spielsituation.AngriffDesGegners(0.5) * Spielsituation.Torfaktor(0), 1e-9);
+        Torwirkung(zwischen, _neutral).Should().BeApproximately(Spielsituation.EigenerAngriff(0.5), 1e-9);
+        Torwirkung(_neutral, zwischen).Should().BeApproximately(Spielsituation.AngriffDesGegners(0.5), 1e-9);
         new Teamzustand(Risikostufe.Mauern, 0).Position.Should().Be(-2, "ohne Angabe liegt ein Team auf seiner Stufe");
     }
 
@@ -112,12 +158,12 @@ public class SpielsituationTests
     {
         var defensiv = new Teamzustand(Risikostufe.Defensiv, 0);
         var mauernd  = new Teamzustand(Risikostufe.Mauern, 0);
-        double neutral = Spielsituation.Angriffsfaktor(_neutral, _neutral, 0.5);
+        double neutral = Torwirkung(_neutral, _neutral);
 
-        Spielsituation.Angriffsfaktor(defensiv, _neutral, 0.5).Should().BeLessThan(neutral)
-            .And.BeGreaterThan(Spielsituation.Angriffsfaktor(mauernd, _neutral, 0.5));
-        Spielsituation.Angriffsfaktor(_neutral, defensiv, 0.5).Should().BeLessThan(neutral)
-            .And.BeGreaterThan(Spielsituation.Angriffsfaktor(_neutral, mauernd, 0.5));
+        Torwirkung(defensiv, _neutral).Should().BeLessThan(neutral)
+            .And.BeGreaterThan(Torwirkung(mauernd, _neutral));
+        Torwirkung(_neutral, defensiv).Should().BeLessThan(neutral)
+            .And.BeGreaterThan(Torwirkung(_neutral, mauernd));
     }
 
     [Theory]
@@ -196,8 +242,8 @@ public class SpielsituationTests
     {
         double kartenRegulaer = Enumerable.Range(1, 90).Average(m => Spielsituation.Kartenfaktor(Spielsituation.Ermuedung(m)));
         double kartenVerl     = Enumerable.Range(91, 30).Average(m => Spielsituation.Kartenfaktor(Spielsituation.Ermuedung(m)));
-        double toreRegulaer   = Enumerable.Range(1, 90).Average(m => Spielsituation.Torfaktor(Spielsituation.Ermuedung(m)));
-        double toreVerl       = Enumerable.Range(91, 30).Average(m => Spielsituation.Torfaktor(Spielsituation.Ermuedung(m)));
+        double toreRegulaer   = MittlererZeitfaktorRegulaer();
+        double toreVerl       = Enumerable.Range(97, 30).Average(m => Spielsituation.Zeitfaktor(m - 6, false, Spielsituation.Ermuedung(m)));
 
         kartenRegulaer.Should().BeApproximately(1.0, 0.02, "im Mittel der regulären Spielzeit bleibt die Kartenrate gleich");
         toreRegulaer.Should().BeApproximately(1.0, 0.02, "die Kalibrierung aus #404 bezieht sich auf die reguläre Spielzeit");
@@ -205,10 +251,30 @@ public class SpielsituationTests
         toreVerl.Should().BeInRange(toreRegulaer * 0.8, toreRegulaer * 0.95);
     }
 
-    [Fact]
-    public void Torfaktor_NieUnterSiebzigProzent()
+    /// <summary>Mittel über 90 Minuten und die mittlere Nachspielzeit (2 und 4 Minuten).</summary>
+    private static double MittlererZeitfaktorRegulaer()
     {
-        Spielsituation.Torfaktor(Spielsituation.Ermuedung(200)).Should().Be(0.7);
+        var faktoren = Enumerable.Range(1, 90).Select(m => Spielsituation.Zeitfaktor(m, false, 0))
+            .Concat(Enumerable.Repeat(Spielsituation.Zeitfaktor(45, true, 0), 2))
+            .Concat(Enumerable.Repeat(Spielsituation.Zeitfaktor(90, true, 1), 4));
+        return faktoren.Average();
+    }
+
+    [Fact]
+    public void Zeitfaktor_ErsteViertelstundeAmRuhigstenSchlussphaseAmStaerksten()
+    {
+        double ersteViertelstunde = Spielsituation.Zeitfaktor(1, false, 0);
+        double schlussphase       = Spielsituation.Zeitfaktor(80, false, 0.9);
+        var uebrige = Enumerable.Range(16, 60).Select(m => Spielsituation.Zeitfaktor(m, false, 0)).ToList();
+
+        uebrige.Should().OnlyContain(f => f > ersteViertelstunde && f < schlussphase);
+        Spielsituation.Zeitfaktor(90, true, 1).Should().BeGreaterThan(schlussphase, "in der Nachspielzeit fallen real die meisten Tore je Minute");
+    }
+
+    [Fact]
+    public void Zeitfaktor_VerlaengerungNieUnterSiebzigProzent()
+    {
+        Spielsituation.Zeitfaktor(120, false, Spielsituation.Ermuedung(200)).Should().Be(0.7);
     }
 
     // ── Anzeige der Spielminute (K7) ──────────────────────────────────────

@@ -31,21 +31,16 @@ internal static class Torbeschreibung
         "unten links", "unten Mitte", "unten rechts"
     ];
 
-    // #361: Anteil der Tore gegen ein Team mit Brechstange, die ins leere Tor gehen – der Teil der Torerwartung,
-    // den die Brechstange gegenüber einer neutralen Abwehr hinzufügt.
-    private static readonly double _leeresTorAnteil = 1 - 1 / Spielsituation.AngriffDesGegners(Risikostufe.Brechstange);
-
     public const string LEERES_TOR = "Tor ins leere Tor";
 
-    /// <summary>Text eines Tors; steht der Torhüter des Gegners mit vorn, geht ein Teil der Tore ins leere Tor.</summary>
-    public static string Zufaellig(Random rng, bool gegnerMitBrechstange, Chancenart art)
+    /// <summary>Text eines Tors. Ob es ins leere Tor geht, entscheidet seit #431 die Verwertung im
+    /// <see cref="Spielablauf"/>.</summary>
+    public static string Zufaellig(Random rng, bool insLeereTor, Chancenart art)
     {
         if (art == Chancenart.Elfmeter)
             return $"Tor per Elfmeter ({Torzone(rng)})";
 
-        return gegnerMitBrechstange && rng.NextDouble() < _leeresTorAnteil
-            ? LEERES_TOR
-            : Torstil(rng);
+        return insLeereTor ? LEERES_TOR : Torstil(rng);
     }
 
     private static string Torstil(Random rng)

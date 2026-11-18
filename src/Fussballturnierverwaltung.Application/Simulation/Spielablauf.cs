@@ -154,9 +154,10 @@ internal sealed class Spielablauf
     {
         _gespielteMinuten++;
         double ermuedung = Spielsituation.Ermuedung(_gespielteMinuten);
+        double zeitfaktor = Spielsituation.Zeitfaktor(minute, nachspielminute != null, ermuedung);
         TaktikAnpassen(minute, nachspielminute, verbleibend, nachTor: false);
 
-        for (int chance = 0; chance < MAX_CHANCEN_JE_MINUTE && ChanceEntsteht(ermuedung, out bool heimAngriff); chance++)
+        for (int chance = 0; chance < MAX_CHANCEN_JE_MINUTE && ChanceEntsteht(zeitfaktor, out bool heimAngriff); chance++)
         {
             if (ChanceSpielen(minute, nachspielminute, heimAngriff, goldenGoal))
             {
@@ -172,10 +173,10 @@ internal sealed class Spielablauf
     /// <summary>Erst, ob überhaupt eine Chance entsteht (gemeinsame Chancenrate beider Teams), dann wessen (Anteil an
     /// der Chancenrate). Die Wahrscheinlichkeit r / (1 + r) macht die erwartete Zahl Chancen der Schleife je Minute
     /// genau gleich r.</summary>
-    private bool ChanceEntsteht(double ermuedung, out bool heimAngriff)
+    private bool ChanceEntsteht(double zeitfaktor, out bool heimAngriff)
     {
-        double heim = _heimChancenJeMinute * Spielsituation.Angriffsfaktor(_heim, _gast, ermuedung);
-        double gast = _gastChancenJeMinute * Spielsituation.Angriffsfaktor(_gast, _heim, ermuedung);
+        double heim = _heimChancenJeMinute * Spielsituation.Angriffsfaktor(_heim, _gast, zeitfaktor);
+        double gast = _gastChancenJeMinute * Spielsituation.Angriffsfaktor(_gast, _heim, zeitfaktor);
         double gesamt = heim + gast;
         heimAngriff = false;
         if (_rng.NextDouble() >= gesamt / (1 + gesamt))
@@ -190,14 +191,14 @@ internal sealed class Spielablauf
     private bool ChanceSpielen(int minute, int? nachspielminute, bool heimAngriff, bool goldenGoal)
     {
         var art = Chancenmodell.Art(_rng.NextDouble());
-        double verwertung = heimAngriff ? _heimVerwertung : _gastVerwertung;
-        verwertung *= heimAngriff
-            ? Spielsituation.Verwertungsfaktor(_heim, _gast)
-            : Spielsituation.Verwertungsfaktor(_gast, _heim);
+        var (angreifer, verteidiger) = heimAngriff ? (_heim, _gast) : (_gast, _heim);
+        double verwertung = (heimAngriff ? _heimVerwertung : _gastVerwertung)
+                            * Spielsituation.Verwertungsfaktor(angreifer, verteidiger);
 
-        if (_rng.NextDouble() < Chancenmodell.Quote(art, verwertung))
+        double wurf = _rng.NextDouble();
+        if (wurf < Chancenmodell.Quote(art, verwertung))
         {
-            TorErzielen(minute, nachspielminute, heimAngriff, goldenGoal, art);
+            TorErzielen(minute, nachspielminute, heimAngriff, goldenGoal, art, InsLeereTor(art, verwertung, verteidiger, wurf));
             return true;
         }
 
@@ -206,13 +207,26 @@ internal sealed class Spielablauf
         return false;
     }
 
+    /// <summary>Steht der Torhüter des Verteidigers mit vorn, geht ins leere Tor, was nur dessen offene Abwehr zum Tor
+    /// macht: der Teil der Quote, den sie gegenüber einer geordneten Abwehr hinzufügt (bis #431 ein fester Anteil in der
+    /// <see cref="Torbeschreibung"/>). Ein Elfmeter hängt nicht von der Abwehr ab.</summary>
+    private static bool InsLeereTor(Chancenart art, double verwertung, Teamzustand verteidiger, double wurf)
+    {
+        if (verteidiger.Stufe != Risikostufe.Brechstange)
+            return false;
+        double ohneOffeneAbwehr = verwertung / Spielsituation.GueteDesGegners(verteidiger.Position);
+        return wurf >= Chancenmodell.Quote(art, ohneOffeneAbwehr);
+    }
+
     private void ChanceVergeben(int minute, int? nachspielminute, bool heimAngriff, Chancenart art)
     {
         string[] texte = art == Chancenart.Elfmeter ? _elfmeterVergeben : _grosschanceVergeben;
         _ereignisse.Add(new(minute, EreignisArt.Grosschance, heimAngriff, texte[_rng.Next(texte.Length)], nachspielminute, art));
     }
 
-    private void TorErzielen(int minute, int? nachspielminute, bool heimTrifft, bool goldenGoal, Chancenart art)
+#pragma warning disable S107 // Zeitpunkt, Team und die Angaben zur Chance, aus der das Tor fällt
+    private void TorErzielen(int minute, int? nachspielminute, bool heimTrifft, bool goldenGoal, Chancenart art, bool insLeereTor)
+#pragma warning restore S107
     {
         if (heimTrifft) _heimTore++;
         else _gastTore++;
@@ -223,8 +237,7 @@ internal sealed class Spielablauf
             return;
         }
 
-        var gegner = heimTrifft ? _gast : _heim;
-        string text = Torbeschreibung.Zufaellig(_rng, gegner.Stufe == Risikostufe.Brechstange, art);
+        string text = Torbeschreibung.Zufaellig(_rng, insLeereTor, art);
         _ereignisse.Add(new(minute, EreignisArt.Tor, heimTrifft, text, nachspielminute, art));
     }
 

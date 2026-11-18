@@ -95,12 +95,6 @@ public static class Spielsituation
     /// in der Verlängerung weiter steigend. In #361 für alle Mannschaften gleich.</summary>
     public static double Ermuedung(int gespielteMinuten) => gespielteMinuten / 90.0;
 
-    /// <summary>Wirkung der Ermüdung auf die Torerwartung: in der regulären Spielzeit überwiegen die Fehler (mehr
-    /// Tore gegen Ende, im Mittel 1,0), in der Verlängerung die nachlassende Genauigkeit (leicht weniger Tore).</summary>
-    public static double Torfaktor(double ermuedung) => ermuedung <= 1
-        ? 0.95 + 0.1 * ermuedung
-        : Math.Max(0.7, 1.05 - 0.9 * (ermuedung - 1));
-
     /// <summary>Wirkung der Ermüdung auf die Kartenrate: steigt mit der Fehlerquote, im Mittel der regulären
     /// Spielzeit 1,0.</summary>
     public static double Kartenfaktor(double ermuedung) => 0.5 + ermuedung;
@@ -122,21 +116,65 @@ public static class Spielsituation
         _  => 1
     };
 
+    // ── Zeitprofil ────────────────────────────────────────────────────────
+
+    // Faktor auf die Chancenrate je Viertelstunde der regulären Spielzeit und in der Nachspielzeit (#431, Schritt 4).
+    // Real fallen in der ersten Viertelstunde die wenigsten Tore, gegen Ende jeder Halbzeit mehr (Länderspiele ab 2010:
+    // 12,3 / 14,2 / 17,2 / 16,4 / 16,5 / 23,4 %, letzte Viertelstunde inklusive Nachspielzeit). Die Werte gleichen
+    // aus, was die Risikoachse schon von sich aus an späten Toren erzeugt; kalibriert an
+    // SimulationsRealismusTests.Torminuten_ZeitprofilDerTore (Messreihe in #431). Ersetzt den linearen Torfaktor.
+    private static readonly double[] _zeitprofil = [0.815, 0.955, 1.01, 1.05, 1.03, 1.065];
+    private const double NACHSPIELZEIT_ERSTE_HALBZEIT  = 1.0;
+    private const double NACHSPIELZEIT_ZWEITE_HALBZEIT = 1.3;
+    private const int ENDE_REGULAER = 90;
+
+    /// <summary>Faktor auf die Chancenrate nach dem Zeitpunkt: in der regulären Spielzeit das Zeitprofil der
+    /// Spielphase (im Mittel über die Spielzeit samt Nachspielzeit etwa 1, die Kalibrierung aus #404 bezieht sich auf
+    /// die reguläre Spielzeit), in der Verlängerung die nachlassende Genauigkeit nach der Ermüdung (leicht weniger
+    /// Tore, nie unter 70 %).</summary>
+    /// <param name="minute">Spielminute; in der Nachspielzeit die letzte Minute der Halbzeit (45, 90, …).</param>
+    public static double Zeitfaktor(int minute, bool nachspielzeit, double ermuedung)
+    {
+        if (minute > ENDE_REGULAER)
+            return Math.Max(0.7, 1.05 - 0.9 * (ermuedung - 1));
+        if (nachspielzeit)
+            return minute <= ENDE_REGULAER / 2 ? NACHSPIELZEIT_ERSTE_HALBZEIT : NACHSPIELZEIT_ZWEITE_HALBZEIT;
+        return _zeitprofil[(minute - 1) / 15];
+    }
+
+    // ── Menge und Güte der Chancen ────────────────────────────────────────
+    // Die Risikoachse bestimmt, wie stark sich die Torerwartung verschiebt (EigenerAngriff, AngriffDesGegners); seit
+    // #431 (Schritt 4) wirkt das getrennt auf Menge und Güte, das Produkt bleibt die Torerwartung. Wer mehr riskiert,
+    // erspielt mehr, aber schlechtere Chancen (Flanken und Fernschüsse gegen eine tiefe Abwehr): die Chancenrate
+    // steigt mit E², die Quote fällt mit 1/E. Wer mauert, hat wenige, aber gute Chancen (Konter). Gegen ein Team, das
+    // aufmacht, steigen Menge und Güte je zur Hälfte (Konter in offene Räume, bei der Brechstange das leere Tor).
+
+    /// <summary>Exponent der eigenen Risikowirkung auf die Güte: Chancenrate E^(1+x), Quote E^(−x).</summary>
+    public const double GUETE_EIGENER_ANGRIFF = 1.0;
+    /// <summary>Anteil der Wirkung auf den Gegner, der auf dessen Güte geht: Chancenrate G^(1−x), Quote G^x.</summary>
+    public const double GUETE_ANGRIFF_DES_GEGNERS = 0.5;
+
+    /// <summary>Faktor auf die Quote der eigenen Chancen nach der eigenen Position auf der Risikoachse.</summary>
+    public static double EigeneGuete(double position) => Math.Pow(EigenerAngriff(position), -GUETE_EIGENER_ANGRIFF);
+
+    /// <summary>Faktor auf die Quote des Gegners nach der eigenen Position auf der Risikoachse.</summary>
+    public static double GueteDesGegners(double position) => Math.Pow(AngriffDesGegners(position), GUETE_ANGRIFF_DES_GEGNERS);
+
     // ── Zusammengefasst ───────────────────────────────────────────────────
 
-    /// <summary>Faktor auf die Verwertungsquote des Angreifers (#431). Vorläufig 1: Spielstand und Risikoachse wirken
-    /// noch ganz auf die Chancenrate; die Aufteilung auf die Güte folgt in der Kalibrierung.</summary>
-#pragma warning disable S1172 // die Teams brauchen erst die Kalibrierung (Schritt 4 zu #431)
-    public static double Verwertungsfaktor(Teamzustand angreifer, Teamzustand verteidiger) => 1.0;
-#pragma warning restore S1172
+    /// <summary>Faktor auf die Verwertungsquote des Angreifers (#431): eigene Risikostufe und die des Verteidigers.
+    /// Mit <see cref="Angriffsfaktor"/> multipliziert ergibt er die Wirkung der Risikoachse auf die Torerwartung.</summary>
+    public static double Verwertungsfaktor(Teamzustand angreifer, Teamzustand verteidiger)
+        => EigeneGuete(angreifer.Position) * GueteDesGegners(verteidiger.Position);
 
     /// <summary>Faktor auf die Chancenrate des Angreifers in einer Minute (bis #431: auf die Torerwartung).</summary>
-    public static double Angriffsfaktor(Teamzustand angreifer, Teamzustand verteidiger, double ermuedung)
-        => EigenerAngriff(angreifer.Position)
-           * AngriffDesGegners(verteidiger.Position)
+    /// <param name="zeitfaktor">Wirkung des Zeitpunkts, aus <see cref="Zeitfaktor"/>.</param>
+    public static double Angriffsfaktor(Teamzustand angreifer, Teamzustand verteidiger, double zeitfaktor)
+        => EigenerAngriff(angreifer.Position) / EigeneGuete(angreifer.Position)
+           * AngriffDesGegners(verteidiger.Position) / GueteDesGegners(verteidiger.Position)
            * Math.Pow(UNTERZAHL_EIGENER_ANGRIFF, angreifer.Platzverweise)
            * Math.Pow(UNTERZAHL_ANGRIFF_GEGNER, verteidiger.Platzverweise)
-           * Torfaktor(ermuedung);
+           * zeitfaktor;
 
     /// <summary>Text des Ereignisses <c>Taktikwechsel</c> beim Wechsel in diese Stufe. Gemauert wird seit #673 auch
     /// bei Gleichstand (in Unterzahl).</summary>
