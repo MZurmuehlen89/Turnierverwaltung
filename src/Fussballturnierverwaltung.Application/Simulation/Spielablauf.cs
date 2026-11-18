@@ -161,7 +161,10 @@ internal sealed class Spielablauf
         double zeitfaktor = Spielsituation.Zeitfaktor(minute, nachspielminute != null, ermuedung);
         TaktikAnpassen(minute, nachspielminute, verbleibend, nachTor: false);
 
-        for (int chance = 0; chance < MAX_CHANCEN_JE_MINUTE && ChanceEntsteht(zeitfaktor, minute > ENDE_REGULAER, out bool heimAngriff); chance++)
+        double heimRueckstand = Spielsituation.Konditionsrueckstand(ermuedung, _profile.Heim.Ermuedungsfaktor);
+        double gastRueckstand = Spielsituation.Konditionsrueckstand(ermuedung, _profile.Gast.Ermuedungsfaktor);
+
+        for (int chance = 0; chance < MAX_CHANCEN_JE_MINUTE && ChanceEntsteht(zeitfaktor, minute > ENDE_REGULAER, heimRueckstand, gastRueckstand, out bool heimAngriff); chance++)
         {
             if (ChanceSpielen(minute, nachspielminute, heimAngriff, goldenGoal))
             {
@@ -184,13 +187,15 @@ internal sealed class Spielablauf
     /// der Chancenrate). Die Wahrscheinlichkeit r / (1 + r) macht die erwartete Zahl Chancen der Schleife je Minute
     /// genau gleich r. Spielstand und Spielkontrolle (#674) wirken auf die Menge, nicht auf die Güte der Chancen; der
     /// Spielstand zählt wie bei der Taktik im Rückspiel samt Hinspiel.</summary>
-    private bool ChanceEntsteht(double zeitfaktor, bool verlaengerung, out bool heimAngriff)
+    private bool ChanceEntsteht(double zeitfaktor, bool verlaengerung, double heimRueckstand, double gastRueckstand, out bool heimAngriff)
     {
         bool toreGefallen = _heimTore + _gastTore + _hinspielstand.ToreHeim + _hinspielstand.ToreGast > 0;
         double spielstand = Spielsituation.Spielstandfaktor(
             _hinspielstand.VorsprungDesHeimteams(_heimTore, _gastTore), toreGefallen, verlaengerung);
-        double heim = _heimChancenJeMinute * Spielsituation.Angriffsfaktor(_heim, _gast, zeitfaktor) * spielstand * Kontrolle.HeimFaktor;
-        double gast = _gastChancenJeMinute * Spielsituation.Angriffsfaktor(_gast, _heim, zeitfaktor) * spielstand * Kontrolle.GastFaktor;
+        double heim = _heimChancenJeMinute * Spielsituation.Angriffsfaktor(_heim, _gast, zeitfaktor) * spielstand * Kontrolle.HeimFaktor
+                      * Spielsituation.Konditionsfaktor(heimRueckstand, gastRueckstand);
+        double gast = _gastChancenJeMinute * Spielsituation.Angriffsfaktor(_gast, _heim, zeitfaktor) * spielstand * Kontrolle.GastFaktor
+                      * Spielsituation.Konditionsfaktor(gastRueckstand, heimRueckstand);
         double gesamt = heim + gast;
         heimAngriff = false;
         if (_rng.NextDouble() >= gesamt / (1 + gesamt))
@@ -291,12 +296,13 @@ internal sealed class Spielablauf
     /// der Folgeminute, weil die Tore dieser Minute schon gefallen sind.</summary>
     private void KartenZiehen(int minute, int? nachspielminute, double ermuedung)
     {
-        double faktor = Spielsituation.Kartenfaktor(ermuedung) * KARTEN_KORREKTUR;
+        double heimFaktor = Spielsituation.Kartenfaktor(ermuedung * _profile.Heim.Ermuedungsfaktor) * KARTEN_KORREKTUR;
+        double gastFaktor = Spielsituation.Kartenfaktor(ermuedung * _profile.Gast.Ermuedungsfaktor) * KARTEN_KORREKTUR;
         // Wie bei der Taktik zählt der Gesamtstand inklusive Hinspiel: Wer im Rückspiel aggregiert knapp hinten liegt,
         // gerät ebenso unter Druck (die Kalibrierung #682 läuft ohne Hinspiel, dort ist es der reine Spielstand).
         int heimVorsprung = _hinspielstand.VorsprungDesHeimteams(_heimTore, _gastTore);
-        _heim = KartenDesTeams(_heim, istHeim: true, minute, nachspielminute, faktor, heimVorsprung);
-        _gast = KartenDesTeams(_gast, istHeim: false, minute, nachspielminute, faktor, -heimVorsprung);
+        _heim = KartenDesTeams(_heim, istHeim: true, minute, nachspielminute, heimFaktor, heimVorsprung);
+        _gast = KartenDesTeams(_gast, istHeim: false, minute, nachspielminute, gastFaktor, -heimVorsprung);
     }
 
     private Teamzustand KartenDesTeams(Teamzustand team, bool istHeim, int minute, int? nachspielminute, double faktor, int vorsprung)

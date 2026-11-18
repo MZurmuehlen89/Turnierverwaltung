@@ -136,6 +136,19 @@ public static class Spielsituation
     /// in der Verlängerung weiter steigend. In #361 für alle Mannschaften gleich.</summary>
     public static double Ermuedung(int gespielteMinuten) => gespielteMinuten / 90.0;
 
+    public const double KONDITION_EIGENER_ANGRIFF = 0.8; // A, kalibriert an KonditionWirkungTests
+    public const double KONDITION_ANGRIFF_GEGNER  = 1.0; // B, kalibriert an KonditionWirkungTests
+
+    /// <summary>Konditionsrückstand (#677): (k − 1) · max(0, Ermüdung − 0,5) – null bis zur Halbzeit und für „normal“,
+    /// danach (und in der Verlängerung weiter) positiv für schwache, negativ für starke Teams.</summary>
+    public static double Konditionsrueckstand(double ermuedung, double ermuedungsfaktor)
+        => (ermuedungsfaktor - 1) * Math.Max(0, ermuedung - 0.5);
+
+    /// <summary>Faktor auf die Chancenrate eines Teams durch die Kondition beider Teams (#677): der eigene Rückstand
+    /// mindert den Angriff, der des Gegners stärkt ihn (müde Abwehr wiegt schwerer, B &gt; A).</summary>
+    public static double Konditionsfaktor(double eigenerRueckstand, double rueckstandDesGegners)
+        => (1 - KONDITION_EIGENER_ANGRIFF * eigenerRueckstand) * (1 + KONDITION_ANGRIFF_GEGNER * rueckstandDesGegners);
+
     /// <summary>Wirkung der Ermüdung auf die Kartenrate: steigt mit der Fehlerquote, im Mittel der regulären
     /// Spielzeit 1,0.</summary>
     public static double Kartenfaktor(double ermuedung) => 0.5 + ermuedung;

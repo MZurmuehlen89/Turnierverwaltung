@@ -12,7 +12,8 @@ namespace Fussballturnierverwaltung.Application.Simulation;
 /// im Finale vorsichtiger, im Spiel um Platz 3 offener; bei „normal“ wie vor #668.
 /// </summary>
 public readonly record struct Teamprofil(
-    Grundausrichtung Grundausrichtung, Flexibilitaet Flexibilitaet, Spielbedeutung Spielbedeutung = Spielbedeutung.Normal)
+    Grundausrichtung Grundausrichtung, Flexibilitaet Flexibilitaet, Spielbedeutung Spielbedeutung = Spielbedeutung.Normal,
+    Kondition Kondition = Kondition.Normal)
 {
     public const int NORMALES_UMSTELLFENSTER = 8;
 
@@ -20,7 +21,7 @@ public readonly record struct Teamprofil(
     private const int    MINUTEN_JE_STUFE  = 5;   // Verschiebung der Umstellzeitpunkte je Stufe
 
     public static Teamprofil Von(Mannschaft mannschaft, Spielbedeutung spielbedeutung = Spielbedeutung.Normal)
-        => new(mannschaft.Grundausrichtung, mannschaft.Flexibilitaet, spielbedeutung);
+        => new(mannschaft.Grundausrichtung, mannschaft.Flexibilitaet, spielbedeutung, mannschaft.Kondition);
 
     /// <summary>Platz auf der Risikoachse in der gewohnten Ordnung: −1 (sehr defensiv) bis +1 (sehr offensiv), dazu die
     /// Verschiebung durch die Spielbedeutung.</summary>
@@ -36,8 +37,17 @@ public readonly record struct Teamprofil(
         _                     => 0
     };
 
-    /// <summary>Minuten, um die das Team im Rückstand früher drückt und in Führung später mauert (negativ: umgekehrt).</summary>
-    public int Offensivdrang => (int)Grundausrichtung * MINUTEN_JE_STUFE;
+    /// <summary>Minuten, um die das Team im Rückstand früher drückt und in Führung später mauert (negativ: umgekehrt).
+    /// Eine konditionsschwache Mannschaft greift seltener an und mauert eher (#677): 5 Minuten weniger.</summary>
+    public int Offensivdrang => (int)Grundausrichtung * MINUTEN_JE_STUFE - (Kondition == Kondition.Schwach ? MINUTEN_JE_STUFE : 0);
+
+    /// <summary>Wie schnell das Team ermüdet (#677): schwach 1,15, normal 1, stark 0,85 – Faktor auf die Ermüdung.</summary>
+    public double Ermuedungsfaktor => Kondition switch
+    {
+        Kondition.Schwach => 1.15,
+        Kondition.Stark   => 0.85,
+        _                 => 1.0
+    };
 
     /// <summary>Minuten von der Schwelle bis zum sicheren Umstellen: starr 12, normal 8, flexibel 4.</summary>
     public int Umstellfenster => Flexibilitaet switch
