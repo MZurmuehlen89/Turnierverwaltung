@@ -200,15 +200,24 @@ public class SpielsituationTests
     // ── Spielstand (#674, K3) ─────────────────────────────────────────────
 
     [Theory]
-    [InlineData(0, 0, 1.0)]
-    [InlineData(1, 1, 0.80)]
-    [InlineData(2, 2, 0.80)]
-    [InlineData(1, 0, 0.96)]
-    [InlineData(0, 2, 0.96)]
-    [InlineData(3, 1, 0.96)]
-    public void Spielstandfaktor_NullNullUnveraendert_NachAusgleichRuhiger_SonstLeichtUnterEins(int heim, int gast, double faktor)
+    [InlineData(0, false, 1.0)]
+    [InlineData(0, true, 0.80)]
+    [InlineData(1, true, 0.96)]
+    [InlineData(-2, true, 0.96)]
+    public void Spielstandfaktor_OhneTorUnveraendert_NachAusgleichRuhiger_SonstLeichtUnterEins(int vorsprung, bool toreGefallen, double faktor)
     {
-        Spielsituation.Spielstandfaktor(heim, gast).Should().BeApproximately(faktor, 1e-9);
+        Spielsituation.Spielstandfaktor(vorsprung, toreGefallen, verlaengerung: false).Should().BeApproximately(faktor, 1e-9);
+    }
+
+    /// <summary>Review #674: Die Verlängerung folgt immer auf Gleichstand und ist eigens kalibriert – ohne Ausnahme
+    /// liefe sie nach 1:1 mit ×0,80, nach 0:0 oder als eigener Ablauf nach dem Rückspiel mit ×1.</summary>
+    [Theory]
+    [InlineData(0, true)]
+    [InlineData(1, true)]
+    [InlineData(0, false)]
+    public void Spielstandfaktor_InDerVerlaengerung_Eins(int vorsprung, bool toreGefallen)
+    {
+        Spielsituation.Spielstandfaktor(vorsprung, toreGefallen, verlaengerung: true).Should().Be(1);
     }
 
     [Theory]

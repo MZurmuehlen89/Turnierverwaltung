@@ -161,7 +161,7 @@ internal sealed class Spielablauf
         double zeitfaktor = Spielsituation.Zeitfaktor(minute, nachspielminute != null, ermuedung);
         TaktikAnpassen(minute, nachspielminute, verbleibend, nachTor: false);
 
-        for (int chance = 0; chance < MAX_CHANCEN_JE_MINUTE && ChanceEntsteht(zeitfaktor, out bool heimAngriff); chance++)
+        for (int chance = 0; chance < MAX_CHANCEN_JE_MINUTE && ChanceEntsteht(zeitfaktor, minute > ENDE_REGULAER, out bool heimAngriff); chance++)
         {
             if (ChanceSpielen(minute, nachspielminute, heimAngriff, goldenGoal))
             {
@@ -182,10 +182,13 @@ internal sealed class Spielablauf
 
     /// <summary>Erst, ob überhaupt eine Chance entsteht (gemeinsame Chancenrate beider Teams), dann wessen (Anteil an
     /// der Chancenrate). Die Wahrscheinlichkeit r / (1 + r) macht die erwartete Zahl Chancen der Schleife je Minute
-    /// genau gleich r. Spielstand und Spielkontrolle (#674) wirken auf die Menge, nicht auf die Güte der Chancen.</summary>
-    private bool ChanceEntsteht(double zeitfaktor, out bool heimAngriff)
+    /// genau gleich r. Spielstand und Spielkontrolle (#674) wirken auf die Menge, nicht auf die Güte der Chancen; der
+    /// Spielstand zählt wie bei der Taktik im Rückspiel samt Hinspiel.</summary>
+    private bool ChanceEntsteht(double zeitfaktor, bool verlaengerung, out bool heimAngriff)
     {
-        double spielstand = Spielsituation.Spielstandfaktor(_heimTore, _gastTore);
+        bool toreGefallen = _heimTore + _gastTore + _hinspielstand.ToreHeim + _hinspielstand.ToreGast > 0;
+        double spielstand = Spielsituation.Spielstandfaktor(
+            _hinspielstand.VorsprungDesHeimteams(_heimTore, _gastTore), toreGefallen, verlaengerung);
         double heim = _heimChancenJeMinute * Spielsituation.Angriffsfaktor(_heim, _gast, zeitfaktor) * spielstand * Kontrolle.HeimFaktor;
         double gast = _gastChancenJeMinute * Spielsituation.Angriffsfaktor(_gast, _heim, zeitfaktor) * spielstand * Kontrolle.GastFaktor;
         double gesamt = heim + gast;

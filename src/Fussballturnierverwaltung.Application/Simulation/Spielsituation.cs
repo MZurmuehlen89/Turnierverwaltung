@@ -102,20 +102,28 @@ public static class Spielsituation
     // die Stufen wie die Achse und senkten auch den Angriff des Gegners – das fror ein 1:0 ein, real wird eine knappe
     // Führung öfter ausgeglichen (1:0 + 0:1 12,1 %, Dixon-Coles ρ −0,14). Zielwerte für ein Team genau auf der Stufe;
     // kalibriert an SimulationsRealismusTests, Messreihe in #674. Die Haltung (Grundausrichtung, Spielbedeutung) bleibt
-    // auf der Achse: ein defensiv ausgerichtetes Team kassiert weiter weniger (#667, #668).
+    // auf der Achse: ein defensiv ausgerichtetes Team kassiert weiter weniger (#667, #668). Bewusst auch beim Mauern in
+    // Unterzahl: Wer sich zu zehnt hinten reinstellt, lädt ebenso Druck ein (Überzahl-Kennzahl im Band, Review #674).
     private const double DEFENSIV_EIGENER = 0.95;
     private const double DEFENSIV_GEGNER  = 1.05;
     private const double MAUERN_EIGENER   = 0.90;
     private const double MAUERN_GEGNER    = 1.10;
 
+    // Einmal berechnet – der Rückzug wird je Minute und Chance gebraucht. Steht hinter den Achsenwerten, die er liest.
+    private static readonly (double Eigener, double Gegner) _rueckzugDefensiv = RueckzugAufDerStufe(Risikostufe.Defensiv, DEFENSIV_EIGENER, DEFENSIV_GEGNER);
+    private static readonly (double Eigener, double Gegner) _rueckzugMauern   = RueckzugAufDerStufe(Risikostufe.Mauern, MAUERN_EIGENER, MAUERN_GEGNER);
+
     /// <summary>Faktoren des Rückzugs auf den eigenen Angriff und den des Gegners – zusätzlich zur Achse, sodass ein
     /// Team genau auf der Stufe die Zielwerte erreicht; auf allen anderen Stufen 1.</summary>
     public static (double Eigener, double Gegner) Rueckzug(Risikostufe stufe) => stufe switch
     {
-        Risikostufe.Defensiv => (DEFENSIV_EIGENER / EigenerAngriff(Position(stufe)), DEFENSIV_GEGNER / AngriffDesGegners(Position(stufe))),
-        Risikostufe.Mauern   => (MAUERN_EIGENER / EigenerAngriff(Position(stufe)), MAUERN_GEGNER / AngriffDesGegners(Position(stufe))),
+        Risikostufe.Defensiv => _rueckzugDefensiv,
+        Risikostufe.Mauern   => _rueckzugMauern,
         _                    => (1, 1)
     };
+
+    private static (double Eigener, double Gegner) RueckzugAufDerStufe(Risikostufe stufe, double eigener, double gegner)
+        => (eigener / EigenerAngriff(Position(stufe)), gegner / AngriffDesGegners(Position(stufe)));
 
     // ── Platzverweise ─────────────────────────────────────────────────────
 
@@ -157,12 +165,18 @@ public static class Spielsituation
     public const double NACH_AUSGLEICH = 0.80;
     public const double UNGLEICHSTAND  = 0.96;
 
-    /// <summary>Faktor auf die Chancenrate beider Teams nach dem Stand des laufenden Spiels: 1 bei 0:0,
-    /// <see cref="NACH_AUSGLEICH"/> bei Gleichstand nach Toren, sonst <see cref="UNGLEICHSTAND"/>.</summary>
-    public static double Spielstandfaktor(int heimTore, int gastTore)
+    /// <summary>Faktor auf die Chancenrate beider Teams nach dem Stand: 1 ohne Tor, <see cref="NACH_AUSGLEICH"/> bei
+    /// Gleichstand nach Toren, sonst <see cref="UNGLEICHSTAND"/>. In der Verlängerung 1 – sie folgt immer auf
+    /// Gleichstand und hat ihre eigene Kalibrierung (Zeitfaktor); kalibriert ist der Faktor nur an der regulären
+    /// Spielzeit (Review #674).</summary>
+    /// <param name="vorsprung">Maßgeblicher Vorsprung, im Rückspiel nach dem Gesamtstand (wie die Taktik, #671).</param>
+    /// <param name="toreGefallen">Ob im Spiel – im Rückspiel samt Hinspiel – schon ein Tor gefallen ist.</param>
+    /// <param name="verlaengerung">Ob die Minute zur Verlängerung gehört.</param>
+    public static double Spielstandfaktor(int vorsprung, bool toreGefallen, bool verlaengerung)
     {
-        if (heimTore != gastTore) return UNGLEICHSTAND;
-        return heimTore == 0 ? 1 : NACH_AUSGLEICH;
+        if (verlaengerung) return 1;
+        if (vorsprung != 0) return UNGLEICHSTAND;
+        return toreGefallen ? NACH_AUSGLEICH : 1;
     }
 
     // ── Zeitprofil ────────────────────────────────────────────────────────

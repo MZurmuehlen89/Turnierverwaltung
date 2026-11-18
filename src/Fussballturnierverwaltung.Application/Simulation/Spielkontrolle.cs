@@ -3,7 +3,10 @@ namespace Fussballturnierverwaltung.Application.Simulation;
 /// <summary>
 /// Verborgener, zeitlich zusammenhängender Zustand eines Spiels (#674): Phasen, in denen ein Team das Spiel bestimmt,
 /// ohne dass es sich in Toren zeigen muss. Der Stand z schwankt Minute für Minute (z' = ρ·z + ε, abklingend) und
-/// verschiebt die Chancenrate – Heim ×e^z, Gast ×e^−z, normiert, sodass sie im Mittel gleich bleibt.
+/// verschiebt die Chancenrate – Heim ×e^z, Gast ×e^−z, normiert, sodass sie im eingeschwungenen Zustand im Mittel
+/// gleich bleibt. Beim Anpfiff steht z auf 0; in den ersten Minuten liegt der Faktor deshalb im Mittel knapp unter 1
+/// (Minute 1 ≈ 0,96, über 90 Minuten knapp 1 % weniger Chancen) – das gleicht ABLAUF_KORREKTUR im Spielablauf mit aus,
+/// beides ist zusammen an der Realismus-Stichprobe kalibriert (Review #674).
 /// <para>Bewusst <b>ohne</b> Bezug zu Toren (kein Momentum): Eine Kopplung „ein Tor stärkt den Torschützen“ wurde in #674
 /// gemessen und verschlechtert die Realismus-Kennzahlen (zu viele Kantersiege, 1:0 bleibt öfter stehen). Ebenso ohne
 /// Bezug zu Stärke, Form oder Spielstand – Tagesform (#679) verschiebt die Stärke eines ganzen Spiels, Nervenstärke
