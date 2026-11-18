@@ -61,4 +61,13 @@ public class DixonColesTests
         DixonColes.VerhaeltnisZuUnabhaengig(spiele, 0, 0)
             .Should().BeApproximately(2 / (4 * Math.Exp(-2)), 1e-9);
     }
+
+    [Fact]
+    public void VerhaeltnisZuUnabhaengig_MehrereErgebnisseZusammen()
+    {
+        // beobachtet 1:0 einmal + 0:1 einmal = 2; erwartet 4 · (e^-2 + e^-2)
+        var spiele = new List<(double, double, int, int)> { (1, 1, 1, 0), (1, 1, 0, 1), (1, 1, 0, 0), (1, 1, 2, 2) };
+        DixonColes.VerhaeltnisZuUnabhaengig(spiele, [(1, 0), (0, 1)])
+            .Should().BeApproximately(2 / (4 * 2 * Math.Exp(-2)), 1e-9);
+    }
 }

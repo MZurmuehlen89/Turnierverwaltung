@@ -41,10 +41,15 @@ internal static class DixonColes
 
     /// <summary>Beobachtete Anzahl des Ergebnisses x:y geteilt durch die Anzahl, die unabhängige Poisson-Ziehungen erwarten ließen.</summary>
     public static double VerhaeltnisZuUnabhaengig(
-        IReadOnlyList<(double Lambda, double Mu, int Heim, int Gast)> spiele, int x, int y)
+        IReadOnlyList<(double Lambda, double Mu, int Heim, int Gast)> spiele, int x, int y) =>
+        VerhaeltnisZuUnabhaengig(spiele, [(x, y)]);
+
+    /// <summary>Wie oben für mehrere Ergebnisse zusammen (Summe beobachtet durch Summe erwartet).</summary>
+    public static double VerhaeltnisZuUnabhaengig(
+        IReadOnlyList<(double Lambda, double Mu, int Heim, int Gast)> spiele, IReadOnlyList<(int X, int Y)> ergebnisse)
     {
-        int beobachtet = spiele.Count(s => s.Heim == x && s.Gast == y);
-        double erwartet = spiele.Sum(s => Poisson(x, s.Lambda) * Poisson(y, s.Mu));
+        int beobachtet = spiele.Count(s => ergebnisse.Contains((s.Heim, s.Gast)));
+        double erwartet = spiele.Sum(s => ergebnisse.Sum(e => Poisson(e.X, s.Lambda) * Poisson(e.Y, s.Mu)));
         return beobachtet / erwartet;
     }
 }

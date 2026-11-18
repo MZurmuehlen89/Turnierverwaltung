@@ -85,6 +85,18 @@ public class RealismusauswertungTests
         Realismusauswertung.RoteKarten(spiel).Should().Be((1, 1));
     }
 
+    [Theory]
+    [InlineData(0.30, 0.30)] // links außerhalb: Randwert
+    [InlineData(0.40, 0.30)] // Stützstelle
+    [InlineData(0.45, 0.25)] // Mitte zwischen 0,40 und 0,50
+    [InlineData(0.55, 0.15)] // Mitte zwischen 0,50 und 0,60
+    [InlineData(0.90, 0.10)] // rechts außerhalb: Randwert
+    public void Interpolieren_LinearZwischenStuetzstellenRandwertAussen(double x, double erwartet)
+    {
+        (double, double)[] stuetzstellen = [(0.40, 0.30), (0.50, 0.20), (0.60, 0.10)];
+        Realismusauswertung.Interpolieren(stuetzstellen, x).Should().BeApproximately(erwartet, 1e-12);
+    }
+
     [Fact]
     public void Anteil_ZaehltErfuellteBedingung()
     {

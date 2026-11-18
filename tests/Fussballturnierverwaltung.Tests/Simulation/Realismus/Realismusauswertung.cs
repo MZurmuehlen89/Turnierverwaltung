@@ -81,6 +81,19 @@ internal static class Realismusauswertung
         return (rote.Count(e => e.IstHeim), rote.Count(e => !e.IstHeim));
     }
 
+    /// <summary>Stückweise lineare Interpolation über die nach x aufsteigenden Stützstellen; außerhalb gilt der Randwert.</summary>
+    public static double Interpolieren(IReadOnlyList<(double X, double Y)> stuetzstellen, double x)
+    {
+        if (x <= stuetzstellen[0].X) return stuetzstellen[0].Y;
+        for (int i = 1; i < stuetzstellen.Count; i++)
+        {
+            var (x0, y0) = stuetzstellen[i - 1];
+            var (x1, y1) = stuetzstellen[i];
+            if (x <= x1) return y0 + (y1 - y0) * (x - x0) / (x1 - x0);
+        }
+        return stuetzstellen[^1].Y;
+    }
+
     private static IEnumerable<SimuliertesEreignis> RegulaereTore(IEnumerable<SimuliertesSpiel> spiele) =>
         spiele.SelectMany(s => s.Ergebnis.Ereignisse).Where(e => e.Art == EreignisArt.Tor && e.Minute <= ENDE_REGULAER);
 }
