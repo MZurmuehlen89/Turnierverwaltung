@@ -39,6 +39,65 @@ public sealed class SpielberichtTests(TurnierverwaltungApp app) : IClassFixture<
         ErgebnisImSpielplan(turnier, erstes).Should().Be(ausfuehrlich.Kopf.Tore, "Ansehen simuliert nicht neu");
     }
 
+    // ── Großchancen (#431, K8, K10) ───────────────────────────────────────
+
+    /// <summary>Ausführlich simulierte Spiele zeigen vergebene Großchancen als Zeile „Großchance“ im Spielbericht, ohne den
+    /// Stand zu verändern (<see cref="BerichtStimmig"/>), und die Statistik „Großchancen“ passt zu den Toren: je Mannschaft
+    /// höchstens so viele Tore aus Großchancen wie Tore überhaupt, höchstens so viele vergebene Elfmeter wie Großchancen.
+    /// Gesucht wird das erste der Spiele, dessen Bericht eine Großchance enthält (der Zufall ist über Zufall:Seed fest);
+    /// gespielt werden höchstens <see cref="MAX_SPIELE_BIS_GROSSCHANCE"/>. Nicht gezielt geprüft: ein Elfmeter im Spiel
+    /// (0,3 je Spiel, kommt selten vor) – dafür stehen die Unit-Tests in <c>SpielablaufTests</c>.</summary>
+    [Fact]
+    public void Grosschance_StehtImSpielberichtUndPasstZurStatistik()
+    {
+        var (turnier, auslosung) = GruppenauslosungVorbereiten(app.Hauptfenster);
+        auslosung.Durchfuehren();
+        var spiele = AlleSpieleDerGruppenphase(turnier);
+
+        Spielbericht? mitGrosschance = null;
+        foreach (var spiel in spiele.Take(MAX_SPIELE_BIS_GROSSCHANCE))
+        {
+            var spielplan = turnier.Spielplan();
+            spielplan.RundeWaehlen(GRUPPENPHASE);
+            spielplan.SpielWaehlen(spiel.Heim, spiel.Auswaerts);
+            var bericht = turnier.AusfuehrlichSimulieren().BerichtAbwarten(spiel.Heim, spiel.Auswaerts);
+            BerichtStimmig(bericht, ErgebnisImSpielplan(turnier, spiel));
+            if (bericht.HeimEreignisse.Concat(bericht.AuswaertsEreignisse).Contains(GROSSCHANCE))
+            {
+                mitGrosschance = bericht;
+                break;
+            }
+        }
+
+        mitGrosschance.Should().NotBeNull($"unter den ersten {MAX_SPIELE_BIS_GROSSCHANCE} ausführlich simulierten Spielen " +
+                                          "ist eines mit vergebener Großchance (je Team rund 1,3 je Spiel)");
+
+        var statistik = turnier.Statistik();
+        var grosschancen = statistik.Tabelle("Großchancen");
+        var tore = statistik.Tabelle("Tore und Zu-Null").ToDictionary(z => z.Mannschaft);
+        grosschancen.Should().NotBeEmpty("ausführlich simulierte Spiele haben Chancendaten");
+        grosschancen.Should().OnlyContain(z => tore.ContainsKey(z.Mannschaft));
+        foreach (var zeile in grosschancen)
+        {
+            zeile.Zahl("Sp").Should().BeGreaterThan(0, "nur Spiele mit Chancendaten zählen – {0}", zeile.Mannschaft);
+            zeile.Zahl("Tore").Should().BeLessThanOrEqualTo(zeile.Zahl("GC"), "Tore aus Großchancen ≤ Großchancen – {0}", zeile.Mannschaft);
+            zeile.Zahl("Elf. vg.").Should().BeLessThanOrEqualTo(zeile.Zahl("GC"), "vergebene Elfmeter ≤ Großchancen – {0}", zeile.Mannschaft);
+            zeile.Zahl("Tore").Should().BeLessThanOrEqualTo(tore[zeile.Mannschaft].Zahl("Tore"),
+                "Tore aus Großchancen ≤ alle Tore – {0}", zeile.Mannschaft);
+        }
+        grosschancen.Sum(z => z.Zahl("GC")).Should().BeGreaterThan(0);
+    }
+
+    private const int MAX_SPIELE_BIS_GROSSCHANCE = 6;
+    private const string GROSSCHANCE = "Großchance";
+
+    private static IReadOnlyList<SpielZeile> AlleSpieleDerGruppenphase(TurnierdurchfuehrungSeite turnier)
+    {
+        var spielplan = turnier.Spielplan();
+        spielplan.RundeWaehlen(GRUPPENPHASE);
+        return spielplan.Spiele();
+    }
+
     public void Dispose() => app.BeiFehlschlagBelegeSichern();
 
     private static (int Heim, int Auswaerts)? ErgebnisImSpielplan(TurnierdurchfuehrungSeite turnier, SpielZeile spiel)
