@@ -8,16 +8,15 @@ namespace Fussballturnierverwaltung.Application.Simulation;
 /// (#404) bleibt damit gültig. Mittelfeld bestimmt die Menge, Offensiv die Verwertung, die gegnerische Defensive
 /// die Güte der zugelassenen Chancen.
 /// </summary>
-public readonly record struct Chancenprofil(double ChancenJe90, double Verwertung)
+public readonly record struct Chancenprofil(double Torerwartung, double Verwertung)
 {
     private const double MIN_VERWERTUNG = 0.75;
     private const double MAX_VERWERTUNG = 1.3;
 
+    public double ChancenJe90 => Torerwartung / Chancenmodell.MittlereQuote(Verwertung);
+
     public static Chancenprofil Aus(double torerwartung, Mannschaft angreifer, Mannschaft verteidiger)
-    {
-        var verwertung = Verwertungsfaktor(angreifer, verteidiger);
-        return new Chancenprofil(torerwartung / Chancenmodell.MittlereQuote(verwertung), verwertung);
-    }
+        => new(torerwartung, Verwertungsfaktor(angreifer, verteidiger));
 
     // q = (Off_A / Mf_A) · (Mf_V / Def_V)^0,5, begrenzt; Rating ≤ 0 ergibt den Faktor 1
     private static double Verwertungsfaktor(Mannschaft angreifer, Mannschaft verteidiger)

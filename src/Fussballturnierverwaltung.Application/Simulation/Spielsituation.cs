@@ -149,32 +149,39 @@ public static class Spielsituation
     // steigt mit E², die Quote fällt mit 1/E. Wer mauert, hat wenige, aber gute Chancen (Konter). Gegen ein Team, das
     // aufmacht, steigen Menge und Güte je zur Hälfte (Konter in offene Räume, bei der Brechstange das leere Tor).
 
-    /// <summary>Exponent der eigenen Risikowirkung auf die Güte: Chancenrate E^(1+x), Quote E^(−x).</summary>
-    public const double GUETE_EIGENER_ANGRIFF = 1.0;
-    /// <summary>Anteil der Wirkung auf den Gegner, der auf dessen Güte geht: Chancenrate G^(1−x), Quote G^x.</summary>
-    public const double GUETE_ANGRIFF_DES_GEGNERS = 0.5;
+    /// <summary>Faktor auf die Quote der eigenen Chancen nach der eigenen Position auf der Risikoachse: 1/E.</summary>
+    public static double EigeneGuete(double position) => 1 / EigenerAngriff(position);
 
-    /// <summary>Faktor auf die Quote der eigenen Chancen nach der eigenen Position auf der Risikoachse.</summary>
-    public static double EigeneGuete(double position) => Math.Pow(EigenerAngriff(position), -GUETE_EIGENER_ANGRIFF);
-
-    /// <summary>Faktor auf die Quote des Gegners nach der eigenen Position auf der Risikoachse.</summary>
-    public static double GueteDesGegners(double position) => Math.Pow(AngriffDesGegners(position), GUETE_ANGRIFF_DES_GEGNERS);
+    /// <summary>Faktor auf die Quote des Gegners nach der eigenen Position auf der Risikoachse: √G.</summary>
+    public static double GueteDesGegners(double position) => Math.Sqrt(AngriffDesGegners(position));
 
     // ── Zusammengefasst ───────────────────────────────────────────────────
 
-    /// <summary>Faktor auf die Verwertungsquote des Angreifers (#431): eigene Risikostufe und die des Verteidigers.
-    /// Mit <see cref="Angriffsfaktor"/> multipliziert ergibt er die Wirkung der Risikoachse auf die Torerwartung.</summary>
-    public static double Verwertungsfaktor(Teamzustand angreifer, Teamzustand verteidiger)
-        => EigeneGuete(angreifer.Position) * GueteDesGegners(verteidiger.Position);
+    /// <summary>Faktor auf die Verwertungsquote des Angreifers (#431), getrennt nach Herkunft: die eigene Risikostufe
+    /// und die des Verteidigers. Mit <see cref="Angriffsfaktor"/> multipliziert ergibt <see cref="Verwertung.Gesamt"/>
+    /// die Wirkung der Risikoachse auf die Torerwartung.</summary>
+    public static Verwertung Verwertungsfaktor(Teamzustand angreifer, Teamzustand verteidiger)
+        => new(EigeneGuete(angreifer.Position), GueteDesGegners(verteidiger.Position));
 
-    /// <summary>Faktor auf die Chancenrate des Angreifers in einer Minute (bis #431: auf die Torerwartung).</summary>
+    /// <param name="Eigene">Anteil der eigenen Risikostufe.</param>
+    /// <param name="DurchGegner">Anteil des Verteidigers: über 1, wenn er aufmacht (bei der Brechstange das leere Tor).</param>
+    public readonly record struct Verwertung(double Eigene, double DurchGegner)
+    {
+        public double Gesamt => Eigene * DurchGegner;
+    }
+
+    /// <summary>Faktor auf die Chancenrate des Angreifers in einer Minute (bis #431: auf die Torerwartung). Die Menge
+    /// ist die Wirkung geteilt durch die Güte: E / (1/E) = E² und G / √G = √G.</summary>
     /// <param name="zeitfaktor">Wirkung des Zeitpunkts, aus <see cref="Zeitfaktor"/>.</param>
     public static double Angriffsfaktor(Teamzustand angreifer, Teamzustand verteidiger, double zeitfaktor)
-        => EigenerAngriff(angreifer.Position) / EigeneGuete(angreifer.Position)
-           * AngriffDesGegners(verteidiger.Position) / GueteDesGegners(verteidiger.Position)
-           * Math.Pow(UNTERZAHL_EIGENER_ANGRIFF, angreifer.Platzverweise)
-           * Math.Pow(UNTERZAHL_ANGRIFF_GEGNER, verteidiger.Platzverweise)
-           * zeitfaktor;
+    {
+        double eigener = EigenerAngriff(angreifer.Position);
+        return eigener * eigener
+               * Math.Sqrt(AngriffDesGegners(verteidiger.Position))
+               * Math.Pow(UNTERZAHL_EIGENER_ANGRIFF, angreifer.Platzverweise)
+               * Math.Pow(UNTERZAHL_ANGRIFF_GEGNER, verteidiger.Platzverweise)
+               * zeitfaktor;
+    }
 
     /// <summary>Text des Ereignisses <c>Taktikwechsel</c> beim Wechsel in diese Stufe. Gemauert wird seit #673 auch
     /// bei Gleichstand (in Unterzahl).</summary>

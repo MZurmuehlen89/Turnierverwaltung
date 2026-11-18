@@ -11,7 +11,7 @@ public class SpielsituationTests
 
     /// <summary>Wirkung auf die Torerwartung des Angreifers: Chancenrate × Quote (seit #431 getrennt).</summary>
     private static double Torwirkung(Teamzustand angreifer, Teamzustand verteidiger)
-        => Spielsituation.Angriffsfaktor(angreifer, verteidiger, 1) * Spielsituation.Verwertungsfaktor(angreifer, verteidiger);
+        => Spielsituation.Angriffsfaktor(angreifer, verteidiger, 1) * Spielsituation.Verwertungsfaktor(angreifer, verteidiger).Gesamt;
 
     // ── Wirkung der Risikostufe (K3, K4) ───────────────────────────────────────────────────────────────────────────
 
@@ -61,7 +61,7 @@ public class SpielsituationTests
         var zurueckliegend = new Teamzustand(stufe, 0);
 
         Spielsituation.Angriffsfaktor(zurueckliegend, _neutral, 1).Should().BeGreaterThan(Spielsituation.Angriffsfaktor(_neutral, _neutral, 1));
-        Spielsituation.Verwertungsfaktor(zurueckliegend, _neutral).Should().BeLessThan(Spielsituation.Verwertungsfaktor(_neutral, _neutral));
+        Spielsituation.Verwertungsfaktor(zurueckliegend, _neutral).Gesamt.Should().BeLessThan(Spielsituation.Verwertungsfaktor(_neutral, _neutral).Gesamt);
     }
 
     [Fact]
@@ -70,8 +70,8 @@ public class SpielsituationTests
         var allesNachVorn = new Teamzustand(Risikostufe.AllesNachVorn, 0);
         var brechstange   = new Teamzustand(Risikostufe.Brechstange, 0);
 
-        Spielsituation.Verwertungsfaktor(_neutral, allesNachVorn).Should().BeGreaterThan(Spielsituation.Verwertungsfaktor(_neutral, _neutral));
-        Spielsituation.Verwertungsfaktor(_neutral, brechstange).Should().BeGreaterThan(Spielsituation.Verwertungsfaktor(_neutral, allesNachVorn));
+        Spielsituation.Verwertungsfaktor(_neutral, allesNachVorn).Gesamt.Should().BeGreaterThan(Spielsituation.Verwertungsfaktor(_neutral, _neutral).Gesamt);
+        Spielsituation.Verwertungsfaktor(_neutral, brechstange).Gesamt.Should().BeGreaterThan(Spielsituation.Verwertungsfaktor(_neutral, allesNachVorn).Gesamt);
     }
 
     [Fact]
@@ -80,7 +80,7 @@ public class SpielsituationTests
         var mauernd = new Teamzustand(Risikostufe.Mauern, 0);
 
         Spielsituation.Angriffsfaktor(mauernd, _neutral, 1).Should().BeLessThan(Spielsituation.Angriffsfaktor(_neutral, _neutral, 1));
-        Spielsituation.Verwertungsfaktor(mauernd, _neutral).Should().BeGreaterThan(1);
+        Spielsituation.Verwertungsfaktor(mauernd, _neutral).Gesamt.Should().BeGreaterThan(1);
     }
 
     [Fact]

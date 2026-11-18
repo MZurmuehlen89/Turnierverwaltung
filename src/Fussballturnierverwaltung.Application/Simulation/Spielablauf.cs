@@ -71,10 +71,8 @@ internal sealed class Spielablauf
         _gastChancenJeMinute = gast.ChancenJe90 / ENDE_REGULAER * ABLAUF_KORREKTUR;
         _heimVerwertung   = heim.Verwertung;
         _gastVerwertung   = gast.Verwertung;
-        double heimTorerwartung = heim.ChancenJe90 * Chancenmodell.MittlereQuote(heim.Verwertung);
-        double gastTorerwartung = gast.ChancenJe90 * Chancenmodell.MittlereQuote(gast.Verwertung);
-        _heimAnteil       = heimTorerwartung + gastTorerwartung > 0
-            ? heimTorerwartung / (heimTorerwartung + gastTorerwartung)
+        _heimAnteil       = heim.Torerwartung + gast.Torerwartung > 0
+            ? heim.Torerwartung / (heim.Torerwartung + gast.Torerwartung)
             : 0.5;
         _heim             = Teamzustand.Anpfiff(platzverweise.Heim, profile.Heim.Startpunkt);
         _gast             = Teamzustand.Anpfiff(platzverweise.Gast, profile.Gast.Startpunkt);
@@ -187,35 +185,29 @@ internal sealed class Spielablauf
     }
 
     /// <summary>Art der Chance, dann ob sie ein Tor wird. Liefert true bei einem Tor; eine vergebene Großchance oder
-    /// ein vergebener Elfmeter wird ein Ereignis, eine vergebene normale Chance nicht.</summary>
+    /// ein vergebener Elfmeter wird ein Ereignis, eine vergebene normale Chance nicht. Steht der Torhüter des
+    /// Verteidigers mit vorn, geht ins leere Tor, was nur dessen offene Abwehr zum Tor macht – der Teil der Quote, den
+    /// <see cref="Spielsituation.Verwertung.DurchGegner"/> hinzufügt (bis #431 ein fester Anteil in der
+    /// <see cref="Torbeschreibung"/>). Ein Elfmeter hängt nicht von der Abwehr ab.</summary>
     private bool ChanceSpielen(int minute, int? nachspielminute, bool heimAngriff, bool goldenGoal)
     {
         var art = Chancenmodell.Art(_rng.NextDouble());
         var (angreifer, verteidiger) = heimAngriff ? (_heim, _gast) : (_gast, _heim);
-        double verwertung = (heimAngriff ? _heimVerwertung : _gastVerwertung)
-                            * Spielsituation.Verwertungsfaktor(angreifer, verteidiger);
+        double teamVerwertung = heimAngriff ? _heimVerwertung : _gastVerwertung;
+        var faktor = Spielsituation.Verwertungsfaktor(angreifer, verteidiger);
 
         double wurf = _rng.NextDouble();
-        if (wurf < Chancenmodell.Quote(art, verwertung))
+        if (wurf < Chancenmodell.Quote(art, teamVerwertung * faktor.Gesamt))
         {
-            TorErzielen(minute, nachspielminute, heimAngriff, goldenGoal, art, InsLeereTor(art, verwertung, verteidiger, wurf));
+            bool insLeereTor = verteidiger.Stufe == Risikostufe.Brechstange
+                               && wurf >= Chancenmodell.Quote(art, teamVerwertung * faktor.Eigene);
+            TorErzielen(minute, nachspielminute, heimAngriff, goldenGoal, art, insLeereTor);
             return true;
         }
 
         if (art != Chancenart.Normal)
             ChanceVergeben(minute, nachspielminute, heimAngriff, art);
         return false;
-    }
-
-    /// <summary>Steht der Torhüter des Verteidigers mit vorn, geht ins leere Tor, was nur dessen offene Abwehr zum Tor
-    /// macht: der Teil der Quote, den sie gegenüber einer geordneten Abwehr hinzufügt (bis #431 ein fester Anteil in der
-    /// <see cref="Torbeschreibung"/>). Ein Elfmeter hängt nicht von der Abwehr ab.</summary>
-    private static bool InsLeereTor(Chancenart art, double verwertung, Teamzustand verteidiger, double wurf)
-    {
-        if (verteidiger.Stufe != Risikostufe.Brechstange)
-            return false;
-        double ohneOffeneAbwehr = verwertung / Spielsituation.GueteDesGegners(verteidiger.Position);
-        return wurf >= Chancenmodell.Quote(art, ohneOffeneAbwehr);
     }
 
     private void ChanceVergeben(int minute, int? nachspielminute, bool heimAngriff, Chancenart art)
