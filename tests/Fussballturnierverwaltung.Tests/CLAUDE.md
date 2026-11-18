@@ -52,7 +52,17 @@ Spielplan, Tabelle, Simulation in Application, without `*Service` classes. Repor
   Stryker's instrumentation skip themselves via `Mutationslauf.Aktiv` (the script sets
   `TURNIERVERWALTUNG_MUTATIONSLAUF=1`; `[Fact(Skip = …, SkipWhen = nameof(Mutationslauf.Aktiv), SkipType =
   typeof(Mutationslauf))]`). Currently: `TopfLiga_TopfZuordnung_KeinGleichesLand_HoechstensZweiGegnerJeLand`
-  (5 s normally, > 120 s under Stryker). Stryker's own `test-case-filter` is not passed on to MTP in 5.0.0.
+  (5 s normally, > 120 s under Stryker) and all of `SimulationsRealismusTests` (their shared sample
+  `RealismusStichprobe` stays empty in a mutation run). Stryker's own `test-case-filter` is not passed on to MTP in 5.0.0.
+
+**Realism tests** (#678, `Simulation/SimulationsRealismusTests`, helpers in `Simulation/Realismus/`): distribution tests
+of the detailed simulation against real target values (result distribution, Dixon-Coles, goal minutes, protecting a
+lead, draw rate per favourite class, red cards). One shared Monte-Carlo sample per class fixture (100 Bundesliga
+seasons, seed 678, ~3 s); targets and their sources are in the class comment and in `tools/Realismus-Zielwerte/`. They
+are not meant to kill mutants. A metric the simulation misses today is **not** loosened: its test carries an
+unconditional `Skip` naming the measured value and the issue that is to fix it — that issue switches it back on.
+Classes built from a noisy per-pairing estimate (half A) must not use that estimate as the prediction as well: it
+regresses to the mean (#678) — group by A, measure everything in B.
 
 ## GUI tests (#494, #521)
 
