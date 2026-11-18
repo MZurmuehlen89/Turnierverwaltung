@@ -611,6 +611,9 @@ namespace Fussballturnierverwaltung.Infrastructure.Persistenz.Migrationen
                         .HasColumnType("character varying(500)")
                         .UseCollation("deutsch");
 
+                    b.Property<int?>("Chancenart")
+                        .HasColumnType("integer");
+
                     b.Property<int>("EreignisArt")
                         .HasColumnType("integer");
 

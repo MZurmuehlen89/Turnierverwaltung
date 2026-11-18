@@ -14,6 +14,10 @@ public class SpielEreignis : BasisEntitaet
     /// Nachspielzeit (auch alle Ereignisse von vor #361).</summary>
     public int? Nachspielminute { get; set; }
     public EreignisArt EreignisArt { get; set; }
+
+    /// <summary>Güte der Chance hinter einem Tor oder einer vergebenen Großchance (#431); null bei Karten, Taktik,
+    /// Elfmeterschießen und allen Ereignissen von vor #431.</summary>
+    public Chancenart? Chancenart { get; set; }
     public int? MannschaftId { get; set; }
     public Mannschaft? Mannschaft { get; set; }
     public string Beschreibung { get; set; } = string.Empty;
