@@ -115,6 +115,18 @@ includes `suggestion` findings, `-Regel S3776,S138` lists the locations.
   `ErrorLog`; `Directory.Build.props` blanks the `ErrorLog` around that target, otherwise an incremental build
   overwrites the WinUi SARIF file with an empty analysis.
 
+## Model recommendation at every issue start (user rule 18.11.2026, binding)
+
+**Before reading code or editing anything for an issue** — whenever the user names an issue ("#682", "mach #…",
+"weiter mit …") — the **first message** states, unasked: (1) the recommended model (Sonnet / Opus plans + Sonnet
+implements / Opus) with a one-line reason, taken from the issue's `## Grobplan`; (2) the switch instruction
+("jetzt Opus + `/clear`, Start mit …"). The user switches the model themselves — never ask them to remind you.
+Then wait; no code, no `Edit`, no sed before the user has confirmed or switched. The same announcement is due at
+every later hand-over (plan done → Sonnet; Sonnet stuck twice or a red measurement to interpret → Opus at once;
+Opus question answered → back to Sonnet) and the model used goes into the closing comment. Details and the model
+selection table: memory `feedback_modellwahl_je_issue`. An issue without a `## Grobplan` gets one (with the
+recommendation) before the start.
+
 ## Definition of Done (#665)
 
 Two levels: the **issue criteria** say whether the problem is solved (different for every issue), the **general
