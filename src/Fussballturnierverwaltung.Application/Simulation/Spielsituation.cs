@@ -105,6 +105,23 @@ public static class Spielsituation
     /// Spielzeit 1,0.</summary>
     public static double Kartenfaktor(double ermuedung) => 0.5 + ermuedung;
 
+    /// <summary>Wie stark ein knapper Spielstand die Rotrate verschiebt (#682): Wer mit einem Tor hinten liegt, sieht
+    /// häufiger Rot (Notbremse, Foul aus Verzweiflung), wer mit einem Tor führt, seltener. Real misst die Wirkung der
+    /// Überzahl beides – die Karte selbst und dass sie eher das unterlegene Team trifft; die Unterzahl-Faktoren allein
+    /// bleiben weit unter dem Realwert. Kalibriert an <c>SimulationsRealismusTests.Platzverweise_UeberzahlHilftSpuerbar</c>
+    /// (Messreihe in #682).</summary>
+    public const double ROT_SPIELSTAND_EINFLUSS = 0.6;
+
+    /// <summary>Faktor auf die Rotrate eines Teams nach seinem Vorsprung. Nur bei einem Tor Abstand: Bei klarem Stand
+    /// wird keine Notbremse mehr gezogen, und ein Rotfaktor dort würde Kantersiege weiter aufblähen (in #682 gemessen).
+    /// Rückstand und Führung verschieben gleich weit, damit die Häufigkeit über das Spiel gleich bleibt.</summary>
+    public static double Rotfaktor(int vorsprung) => vorsprung switch
+    {
+        -1 => 1 + ROT_SPIELSTAND_EINFLUSS,
+        1  => 1 - ROT_SPIELSTAND_EINFLUSS,
+        _  => 1
+    };
+
     // ── Zusammengefasst ───────────────────────────────────────────────────
 
     /// <summary>Faktor auf die Grund-Torerwartung des Angreifers in einer Minute.</summary>

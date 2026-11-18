@@ -173,6 +173,24 @@ public class SpielsituationTests
         Spielsituation.Ermuedung(120).Should().BeGreaterThan(Spielsituation.Ermuedung(90));
     }
 
+    [Theory]
+    [InlineData(-1, 1.6)]
+    [InlineData(0, 1.0)]
+    [InlineData(1, 0.4)]
+    [InlineData(-2, 1.0)]
+    [InlineData(3, 1.0)]
+    public void Rotfaktor_WerKnappHintenLiegtSiehtHaeufigerRot_BeiKlaremStandUnveraendert(int vorsprung, double erwartet)
+    {
+        Spielsituation.Rotfaktor(vorsprung).Should().BeApproximately(erwartet, 1e-9);
+    }
+
+    [Fact]
+    public void Rotfaktor_RueckstandUndFuehrungVerschiebenGleichWeit_HaeufigkeitBleibt()
+    {
+        (Spielsituation.Rotfaktor(-1) + Spielsituation.Rotfaktor(1)).Should().BeApproximately(2.0, 1e-9,
+            "in jeder Minute mit Führung liegt das andere Team hinten – die Summe beider Raten bleibt gleich (#682)");
+    }
+
     [Fact]
     public void Ermuedung_VerlaengerungMitMehrKartenUndLeichtWenigerToren()
     {

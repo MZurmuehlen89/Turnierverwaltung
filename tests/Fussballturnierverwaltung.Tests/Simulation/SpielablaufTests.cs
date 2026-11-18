@@ -371,7 +371,7 @@ public class SpielablaufTests
     }
 
     [Fact]
-    public void Karten_ImMittelZweiEinhalbGelbeUndGutEinZehntelRoteJeTeam()
+    public void Karten_ImMittelWieInDerBundesligaJeTeam()
     {
         var rng = new Random(361);
         const int SPIELE = 4000;
@@ -379,8 +379,8 @@ public class SpielablaufTests
             .SelectMany(_ => SimulationsEngine.Simulieren(Team(1), Team(2), [], ausfuehrlich: true, rng).Ereignisse)
             .ToList();
 
-        (ereignisse.Count(x => x.Art == EreignisArt.GelbeKarte) / (2.0 * SPIELE)).Should().BeInRange(2.3, 2.7);
-        (ereignisse.Count(x => x.Art == EreignisArt.RoteKarte) / (2.0 * SPIELE)).Should().BeInRange(0.11, 0.19);
+        (ereignisse.Count(x => x.Art == EreignisArt.GelbeKarte) / (2.0 * SPIELE)).Should().BeInRange(1.75, 2.0, "real 1,88 gelbe Karten je Team und Spiel (#682)");
+        (ereignisse.Count(x => x.Art == EreignisArt.RoteKarte) / (2.0 * SPIELE)).Should().BeInRange(0.06, 0.088, "real 0,073 rote Karten je Team und Spiel (#682)");
     }
 
     // ── Reproduzierbarkeit (K11) ──────────────────────────────────────────

@@ -16,10 +16,11 @@ internal sealed class Spielablauf
     // Korrektur hält den ausführlichen Pfad bei den Kennzahlen aus #404 (SimulationsKalibrierungTests).
     private const double ABLAUF_KORREKTUR = 0.86;
 
-    // Real ~2,5 gelbe und ~0,15 rote Karten je Team und Spiel; die Korrektur gleicht Nachspielzeit und
-    // Kartenfaktor (im Mittel über gut 96 Minuten etwas über 1) aus.
-    private const double GELBE_KARTEN_JE_90 = 2.5;
-    private const double ROTE_KARTEN_JE_90  = 0.15;
+    // Real 1,88 gelbe und 0,073 rote Karten je Team und Spiel (Bundesliga 2015/16–2024/25, #678); bis #682 stand hier
+    // der Je-Spiel-Wert ~0,15 als Je-Team-Wert. Die Korrektur gleicht Nachspielzeit und Kartenfaktor (im Mittel über
+    // gut 96 Minuten etwas über 1) aus; der Rotfaktor nach Spielstand ändert die Häufigkeit nicht.
+    private const double GELBE_KARTEN_JE_90 = 1.88;
+    private const double ROTE_KARTEN_JE_90  = 0.075;
     private const double KARTEN_KORREKTUR   = 0.9;
     // Ab dem fünften Platzverweis würde ein Spiel abgebrochen – so weit lässt die Simulation es nicht kommen.
     private const int MAX_PLATZVERWEISE = 4;
@@ -238,7 +239,9 @@ internal sealed class Spielablauf
         if (_rng.NextDouble() < GELBE_KARTEN_JE_90 / ENDE_REGULAER * faktor)
             _ereignisse.Add(new(minute, EreignisArt.GelbeKarte, istHeim, "Gelbe Karte", nachspielminute));
 
-        if (_rng.NextDouble() >= ROTE_KARTEN_JE_90 / ENDE_REGULAER * faktor || team.Platzverweise >= MAX_PLATZVERWEISE)
+        int heimVorsprung = _hinspielstand.VorsprungDesHeimteams(_heimTore, _gastTore);
+        double rotfaktor = Spielsituation.Rotfaktor(istHeim ? heimVorsprung : -heimVorsprung);
+        if (_rng.NextDouble() >= ROTE_KARTEN_JE_90 / ENDE_REGULAER * faktor * rotfaktor || team.Platzverweise >= MAX_PLATZVERWEISE)
             return team;
 
         _ereignisse.Add(new(minute, EreignisArt.RoteKarte, istHeim, "Rote Karte", nachspielminute));
