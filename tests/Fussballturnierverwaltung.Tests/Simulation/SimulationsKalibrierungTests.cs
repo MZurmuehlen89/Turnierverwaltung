@@ -1,8 +1,6 @@
 using FluentAssertions;
 using Fussballturnierverwaltung.Application.Simulation;
-using Fussballturnierverwaltung.Application.Stammdaten;
 using Fussballturnierverwaltung.Domain.Entitaeten.Regelwerke;
-using Fussballturnierverwaltung.Domain.Entitaeten.Stammdaten;
 using Fussballturnierverwaltung.Domain.Enums;
 using Fussballturnierverwaltung.Infrastructure.Seed.Daten;
 

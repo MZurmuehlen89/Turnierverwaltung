@@ -3,10 +3,9 @@ using Fussballturnierverwaltung.Application.Simulation;
 namespace Fussballturnierverwaltung.Tests.Simulation.Realismus;
 
 /// <summary>Je Paarung vorab gerechnete Größen der Stichprobe: Vorhersagen aus der Hälfte A der Durchläufe (Favorit,
-/// Siegchancen), Kennzahlen aus allen Durchläufen (Siegchancen, mittlere Tore für λ und μ).</summary>
+/// Siegchancen), mittlere Tore aus allen Durchläufen (für λ und μ).</summary>
 public sealed record PaarungsDaten(
-    double SiegHeimA, double RemisA, double SiegGastA,
-    double SiegHeimAlle, double SiegGastAlle,
+    double SiegHeimA, double SiegGastA,
     double MittlereToreHeim, double MittlereToreGast)
 {
     public bool HeimIstFavorit => SiegHeimA > SiegGastA;
@@ -65,12 +64,10 @@ public sealed class RealismusStichprobe
             (double)s.Count(x => bedingung(x.Ergebnis)) / s.Count;
         static bool Heimsieg(SimulationsErgebnis e) => e.HeimToreRegulaer > e.AuswaertsToreRegulaer;
         static bool Gastsieg(SimulationsErgebnis e) => e.HeimToreRegulaer < e.AuswaertsToreRegulaer;
-        static bool Unentschieden(SimulationsErgebnis e) => e.HeimToreRegulaer == e.AuswaertsToreRegulaer;
 
         var a = spiele.Where(s => s.Durchlauf < ENDE_HAELFTE_A).ToList();
         return new PaarungsDaten(
-            Anteil(a, Heimsieg), Anteil(a, Unentschieden), Anteil(a, Gastsieg),
-            Anteil(spiele, Heimsieg), Anteil(spiele, Gastsieg),
+            Anteil(a, Heimsieg), Anteil(a, Gastsieg),
             spiele.Average(s => s.Ergebnis.HeimToreRegulaer), spiele.Average(s => s.Ergebnis.AuswaertsToreRegulaer));
     }
 }

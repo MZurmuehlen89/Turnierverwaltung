@@ -19,11 +19,15 @@ public class SimulationsRealismusTests(RealismusStichprobe stichprobe) : IClassF
 
     private IReadOnlyList<SimuliertesSpiel> Spiele => stichprobe.Spiele;
 
+    // Wo eine Größe der Paarung aus Hälfte A einfließt (Favorit, Siegchance), wird nur in Hälfte B gemessen:
+    // sonst bestimmen dieselben Spiele Einteilung und Ergebnis.
+    private IEnumerable<SimuliertesSpiel> HaelfteB => Spiele.Where(s => s.Durchlauf >= RealismusStichprobe.ENDE_HAELFTE_A);
+
     private static void Bericht(string zeile) => TestContext.Current.TestOutputHelper?.WriteLine(zeile);
 
-    private static void ImBand(string name, double messwert, double von, double bis, string ziel)
+    private static void ImBand(string name, double messwert, double von, double bis, string ziel, string format = "P1")
     {
-        Bericht($"{name}: {messwert:P2}  (Band {von:P1} … {bis:P1}, {ziel})");
+        Bericht($"{name}: {messwert.ToString(format)}  (Band {von.ToString(format)} … {bis.ToString(format)}, {ziel})");
         messwert.Should().BeInRange(von, bis, name);
     }
 
@@ -83,8 +87,7 @@ public class SimulationsRealismusTests(RealismusStichprobe stichprobe) : IClassF
         var laengste = Spiele.Select(s => Realismusauswertung.LaengsteTorlosePhase(s.Ergebnis.Ereignisse)).ToList();
         Bericht($"Längste torlose Phase ≥ 60 Min. {(double)laengste.Count(l => l >= 60) / laengste.Count:P1} " +
                 "(LS 36,8 %, nicht vergleichbar)");
-        Bericht($"Tor ab der 85. Minute {Anteil(Spiele, s => s.Ergebnis.Ereignisse.Any(e => e.Art == Domain.Enums.EreignisArt.Tor && e.Minute >= 85 && e.Minute <= 90)):P1} " +
-                "(LS 28,4 %, nicht vergleichbar)");
+        Bericht($"Tor ab der 85. Minute {Realismusauswertung.AnteilMitTorAb(Spiele, 85):P1} (LS 28,4 %, nicht vergleichbar)");
 
         ImBand("Anteil Tore 1. Halbzeit", Realismusauswertung.AnteilErsteHalbzeit(Spiele), 0.425, 0.465, "BL 44,6 %, LS 43,8 %");
         ImBand("Tore in Minute 1–15", anteile[0], 0.110, 0.136, "LS 12,3 %");
@@ -97,9 +100,9 @@ public class SimulationsRealismusTests(RealismusStichprobe stichprobe) : IClassF
     public void Fuehrung_EinTorVorsprungZurPause()
     {
         var alle = Realismusauswertung.FuehrungsAusgang(Spiele, 45, 1);
-        var favorit = Realismusauswertung.FuehrungsAusgang(Spiele, 45, 1, (s, heimFuehrt) => s.Paarung.HeimIstFavorit == heimFuehrt);
-        var aussenseiter = Realismusauswertung.FuehrungsAusgang(Spiele, 45, 1, (s, heimFuehrt) => s.Paarung.HeimIstFavorit != heimFuehrt);
-        Bericht($"+1 zur Pause: n = {alle.Anzahl}");
+        var favorit = Realismusauswertung.FuehrungsAusgang(HaelfteB, 45, 1, (s, heimFuehrt) => s.Paarung.HeimIstFavorit == heimFuehrt);
+        var aussenseiter = Realismusauswertung.FuehrungsAusgang(HaelfteB, 45, 1, (s, heimFuehrt) => s.Paarung.HeimIstFavorit != heimFuehrt);
+        Bericht($"+1 zur Pause: n = {alle.Anzahl} (Favorit/Außenseiter nur Hälfte B: n = {favorit.Anzahl}/{aussenseiter.Anzahl})");
 
         ImBand("+1 zur Pause: Sieg", alle.Sieg, 0.635, 0.710, "BL 67,3 %");
         ImBand("+1 zur Pause: Niederlage", alle.Niederlage, 0.085, 0.140, "BL 11,2 %");
@@ -143,7 +146,7 @@ public class SimulationsRealismusTests(RealismusStichprobe stichprobe) : IClassF
         // Die Klassen kommen aus Hälfte A, Siegquote des Favoriten und Remisquote werden beide in Hälfte B gemessen.
         // Die A-Schätzung selbst taugt nicht als Siegchance der Klasse: Wer nach 50 Läufen in einer Klasse landet, ist
         // im Mittel näher an der Mitte, als die Klasse sagt (Regression zur Mitte, in #678 nachgerechnet).
-        var haelfteB = Spiele.Where(s => s.Durchlauf >= RealismusStichprobe.ENDE_HAELFTE_A).ToList();
+        var haelfteB = HaelfteB.ToList();
         int geprueft = 0;
         foreach (var (von, bis) in _favoritenklassen)
         {
@@ -168,13 +171,15 @@ public class SimulationsRealismusTests(RealismusStichprobe stichprobe) : IClassF
     public void Platzverweise_HaeufigkeitJeTeamUndSpiel()
     {
         double jeTeam = Spiele.Sum(s => { var (h, g) = Realismusauswertung.RoteKarten(s); return h + g; }) / (2.0 * Spiele.Count);
-        ImBandWert("Rote Karten je Team und Spiel", jeTeam, 0.060, 0.088, "BL 0,073");
+        ImBand("Rote Karten je Team und Spiel", jeTeam, 0.060, 0.088, "BL 0,073", format: "F3");
     }
 
-    [Fact(Skip = "Abweichung: Überzahl +6,1 statt mindestens +10 Punkte – Korrektur in #682")]
+    [Fact(Skip = "Abweichung: Überzahl +7,1 statt mindestens +10 Punkte – Korrektur in #682")]
     public void Platzverweise_UeberzahlHilftSpuerbar()
     {
-        var mitDifferenz = Spiele.Where(s => { var (h, g) = Realismusauswertung.RoteKarten(s); return h != g; }).ToList();
+        // Gemessen in Hälfte B, die Siegchance ohne Rücksicht auf Karten kommt aus Hälfte A – so steckt das
+        // gemessene Spiel nicht in seiner eigenen Referenz.
+        var mitDifferenz = HaelfteB.Where(s => { var (h, g) = Realismusauswertung.RoteKarten(s); return h != g; }).ToList();
         double siege = 0, erwartet = 0;
         foreach (var s in mitDifferenz)
         {
@@ -182,18 +187,12 @@ public class SimulationsRealismusTests(RealismusStichprobe stichprobe) : IClassF
             bool heimUeberzahl = heimRot < gastRot;
             bool gewonnen = heimUeberzahl ? s.HeimTore > s.GastTore : s.GastTore > s.HeimTore;
             siege += gewonnen ? 1 : 0;
-            erwartet += heimUeberzahl ? s.Paarung.SiegHeimAlle : s.Paarung.SiegGastAlle;
+            erwartet += heimUeberzahl ? s.Paarung.SiegHeimA : s.Paarung.SiegGastA;
         }
         double siegquote = siege / mitDifferenz.Count, vorher = erwartet / mitDifferenz.Count;
         double gewinn = siegquote - vorher;
         Bericht($"Überzahl: n = {mitDifferenz.Count}, Siegquote {siegquote:P1} gegen Siegchance ohne Rücksicht auf Karten {vorher:P1} " +
                 $"→ {gewinn * 100:+0.0;-0.0} Punkte (Band +10 … +22, BL +16)");
         gewinn.Should().BeInRange(0.10, 0.22, "Siegquote in Überzahl minus Siegchance vor dem Spiel");
-    }
-
-    private static void ImBandWert(string name, double messwert, double von, double bis, string ziel)
-    {
-        Bericht($"{name}: {messwert:F3}  (Band {von:F3} … {bis:F3}, {ziel})");
-        messwert.Should().BeInRange(von, bis, name);
     }
 }

@@ -13,7 +13,7 @@ public class RealismusauswertungTests
         new(1, 2, 0,
             new SimulationsErgebnis(heimTore, gastTore, null, null, null, null,
                 EntscheidungArt.RegulaereSpielzeit, ereignisse),
-            new PaarungsDaten(0.5, 0.2, 0.3, 0.5, 0.3, 1.5, 1.2));
+            new PaarungsDaten(0.5, 0.3, 1.5, 1.2));
 
     [Fact]
     public void Stand_NachspielzeitDerErstenHalbzeitZaehltZurPause()
@@ -40,6 +40,15 @@ public class RealismusauswertungTests
         anteile.Should().Equal(0.5, 0, 0.25, 0, 0, 0.25); // 1 und 15 → Abschnitt 1; 45 → 3; 90 → 6
         Realismusauswertung.AnteilErsteHalbzeit([spiel]).Should().Be(0.75);
         Realismusauswertung.AnteilNachspielzeit([spiel]).Should().Be(0.5);
+    }
+
+    [Fact]
+    public void AnteilMitTorAb_NachspielzeitZaehltRoteKarteNicht()
+    {
+        var spaetesTor = Spiel(1, 0, Tor(90, true, 3));
+        var fruehesTor = Spiel(1, 0, Tor(84, true));
+        var nurRot = Spiel(0, 0, new SimuliertesEreignis(88, EreignisArt.RoteKarte, true, "Rot"));
+        Realismusauswertung.AnteilMitTorAb([spaetesTor, fruehesTor, nurRot, Spiel(0, 0)], 85).Should().Be(0.25);
     }
 
     [Fact]
