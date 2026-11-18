@@ -125,14 +125,14 @@ public class SpielablaufTaktikTests
             .MinuteMitTor(heim: true).Ruhig(44).Nachspielzeit(JA).Ruhig(1).Ruhig(27)
             .RuhigMitTaktikwurf(8, teams: 2).Ruhig(2).RuhigMitTaktikwurf(5)
             .Taktikwurf().Taktikwurf(JA).Ruhig(1)
-            .Taktikwurf().Hinzu(JA, JA, insLeereTor ? JA : NEIN);
+            .Taktikwurf().Hinzu(JA, JA, NEIN, JA, insLeereTor ? JA : NEIN);
         if (!insLeereTor)
             folge.Hinzu(TorstilOhneKonter);
 
         var e = Simulieren(folge.Zufall());
 
         e.Ereignisse.Last(x => x.Art == EreignisArt.Tor)
-            .Should().Be(new SimuliertesEreignis(89, EreignisArt.Tor, true, erwartet));
+            .Should().Be(new SimuliertesEreignis(89, EreignisArt.Tor, true, erwartet, null, Chancenart.Normal));
     }
 
     // ── Entscheidungsmodell der Risikostufe (#673, K5, K7) ────────────────

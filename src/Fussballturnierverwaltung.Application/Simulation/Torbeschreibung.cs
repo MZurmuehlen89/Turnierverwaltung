@@ -1,3 +1,5 @@
+using Fussballturnierverwaltung.Domain.Enums;
+
 namespace Fussballturnierverwaltung.Application.Simulation;
 
 /// <summary>Beschreibungstext eines Tors in der ausführlichen Simulation – reine Text-Anreicherung ohne Einfluss auf
@@ -16,6 +18,10 @@ internal static class Torbeschreibung
     // niedrigen zweistelligen Prozentbereich.
     private const double KONTERTOR_WAHRSCHEINLICHKEIT = 0.15;
 
+    // #431: Standards ≈ 22 % der Tore ohne Elfmeter (Kommentar „Schritt 1“ zu #431): 16,5 % nach Ecke, 5,5 % nach Freistoß.
+    private const double ECKE_WAHRSCHEINLICHKEIT     = 0.165;
+    private const double FREISTOSS_WAHRSCHEINLICHKEIT = 0.055;
+
     // Issue #128: Grobes 3x3-Raster angelehnt an die "Torzone" im DFL-Definitionskatalog "Offizielle Spieldaten"
     // (Abbildung 5) — Mitte/Mitte bewusst als "Mitte" statt "Mitte Mitte".
     private static readonly string[] _torzonen =
@@ -32,15 +38,29 @@ internal static class Torbeschreibung
     public const string LEERES_TOR = "Tor ins leere Tor";
 
     /// <summary>Text eines Tors; steht der Torhüter des Gegners mit vorn, geht ein Teil der Tore ins leere Tor.</summary>
-    public static string Zufaellig(Random rng, bool gegnerMitBrechstange)
-        => gegnerMitBrechstange && rng.NextDouble() < _leeresTorAnteil
+    public static string Zufaellig(Random rng, bool gegnerMitBrechstange, Chancenart art)
+    {
+        if (art == Chancenart.Elfmeter)
+            return $"Tor per Elfmeter ({Torzone(rng)})";
+
+        return gegnerMitBrechstange && rng.NextDouble() < _leeresTorAnteil
             ? LEERES_TOR
             : Torstil(rng);
+    }
 
     private static string Torstil(Random rng)
     {
         string basis = $"Tor per {_torstile[rng.Next(_torstile.Length)]}";
-        string mitKonter = rng.NextDouble() < KONTERTOR_WAHRSCHEINLICHKEIT ? $"{basis} nach Konter" : basis;
-        return $"{mitKonter} ({_torzonen[rng.Next(_torzonen.Length)]})";
+        return $"{basis}{Herkunft(rng.NextDouble())} ({Torzone(rng)})";
     }
+
+    private static string Herkunft(double wurf) => wurf switch
+    {
+        < KONTERTOR_WAHRSCHEINLICHKEIT => " nach Konter",
+        < KONTERTOR_WAHRSCHEINLICHKEIT + ECKE_WAHRSCHEINLICHKEIT => " nach Ecke",
+        < KONTERTOR_WAHRSCHEINLICHKEIT + ECKE_WAHRSCHEINLICHKEIT + FREISTOSS_WAHRSCHEINLICHKEIT => " nach Freistoß",
+        _ => string.Empty
+    };
+
+    private static string Torzone(Random rng) => _torzonen[rng.Next(_torzonen.Length)];
 }

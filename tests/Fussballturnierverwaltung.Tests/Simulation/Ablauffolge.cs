@@ -1,10 +1,10 @@
 namespace Fussballturnierverwaltung.Tests.Simulation;
 
 /// <summary>
-/// Baut die Zufallsfolge für den minutenweisen Spielablauf (#361) lesbar auf. Je Minute zieht der Ablauf: ob ein Tor
-/// fällt, bei einem Tor wer trifft und die Torbeschreibung, dann erneut ob ein Tor fällt (ein weiteres Tor derselben
-/// Minute), danach vier Karten (Gelb Heim, Rot Heim, Gelb Gast, Rot Gast). Nach der letzten regulären Minute einer
-/// Halbzeit wird die Nachspielzeit gezogen. <see cref="NEIN"/> als Folgewert danach heißt: kein Tor, keine Karte,
+/// Baut die Zufallsfolge für den minutenweisen Spielablauf (#361, #431) lesbar auf. Je Minute zieht der Ablauf: ob eine
+/// Chance entsteht, bei einer Chance wessen, ihre Art und ob sie ein Tor wird (bei einem Tor die Torbeschreibung, bei
+/// einer vergebenen Großchance oder einem Elfmeter den Text), dann erneut ob eine Chance entsteht, danach vier Karten (Gelb Heim, Rot Heim, Gelb Gast, Rot Gast). Nach der letzten regulären Minute einer
+/// Halbzeit wird die Nachspielzeit gezogen. <see cref="NEIN"/> als Folgewert danach heißt: keine Chance, keine Karte,
 /// längste Nachspielzeit. Steht ein Taktikwechsel an, den nur die Zeit fällig macht (#673), zieht der Ablauf zu
 /// Beginn der Minute je betroffenem Team (erst Heim, dann Gast) einen Wurf, ob umgestellt wird; <see cref="NEIN"/>
 /// heißt „noch nicht“ – spätestens sieben Minuten nach der Schwelle stellt das Team auch dann um.
@@ -19,10 +19,21 @@ internal sealed class Ablauffolge
     public Ablauffolge KeinTor() => Hinzu(NEIN);
 
     /// <summary>Ein Tor mit Beschreibung „Tor per Kopfball (oben links)“; JA beim Trefferwurf heißt Heimteam.</summary>
-    public Ablauffolge Tor(bool heim) => Hinzu(JA, heim ? JA : NEIN).Hinzu(SimulationsEngineTestdaten.TorstilOhneKonter);
+    public Ablauffolge Tor(bool heim) => Hinzu(JA, heim ? JA : NEIN, NEIN /*normale Chance*/, JA /*trifft*/).Hinzu(SimulationsEngineTestdaten.TorstilOhneKonter);
 
     /// <summary>Golden Goal: ohne Torbeschreibung, danach ist das Spiel vorbei.</summary>
-    public Ablauffolge GoldenGoal(bool heim) => Hinzu(JA, heim ? JA : NEIN);
+    public Ablauffolge GoldenGoal(bool heim) => Hinzu(JA, heim ? JA : NEIN, NEIN, JA);
+
+    /// <summary>Wurf für die Art: <see cref="JA"/> = Elfmeter, <see cref="GROSSCHANCE"/> = Großchance.</summary>
+    public const double GROSSCHANCE = 0.1;
+
+    /// <summary>Eine Chance der gegebenen Art, die nicht zum Tor wird; bei Großchance und Elfmeter folgt der Wurf für
+    /// den Text.</summary>
+    public Ablauffolge ChanceVergeben(bool heim, double artWurf, double textWurf = JA)
+    {
+        Hinzu(JA, heim ? JA : NEIN, artWurf, NEIN);
+        return artWurf <= GROSSCHANCE ? Hinzu(textWurf) : this;
+    }
 
     public Ablauffolge Karten(bool gelbHeim = false, bool rotHeim = false, bool gelbGast = false, bool rotGast = false)
         => Hinzu(gelbHeim ? JA : NEIN, rotHeim ? JA : NEIN, gelbGast ? JA : NEIN, rotGast ? JA : NEIN);

@@ -5,8 +5,9 @@ namespace Fussballturnierverwaltung.Application.Simulation;
 /// <summary>
 /// Ausführliche Simulation Minute für Minute (#361). Ein Exemplar hält den Zustand eines Spiels: Spielstand des
 /// laufenden Abschnitts, Risikostufe und Platzverweise je Team, gespielte Minuten (Ermüdung). Je Minute wird die
-/// Torerwartung aus diesem Zustand neu berechnet (<see cref="Spielsituation"/>); Tore fallen nacheinander, ein
-/// zweites Tor derselben Minute rechnet mit dem neuen Spielstand. Karten werden ebenfalls je Minute gezogen und
+/// Chancenrate aus diesem Zustand neu berechnet (<see cref="Spielsituation"/>), jede Chance hat eine Art
+/// (<see cref="Chancenmodell"/>) und wird mit deren Quote zum Tor (#431); Chancen fallen nacheinander, eine zweite
+/// Chance derselben Minute rechnet mit dem neuen Spielstand. Karten werden ebenfalls je Minute gezogen und
 /// wirken ab der Folgeminute. Platzverweise und Ermüdung gelten bis zum Ende des Spiels, also auch in der
 /// Verlängerung.
 /// </summary>
@@ -14,7 +15,7 @@ internal sealed class Spielablauf
 {
     // Die Nachspielzeit verlängert die Spielzeit um gut 6 % und die Spielsituation verschiebt die Torerwartung; die
     // Korrektur hält den ausführlichen Pfad bei den Kennzahlen aus #404 (SimulationsKalibrierungTests).
-    private const double ABLAUF_KORREKTUR = 0.86;
+    private const double ABLAUF_KORREKTUR = 0.872;
 
     // Real 1,88 gelbe und 0,073 rote Karten je Team und Spiel (Bundesliga 2015/16–2024/25, #678); bis #682 stand hier
     // der Je-Spiel-Wert ~0,15 als Je-Team-Wert. Die Korrektur gleicht Nachspielzeit und Kartenfaktor (im Mittel über
@@ -24,16 +25,23 @@ internal sealed class Spielablauf
     private const double KARTEN_KORREKTUR   = 0.9;
     // Ab dem fünften Platzverweis würde ein Spiel abgebrochen – so weit lässt die Simulation es nicht kommen.
     private const int MAX_PLATZVERWEISE = 4;
-    // Nur eine Sicherung gegen Endlosschleifen; mehr als zwei Tore in einer Minute kommen praktisch nicht vor.
-    private const int MAX_TORE_JE_MINUTE = 5;
+    // Nur eine Sicherung gegen Endlosschleifen; mehr als zwei Chancen in einer Minute kommen praktisch nicht vor.
+    private const int MAX_CHANCEN_JE_MINUTE = 8;
+
+    private static readonly string[] _grosschanceVergeben =
+        ["Großchance vergeben – vom Torhüter pariert", "Großchance vergeben – Pfosten", "Großchance vergeben – knapp vorbei"];
+    private static readonly string[] _elfmeterVergeben = ["Elfmeter gehalten", "Elfmeter verschossen"];
 
     private const int ENDE_REGULAER           = 90;
     private const int ENDE_VERLAENGERUNG      = 120;
     private const int ENDE_ERSTE_VERL_HAELFTE = 105;
 
     private readonly Random _rng;
-    private readonly double _heimJeMinute;
-    private readonly double _gastJeMinute;
+    private readonly double _heimChancenJeMinute;
+    private readonly double _gastChancenJeMinute;
+    // Verwertung der Teams aus den Ratings (#431, E2).
+    private readonly double _heimVerwertung;
+    private readonly double _gastVerwertung;
     // Kräfteverhältnis für die Risikoentscheidung (#673): Anteil des Heimteams an der Torerwartung beider Teams.
     private readonly double _heimAnteil;
     private readonly Hinspielstand _hinspielstand;
@@ -53,14 +61,18 @@ internal sealed class Spielablauf
     /// <param name="profile">Spielweise beider Teams (#667): Startpunkt, Umstellzeitpunkte und -tempo.</param>
 #pragma warning disable S107 // vier Angaben zum Spiel, drei zum Stand, mit dem es beginnt; nur die Paarung ruft auf
     public Spielablauf(
-        double heimTorerwartung, double gastTorerwartung, Random rng,
+        Chancenprofil heim, Chancenprofil gast, Random rng,
         Platzverweise platzverweise = default, int gespielteMinuten = 0, Hinspielstand hinspielstand = default,
         Teamprofile profile = default)
 #pragma warning restore S107
     {
         _rng              = rng;
-        _heimJeMinute     = heimTorerwartung / ENDE_REGULAER * ABLAUF_KORREKTUR;
-        _gastJeMinute     = gastTorerwartung / ENDE_REGULAER * ABLAUF_KORREKTUR;
+        _heimChancenJeMinute = heim.ChancenJe90 / ENDE_REGULAER * ABLAUF_KORREKTUR;
+        _gastChancenJeMinute = gast.ChancenJe90 / ENDE_REGULAER * ABLAUF_KORREKTUR;
+        _heimVerwertung   = heim.Verwertung;
+        _gastVerwertung   = gast.Verwertung;
+        double heimTorerwartung = heim.ChancenJe90 * Chancenmodell.MittlereQuote(heim.Verwertung);
+        double gastTorerwartung = gast.ChancenJe90 * Chancenmodell.MittlereQuote(gast.Verwertung);
         _heimAnteil       = heimTorerwartung + gastTorerwartung > 0
             ? heimTorerwartung / (heimTorerwartung + gastTorerwartung)
             : 0.5;
@@ -144,47 +156,76 @@ internal sealed class Spielablauf
         double ermuedung = Spielsituation.Ermuedung(_gespielteMinuten);
         TaktikAnpassen(minute, nachspielminute, verbleibend, nachTor: false);
 
-        for (int tor = 0; tor < MAX_TORE_JE_MINUTE && TorFaellt(ermuedung, out bool heimTrifft); tor++)
+        for (int chance = 0; chance < MAX_CHANCEN_JE_MINUTE && ChanceEntsteht(ermuedung, out bool heimAngriff); chance++)
         {
-            TorErzielen(minute, nachspielminute, heimTrifft, goldenGoal);
-            if (goldenGoal) return true;
-            TaktikAnpassen(minute, nachspielminute, verbleibend, nachTor: true);
+            if (ChanceSpielen(minute, nachspielminute, heimAngriff, goldenGoal))
+            {
+                if (goldenGoal) return true;
+                TaktikAnpassen(minute, nachspielminute, verbleibend, nachTor: true);
+            }
         }
 
         KartenZiehen(minute, nachspielminute, ermuedung);
         return false;
     }
 
-    /// <summary>Erst, ob überhaupt ein Tor fällt (gemeinsame Torerwartung beider Teams), dann wer trifft (Anteil an
-    /// der Torerwartung). Bis #361 wurde je Team einzeln gewürfelt, und beim Golden Goal entschied ein 50:50-Los,
-    /// wenn beide trafen – das benachteiligte das stärkere Team.</summary>
-    private bool TorFaellt(double ermuedung, out bool heimTrifft)
+    /// <summary>Erst, ob überhaupt eine Chance entsteht (gemeinsame Chancenrate beider Teams), dann wessen (Anteil an
+    /// der Chancenrate). Die Wahrscheinlichkeit r / (1 + r) macht die erwartete Zahl Chancen der Schleife je Minute
+    /// genau gleich r.</summary>
+    private bool ChanceEntsteht(double ermuedung, out bool heimAngriff)
     {
-        double heim = _heimJeMinute * Spielsituation.Angriffsfaktor(_heim, _gast, ermuedung);
-        double gast = _gastJeMinute * Spielsituation.Angriffsfaktor(_gast, _heim, ermuedung);
+        double heim = _heimChancenJeMinute * Spielsituation.Angriffsfaktor(_heim, _gast, ermuedung);
+        double gast = _gastChancenJeMinute * Spielsituation.Angriffsfaktor(_gast, _heim, ermuedung);
         double gesamt = heim + gast;
-        heimTrifft = false;
-        if (_rng.NextDouble() >= 1 - Math.Exp(-gesamt))
+        heimAngriff = false;
+        if (_rng.NextDouble() >= gesamt / (1 + gesamt))
             return false;
 
-        heimTrifft = _rng.NextDouble() < heim / gesamt;
+        heimAngriff = _rng.NextDouble() < heim / gesamt;
         return true;
     }
 
-    private void TorErzielen(int minute, int? nachspielminute, bool heimTrifft, bool goldenGoal)
+    /// <summary>Art der Chance, dann ob sie ein Tor wird. Liefert true bei einem Tor; eine vergebene Großchance oder
+    /// ein vergebener Elfmeter wird ein Ereignis, eine vergebene normale Chance nicht.</summary>
+    private bool ChanceSpielen(int minute, int? nachspielminute, bool heimAngriff, bool goldenGoal)
+    {
+        var art = Chancenmodell.Art(_rng.NextDouble());
+        double verwertung = heimAngriff ? _heimVerwertung : _gastVerwertung;
+        verwertung *= heimAngriff
+            ? Spielsituation.Verwertungsfaktor(_heim, _gast)
+            : Spielsituation.Verwertungsfaktor(_gast, _heim);
+
+        if (_rng.NextDouble() < Chancenmodell.Quote(art, verwertung))
+        {
+            TorErzielen(minute, nachspielminute, heimAngriff, goldenGoal, art);
+            return true;
+        }
+
+        if (art != Chancenart.Normal)
+            ChanceVergeben(minute, nachspielminute, heimAngriff, art);
+        return false;
+    }
+
+    private void ChanceVergeben(int minute, int? nachspielminute, bool heimAngriff, Chancenart art)
+    {
+        string[] texte = art == Chancenart.Elfmeter ? _elfmeterVergeben : _grosschanceVergeben;
+        _ereignisse.Add(new(minute, EreignisArt.Grosschance, heimAngriff, texte[_rng.Next(texte.Length)], nachspielminute, art));
+    }
+
+    private void TorErzielen(int minute, int? nachspielminute, bool heimTrifft, bool goldenGoal, Chancenart art)
     {
         if (heimTrifft) _heimTore++;
         else _gastTore++;
 
         if (goldenGoal)
         {
-            _ereignisse.Add(new(minute, EreignisArt.GoldenGoal, heimTrifft, "Golden Goal", nachspielminute));
+            _ereignisse.Add(new(minute, EreignisArt.GoldenGoal, heimTrifft, "Golden Goal", nachspielminute, art));
             return;
         }
 
         var gegner = heimTrifft ? _gast : _heim;
-        string text = Torbeschreibung.Zufaellig(_rng, gegner.Stufe == Risikostufe.Brechstange);
-        _ereignisse.Add(new(minute, EreignisArt.Tor, heimTrifft, text, nachspielminute));
+        string text = Torbeschreibung.Zufaellig(_rng, gegner.Stufe == Risikostufe.Brechstange, art);
+        _ereignisse.Add(new(minute, EreignisArt.Tor, heimTrifft, text, nachspielminute, art));
     }
 
     /// <summary>Passt die Risikostufe beider Teams an Spielstand und Zeit an (#673); jeder Wechsel ist ein Ereignis.

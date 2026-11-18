@@ -124,7 +124,13 @@ public static class Spielsituation
 
     // ── Zusammengefasst ───────────────────────────────────────────────────
 
-    /// <summary>Faktor auf die Grund-Torerwartung des Angreifers in einer Minute.</summary>
+    /// <summary>Faktor auf die Verwertungsquote des Angreifers (#431). Vorläufig 1: Spielstand und Risikoachse wirken
+    /// noch ganz auf die Chancenrate; die Aufteilung auf die Güte folgt in der Kalibrierung.</summary>
+#pragma warning disable S1172 // die Teams brauchen erst die Kalibrierung (Schritt 4 zu #431)
+    public static double Verwertungsfaktor(Teamzustand angreifer, Teamzustand verteidiger) => 1.0;
+#pragma warning restore S1172
+
+    /// <summary>Faktor auf die Chancenrate des Angreifers in einer Minute (bis #431: auf die Torerwartung).</summary>
     public static double Angriffsfaktor(Teamzustand angreifer, Teamzustand verteidiger, double ermuedung)
         => EigenerAngriff(angreifer.Position)
            * AngriffDesGegners(verteidiger.Position)

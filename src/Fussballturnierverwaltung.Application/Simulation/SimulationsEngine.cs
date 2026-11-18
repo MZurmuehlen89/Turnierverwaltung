@@ -201,7 +201,8 @@ public static class SimulationsEngine
         public Spielablauf Anpfiff(
             Random rng, Platzverweise platzverweise = default, int gespielteMinuten = 0,
             Hinspielstand hinspielstand = default) =>
-            new(HeimTorerwartung, GastTorerwartung, rng, platzverweise, gespielteMinuten, hinspielstand,
+            new(Chancenprofil.Aus(HeimTorerwartung, Heim, Auswaerts), Chancenprofil.Aus(GastTorerwartung, Auswaerts, Heim),
+                rng, platzverweise, gespielteMinuten, hinspielstand,
                 new Teamprofile(Teamprofil.Von(Heim, Spielbedeutung), Teamprofil.Von(Auswaerts, Spielbedeutung)));
     }
 
@@ -341,4 +342,5 @@ public record SimuliertesEreignis(
     EreignisArt Art,
     bool IstHeim,
     string Beschreibung,
-    int? Nachspielminute = null);
+    int? Nachspielminute = null,
+    Chancenart? Chancenart = null);

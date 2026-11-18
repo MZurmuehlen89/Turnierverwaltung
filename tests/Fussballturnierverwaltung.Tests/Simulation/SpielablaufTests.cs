@@ -94,13 +94,67 @@ public class SpielablaufTests
 
     [Theory]
     [InlineData(0.0, 0.149, 0.9999, "Tor per Kopfball nach Konter (unten rechts)")]
-    [InlineData(0.9999, 0.151, 0.0, "Tor per Direktabnahme (oben links)")]
+    [InlineData(0.9999, 0.151, 0.0, "Tor per Direktabnahme nach Ecke (oben links)")]
+    [InlineData(0.9999, 0.32, 0.0, "Tor per Direktabnahme nach Freistoß (oben links)")]
+    [InlineData(0.9999, 0.38, 0.0, "Tor per Direktabnahme (oben links)")]
     public void Torbeschreibung_StilKonterUndZone(double stil, double konter, double zone, string erwartet)
     {
-        var zufall = new Ablauffolge().Hinzu(JA, JA, stil, konter, zone).Zufall();
+        var zufall = new Ablauffolge().Hinzu(JA, JA, NEIN, JA, stil, konter, zone).Zufall();
 
         Simulieren(zufall).Ereignisse.Should().Contain(x => x.Art == EreignisArt.Tor)
             .Which.Beschreibung.Should().Be(erwartet);
+    }
+
+    // ── Chancen (#431, K6) ────────────────────────────────────────────────
+
+    [Theory]
+    [InlineData(GROSSCHANCE, 0.0, "Großchance vergeben – vom Torhüter pariert", Chancenart.Grosschance)]
+    [InlineData(GROSSCHANCE, 0.5, "Großchance vergeben – Pfosten", Chancenart.Grosschance)]
+    [InlineData(JA, 0.0, "Elfmeter gehalten", Chancenart.Elfmeter)]
+    [InlineData(JA, 0.9, "Elfmeter verschossen", Chancenart.Elfmeter)]
+    public void VergebeneGrosschanceUndElfmeter_WerdenEinEreignisOhneTor(
+        double artWurf, double textWurf, string text, Chancenart art)
+    {
+        var e = Simulieren(new Ablauffolge()
+            .ChanceVergeben(heim: false, artWurf, textWurf).KeinTor().Karten()
+            .Zufall());
+
+        e.Ereignisse.Should().ContainSingle()
+            .Which.Should().Be(new SimuliertesEreignis(1, EreignisArt.Grosschance, false, text, null, art));
+        (e.HeimToreRegulaer, e.AuswaertsToreRegulaer).Should().Be((0, 0));
+    }
+
+    [Fact]
+    public void VergebeneNormaleChance_ErzeugtKeinEreignis()
+    {
+        var e = Simulieren(new Ablauffolge().ChanceVergeben(heim: true, NEIN).KeinTor().Karten().Zufall());
+
+        e.Ereignisse.Should().BeEmpty();
+    }
+
+    [Fact]
+    public void VerwandelterElfmeter_IstEinTorMitChancenartElfmeter()
+    {
+        var e = Simulieren(new Ablauffolge()
+            .Hinzu(JA, JA, JA, JA, 0.0).KeinTor().Karten()
+            .Zufall());
+
+        e.Ereignisse.Where(x => x.Art == EreignisArt.Tor).Should().ContainSingle()
+            .Which.Should().Be(new SimuliertesEreignis(
+                1, EreignisArt.Tor, true, "Tor per Elfmeter (oben links)", null, Chancenart.Elfmeter));
+        (e.HeimToreRegulaer, e.AuswaertsToreRegulaer).Should().Be((1, 0));
+    }
+
+    [Fact]
+    public void GoldenGoal_PerElfmeter_BleibtGoldenGoalMitChancenart()
+    {
+        var zufall = new Ablauffolge().Ruhig(15).Nachspielzeit(JA).Hinzu(JA, JA, JA, JA).Zufall(danach: null);
+
+        var e = Anwenden(zufall, VerfahrenArt.GoldenGoal);
+
+        e.Ereignisse.Should().ContainSingle()
+            .Which.Should().Be(new SimuliertesEreignis(
+                106, EreignisArt.GoldenGoal, true, "Golden Goal", null, Chancenart.Elfmeter));
     }
 
     // ── Karten (K1, K6) ───────────────────────────────────────────────────
@@ -126,11 +180,11 @@ public class SpielablaufTests
     {
         var e = Simulieren(new Ablauffolge()
             .KeinTor().Karten(rotHeim: karteInMinute1)
-            .Hinzu(JA, 0.6).Hinzu(TorstilOhneKonter).KeinTor().Karten()
+            .Hinzu(JA, 0.6, NEIN, JA).Hinzu(TorstilOhneKonter).KeinTor().Karten()
             .Zufall());
 
         e.Ereignisse.Single(x => x.Art == EreignisArt.Tor).Should().Be(
-            new SimuliertesEreignis(2, EreignisArt.Tor, heimTrifftInMinute2, KOPFBALL));
+            new SimuliertesEreignis(2, EreignisArt.Tor, heimTrifftInMinute2, KOPFBALL, null, Chancenart.Normal));
     }
 
     [Fact]
@@ -138,7 +192,7 @@ public class SpielablaufTests
     {
         // Die Tore einer Minute fallen vor ihren Karten: trotz Roter Karte in Minute 1 trifft das Heimteam dort mit 0,6.
         var e = Simulieren(new Ablauffolge()
-            .Hinzu(JA, 0.6).Hinzu(TorstilOhneKonter).KeinTor().Karten(rotHeim: true)
+            .Hinzu(JA, 0.6, NEIN, JA).Hinzu(TorstilOhneKonter).KeinTor().Karten(rotHeim: true)
             .Zufall());
 
         Kurz(e.Ereignisse.Where(x => x.Art is EreignisArt.Tor or EreignisArt.RoteKarte)).Should().Equal(
@@ -165,15 +219,15 @@ public class SpielablaufTests
     public void GoldenGoal_TorschuetzeNachAnteilAnDerTorerwartung_NichtPerLos()
     {
         // Regression #361: der alte Ablauf ließ hier beide treffen und lieferte per Los (0,6) das Gastteam.
-        var zufall = new VorgegebenerZufall([JA, JA, 0.6]);
+        var zufall = new VorgegebenerZufall([JA, 0.6, NEIN, JA]);
 
         var e = Anwenden(zufall, VerfahrenArt.GoldenGoal);
 
         e.Art.Should().Be(EntscheidungArt.GoldenGoal);
         (e.HeimVerl, e.GastVerl).Should().Be(Stand(1, 0));
         e.Ereignisse.Should().ContainSingle()
-            .Which.Should().Be(new SimuliertesEreignis(91, EreignisArt.GoldenGoal, true, "Golden Goal"));
-        zufall.Verbraucht.Should().Be(2, "nach dem ersten Tor wird nicht weitergespielt");
+            .Which.Should().Be(new SimuliertesEreignis(91, EreignisArt.GoldenGoal, true, "Golden Goal", null, Chancenart.Normal));
+        zufall.Verbraucht.Should().Be(4, "nach dem ersten Tor wird nicht weitergespielt");
     }
 
     [Fact]
@@ -185,7 +239,7 @@ public class SpielablaufTests
 
         (e.HeimVerl, e.GastVerl).Should().Be(Stand(0, 1));
         e.Ereignisse.Should().ContainSingle()
-            .Which.Should().Be(new SimuliertesEreignis(105, EreignisArt.GoldenGoal, false, "Golden Goal", 2));
+            .Which.Should().Be(new SimuliertesEreignis(105, EreignisArt.GoldenGoal, false, "Golden Goal", 2, Chancenart.Normal));
     }
 
     [Fact]
@@ -268,7 +322,7 @@ public class SpielablaufTests
 
         e.EntscheidungArt.Should().Be(EntscheidungArt.GoldenGoal);
         e.Ereignisse.Should().ContainSingle()
-            .Which.Should().Be(new SimuliertesEreignis(91, EreignisArt.GoldenGoal, true, "Golden Goal"));
+            .Which.Should().Be(new SimuliertesEreignis(91, EreignisArt.GoldenGoal, true, "Golden Goal", null, Chancenart.Normal));
         (e.HalbzeitHeimTore, e.HalbzeitAuswaertsTore).Should().Be(Stand(0, 0));
     }
 
