@@ -15,39 +15,6 @@ namespace Fussballturnierverwaltung.Tests.Simulation;
 /// </summary>
 public class SimulationsKalibrierungTests
 {
-    // (Off, Mid, Def, Heim, Ausw)
-    private static readonly (int, int, int, int, int)[] _bundesliga =
-    [
-        (90, 88, 86, 95, 82), (87, 86, 84, 88, 80), (84, 82, 78, 88, 76), (83, 82, 80, 84, 76),
-        (79, 78, 77, 82, 73), (78, 77, 76, 80, 72), (75, 75, 73, 77, 69), (74, 74, 74, 78, 69),
-        (73, 73, 73, 79, 68), (73, 73, 72, 76, 67), (74, 73, 72, 76, 68), (73, 73, 71, 76, 67),
-        (72, 72, 71, 75, 67), (70, 70, 70, 73, 65), (68, 68, 67, 73, 62), (67, 67, 66, 70, 61),
-        (73, 72, 71, 77, 67), (70, 69, 68, 75, 63)
-    ];
-
-    // 3. Liga + Regionalliga-Pokalteilnehmer
-    private static readonly (int, int, int, int, int)[] _unterklassig =
-    [
-        (64, 63, 63, 67, 57), (62, 62, 61, 64, 55), (62, 61, 61, 64, 55), (62, 61, 61, 66, 56),
-        (62, 61, 60, 66, 55), (62, 61, 61, 67, 55), (61, 61, 60, 66, 55), (61, 60, 60, 64, 55),
-        (61, 60, 59, 66, 55), (61, 60, 60, 65, 55), (61, 60, 60, 66, 54), (60, 60, 60, 65, 54),
-        (60, 59, 59, 64, 54), (60, 60, 59, 63, 54), (60, 59, 59, 64, 53), (59, 59, 58, 62, 53),
-        (56, 56, 56, 60, 51), (56, 56, 55, 60, 50), (56, 55, 55, 60, 50), (55, 55, 54, 59, 50),
-        (55, 55, 54, 60, 49), (55, 55, 54, 59, 49), (54, 54, 54, 59, 49), (54, 54, 53, 58, 49),
-        (54, 53, 53, 58, 48), (53, 53, 53, 58, 48), (53, 53, 52, 57, 48), (53, 52, 52, 57, 47)
-    ];
-
-    /// <param name="mitSpielweise">Grundausrichtung aus dem Rating-Vorschlag wie im Seed (#667); sonst ausgeglichen.</param>
-    private static List<Mannschaft> Teams(
-        (int Off, int Mid, int Def, int Heim, int Ausw)[] ratings, int idBasis, bool mitSpielweise = false) =>
-        ratings.Select((r, i) => new Mannschaft
-        {
-            Id = idBasis + i, Name = $"Team {idBasis + i}", Kurzname = $"T{idBasis + i}",
-            OffensivRating = r.Off, MittelfeldRating = r.Mid, DefensivRating = r.Def,
-            Heimstaerke = r.Heim, Auswaertsstaerke = r.Ausw,
-            Grundausrichtung = mitSpielweise ? SpielweisenVorschlag.AusRatings(r.Off, r.Def) : Grundausrichtung.Ausgeglichen
-        }).ToList();
-
     // #361: der ausführliche Pfad (Minute für Minute mit Spielzustand) muss dieselben Kennzahlen treffen – die App
     // simuliert seit #171 immer ausführlich. #667: auch mit der Spielweise, die der Seed aus den Ratings vorschlägt.
     [Theory]
@@ -56,7 +23,7 @@ public class SimulationsKalibrierungTests
     [InlineData(true, true)]
     public void Bundesliga_KennzahlenLiegenImRealenBereich(bool ausfuehrlich, bool mitSpielweise)
     {
-        var teams = Teams(_bundesliga, 1, mitSpielweise);
+        var teams = KalibrierungsTeams.Teams(KalibrierungsTeams.Bundesliga, 1, mitSpielweise);
         var rng = new Random(404);
         const int SAISONS = 30;
 
@@ -115,8 +82,8 @@ public class SimulationsKalibrierungTests
 
     private static double AusgeschiedeneBundesligistenJeSaison(int ueberraschungsfaktor, bool ausfuehrlich)
     {
-        var bundesliga = Teams(_bundesliga, 1);
-        var unterklassig = Teams(_unterklassig, 100);
+        var bundesliga = KalibrierungsTeams.Teams(KalibrierungsTeams.Bundesliga, 1);
+        var unterklassig = KalibrierungsTeams.Teams(KalibrierungsTeams.Unterklassig, 100);
         EntscheidungsVerfahren[] verfahren =
         [
             new() { VerfahrenArt = VerfahrenArt.VerlaengerungKlassisch, Reihenfolge = 1 },
@@ -145,8 +112,8 @@ public class SimulationsKalibrierungTests
     [InlineData(true)]
     public void Topfavorit_VerliertAuswaertsBeimSchwaechstenRegionalligistenSelten(bool ausfuehrlich)
     {
-        var bayern = Teams(_bundesliga[..1], 1)[0];
-        var wuppertal = Teams(_unterklassig[^1..], 100)[0];
+        var bayern = KalibrierungsTeams.Teams(KalibrierungsTeams.Bundesliga[..1], 1)[0];
+        var wuppertal = KalibrierungsTeams.Teams(KalibrierungsTeams.Unterklassig[^1..], 100)[0];
         var rng = new Random(404);
         const int SPIELE = 5000;
 
@@ -176,7 +143,7 @@ public class SimulationsKalibrierungTests
 
     private static double ToreJeSpielGleichStarker(Spielbedeutung spielbedeutung)
     {
-        var (heim, gast) = (Teams(_bundesliga[8..9], 1)[0], Teams(_bundesliga[8..9], 2)[0]);
+        var (heim, gast) = (KalibrierungsTeams.Teams(KalibrierungsTeams.Bundesliga[8..9], 1)[0], KalibrierungsTeams.Teams(KalibrierungsTeams.Bundesliga[8..9], 2)[0]);
         var rng = new Random(668);
         const int SPIELE = 40_000;
 
