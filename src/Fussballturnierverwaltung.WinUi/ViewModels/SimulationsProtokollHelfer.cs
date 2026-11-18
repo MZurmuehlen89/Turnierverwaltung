@@ -16,7 +16,8 @@ public record EinzelspielEreignisZeile(
     bool IstTrenner = false, string? TrennerText = null, TrennerArt TrennerArt = TrennerArt.Abschnitt,
     byte[]? Wappen = null,
     bool IstTor = false, bool IstGelbeKarte = false, bool IstRoteKarte = false, bool IstElfmeterVerschossen = false,
-    string? Detail = null, int MinuteWert = 0, bool IstElfmeterschuss = false, bool IstTaktikwechsel = false)
+    string? Detail = null, int MinuteWert = 0, bool IstElfmeterschuss = false, bool IstTaktikwechsel = false,
+    bool IstGrosschance = false)
 {
     // Nur fuer IstTrenner==true aussagekräftig — die beiden Properties kombinieren beides, damit die
     // Zeitleisten-DataTemplate-Grids nicht zusätzlich auf IstTrenner prüfen müssen (sonst würde bei
@@ -216,7 +217,9 @@ internal static class SimulationsProtokollHelfer
             EreignisArt.SilverGoal          => "Silver Goal",
             EreignisArt.ElfmeterTor         => "Elfmeter verwandelt",
             EreignisArt.ElfmeterVerschossen => "Elfmeter verschossen",
-            _                               => art.ToString()
+            // #431: vergebene Großchance oder vergebener Elfmeter im Spiel; der Detailtext nennt den Hergang.
+            EreignisArt.Grosschance         => "Großchance",
+            _                             => art.ToString()
         };
 
         // Issue #341: Beschreibung aus der Simulation (z. B. "Tor per Kopfball nach Konter (oben links)")
@@ -256,7 +259,8 @@ internal static class SimulationsProtokollHelfer
                 Detail: DetailText(artText, beschreibung),
                 MinuteWert: minute,
                 IstElfmeterschuss: art is EreignisArt.ElfmeterTor or EreignisArt.ElfmeterVerschossen,
-                IstTaktikwechsel: art == EreignisArt.Taktikwechsel));
+                IstTaktikwechsel: art == EreignisArt.Taktikwechsel,
+                IstGrosschance: art == EreignisArt.Grosschance));
         }
 
         // Noch nicht erreichte Schwellen (z. B. Halbzeit ohne Tor, Spielende ohne Ereignis danach) nachtragen
