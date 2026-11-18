@@ -765,6 +765,9 @@ namespace Fussballturnierverwaltung.Infrastructure.Persistenz.Migrationen
                     b.Property<int>("Heimstaerke")
                         .HasColumnType("integer");
 
+                    b.Property<int>("Kondition")
+                        .HasColumnType("integer");
+
                     b.Property<string>("Kurzname")
                         .IsRequired()
                         .HasMaxLength(50)

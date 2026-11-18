@@ -19,6 +19,7 @@ public class Mannschaft : BasisEntitaet
     // Spielweise in der Simulation (#667)
     public Grundausrichtung Grundausrichtung { get; set; }
     public Flexibilitaet Flexibilitaet { get; set; }
+    public Kondition Kondition { get; set; }
 
     public byte[]? Wappen { get; set; }
 
