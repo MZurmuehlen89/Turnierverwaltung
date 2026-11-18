@@ -5,7 +5,8 @@ namespace Fussballturnierverwaltung.Application.Simulation;
 /// <summary>Taktische Ausrichtung eines Teams im Spielverlauf (#361), aufsteigend nach Risiko.</summary>
 public enum Risikostufe
 {
-    /// <summary>Führendes Team verteidigt den Vorsprung – weniger Tore auf beiden Seiten.</summary>
+    /// <summary>Führendes Team verteidigt den Vorsprung – greift weniger an und überlässt dem Gegner das Spiel (seit
+    /// #674; bis dahin weniger Tore auf beiden Seiten).</summary>
     Mauern,
     /// <summary>Zwischenschritt vor dem Mauern (#667): etwas tiefer stehen, weniger Risiko nach vorn.</summary>
     Defensiv,
@@ -59,6 +60,8 @@ public static class Spielsituation
     public const int ACHSE_ENDE = 3;
 
     // Je Position der Achse, beginnend bei Mauern. Defensiv liegt vorläufig in der Mitte zwischen Mauern und Neutral.
+    // Die Achse beschreibt die Haltung (Grundausrichtung, Spielbedeutung): defensiv = kompakt, weniger Tore auf beiden
+    // Seiten. Der Rückzug in Führung (Stufen Defensiv und Mauern) wirkt seit #674 anders – siehe Rückzug.
     /// <summary>Wirkung auf den eigenen Angriff: mit dem Risiko nur leicht stärker.</summary>
     private static readonly double[] _eigenerAngriff   = [0.75, 0.875, 1.0, 1.10, 1.20, 1.30];
     /// <summary>Wirkung auf den Angriff des Gegners: die Abwehr wird überproportional schwächer (Konter, Lucky
@@ -68,8 +71,17 @@ public static class Spielsituation
     /// <summary>Position der Stufe auf der Risikoachse: Mauern −2, Defensiv −1, Neutral 0 … Brechstange 3.</summary>
     public static double Position(Risikostufe stufe) => (int)stufe + ACHSE_ANFANG;
 
-    public static double EigenerAngriff(Risikostufe stufe) => EigenerAngriff(Position(stufe));
-    public static double AngriffDesGegners(Risikostufe stufe) => AngriffDesGegners(Position(stufe));
+    /// <summary>Wirkung der Stufe auf den eigenen Angriff, für ein Team genau auf der Stufe (Rückzug eingerechnet).</summary>
+    public static double EigenerAngriff(Risikostufe stufe) => EigenerAngriff(new Teamzustand(stufe, 0));
+
+    /// <summary>Wirkung der Stufe auf den Angriff des Gegners, für ein Team genau auf der Stufe (Rückzug eingerechnet).</summary>
+    public static double AngriffDesGegners(Risikostufe stufe) => AngriffDesGegners(new Teamzustand(stufe, 0));
+
+    /// <summary>Wirkung eines Teams auf seinen eigenen Angriff: Platz auf der Achse, dazu der Rückzug seiner Stufe.</summary>
+    public static double EigenerAngriff(Teamzustand team) => EigenerAngriff(team.Position) * Rueckzug(team.Stufe).Eigener;
+
+    /// <summary>Wirkung eines Teams auf den Angriff des Gegners: Platz auf der Achse, dazu der Rückzug seiner Stufe.</summary>
+    public static double AngriffDesGegners(Teamzustand team) => AngriffDesGegners(team.Position) * Rueckzug(team.Stufe).Gegner;
 
     /// <summary>Wirkung einer Position der Risikoachse auf den eigenen Angriff; jenseits der Enden wie das Ende.</summary>
     public static double EigenerAngriff(double position) => Interpoliert(_eigenerAngriff, position);
@@ -83,6 +95,27 @@ public static class Spielsituation
         int unten = Math.Min((int)index, werte.Length - 2);
         return werte[unten] + (werte[unten + 1] - werte[unten]) * (index - unten);
     }
+
+    // ── Rückzug ───────────────────────────────────────────────────────────
+    // Die Stufen Defensiv und Mauern wählt die Risikoentscheidung, um eine Führung (in Unterzahl ein Unentschieden) zu
+    // halten. Wer sich so zurückzieht, greift weniger an und überlässt dem Gegner das Spiel (#674). Bis dahin wirkten
+    // die Stufen wie die Achse und senkten auch den Angriff des Gegners – das fror ein 1:0 ein, real wird eine knappe
+    // Führung öfter ausgeglichen (1:0 + 0:1 12,1 %, Dixon-Coles ρ −0,14). Zielwerte für ein Team genau auf der Stufe;
+    // kalibriert an SimulationsRealismusTests, Messreihe in #674. Die Haltung (Grundausrichtung, Spielbedeutung) bleibt
+    // auf der Achse: ein defensiv ausgerichtetes Team kassiert weiter weniger (#667, #668).
+    private const double DEFENSIV_EIGENER = 0.95;
+    private const double DEFENSIV_GEGNER  = 1.05;
+    private const double MAUERN_EIGENER   = 0.90;
+    private const double MAUERN_GEGNER    = 1.10;
+
+    /// <summary>Faktoren des Rückzugs auf den eigenen Angriff und den des Gegners – zusätzlich zur Achse, sodass ein
+    /// Team genau auf der Stufe die Zielwerte erreicht; auf allen anderen Stufen 1.</summary>
+    public static (double Eigener, double Gegner) Rueckzug(Risikostufe stufe) => stufe switch
+    {
+        Risikostufe.Defensiv => (DEFENSIV_EIGENER / EigenerAngriff(Position(stufe)), DEFENSIV_GEGNER / AngriffDesGegners(Position(stufe))),
+        Risikostufe.Mauern   => (MAUERN_EIGENER / EigenerAngriff(Position(stufe)), MAUERN_GEGNER / AngriffDesGegners(Position(stufe))),
+        _                    => (1, 1)
+    };
 
     // ── Platzverweise ─────────────────────────────────────────────────────
 
@@ -115,6 +148,22 @@ public static class Spielsituation
         1  => 1 - ROT_SPIELSTAND_EINFLUSS,
         _  => 1
     };
+
+    // ── Spielstand ────────────────────────────────────────────────────────
+    // Faktor auf die Chancenrate beider Teams nach dem Spielstand (#674): Nach einem Ausgleich wird das Spiel ruhiger
+    // (real 1:1 1,22-mal und 2:2 1,11-mal so häufig wie bei unabhängigen Toren), ein 0:0 bleibt dagegen kaum länger
+    // stehen (1,04). Bei Ungleichstand leicht unter 1, damit die Torerwartung im Mittel bleibt (Kalibrierung #404).
+    // Kalibriert an SimulationsRealismusTests (Ergebnisverteilung, Dixon-Coles), Messreihe in #674.
+    public const double NACH_AUSGLEICH = 0.80;
+    public const double UNGLEICHSTAND  = 0.96;
+
+    /// <summary>Faktor auf die Chancenrate beider Teams nach dem Stand des laufenden Spiels: 1 bei 0:0,
+    /// <see cref="NACH_AUSGLEICH"/> bei Gleichstand nach Toren, sonst <see cref="UNGLEICHSTAND"/>.</summary>
+    public static double Spielstandfaktor(int heimTore, int gastTore)
+    {
+        if (heimTore != gastTore) return UNGLEICHSTAND;
+        return heimTore == 0 ? 1 : NACH_AUSGLEICH;
+    }
 
     // ── Zeitprofil ────────────────────────────────────────────────────────
 
@@ -152,8 +201,14 @@ public static class Spielsituation
     /// <summary>Faktor auf die Quote der eigenen Chancen nach der eigenen Position auf der Risikoachse: 1/E.</summary>
     public static double EigeneGuete(double position) => 1 / EigenerAngriff(position);
 
+    /// <summary>Faktor auf die Quote der eigenen Chancen eines Teams: 1/E, mit dem Rückzug seiner Stufe.</summary>
+    public static double EigeneGuete(Teamzustand team) => 1 / EigenerAngriff(team);
+
     /// <summary>Faktor auf die Quote des Gegners nach der eigenen Position auf der Risikoachse: √G.</summary>
     public static double GueteDesGegners(double position) => Math.Sqrt(AngriffDesGegners(position));
+
+    /// <summary>Faktor auf die Quote des Gegners eines Teams: √G, mit dem Rückzug seiner Stufe.</summary>
+    public static double GueteDesGegners(Teamzustand team) => Math.Sqrt(AngriffDesGegners(team));
 
     // ── Zusammengefasst ───────────────────────────────────────────────────
 
@@ -161,7 +216,7 @@ public static class Spielsituation
     /// und die des Verteidigers. Mit <see cref="Angriffsfaktor"/> multipliziert ergibt <see cref="Verwertung.Gesamt"/>
     /// die Wirkung der Risikoachse auf die Torerwartung.</summary>
     public static Verwertung Verwertungsfaktor(Teamzustand angreifer, Teamzustand verteidiger)
-        => new(EigeneGuete(angreifer.Position), GueteDesGegners(verteidiger.Position));
+        => new(EigeneGuete(angreifer), GueteDesGegners(verteidiger));
 
     /// <param name="Eigene">Anteil der eigenen Risikostufe.</param>
     /// <param name="DurchGegner">Anteil des Verteidigers: über 1, wenn er aufmacht (bei der Brechstange das leere Tor).</param>
@@ -175,9 +230,9 @@ public static class Spielsituation
     /// <param name="zeitfaktor">Wirkung des Zeitpunkts, aus <see cref="Zeitfaktor"/>.</param>
     public static double Angriffsfaktor(Teamzustand angreifer, Teamzustand verteidiger, double zeitfaktor)
     {
-        double eigener = EigenerAngriff(angreifer.Position);
+        double eigener = EigenerAngriff(angreifer);
         return eigener * eigener
-               * Math.Sqrt(AngriffDesGegners(verteidiger.Position))
+               * Math.Sqrt(AngriffDesGegners(verteidiger))
                * Math.Pow(UNTERZAHL_EIGENER_ANGRIFF, angreifer.Platzverweise)
                * Math.Pow(UNTERZAHL_ANGRIFF_GEGNER, verteidiger.Platzverweise)
                * zeitfaktor;

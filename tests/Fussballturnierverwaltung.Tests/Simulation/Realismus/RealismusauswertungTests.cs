@@ -85,6 +85,37 @@ public class RealismusauswertungTests
     }
 
     [Fact]
+    public void FuehrungsAusgang_Mindestens_ZaehltGroessereVorspruengeMit()
+    {
+        var dreiNull = Spiel(3, 0, Tor(10, true), Tor(20, true), Tor(30, true));
+        var gastVierNull = Spiel(2, 4, Tor(10, false), Tor(11, false), Tor(12, false), Tor(13, false), Tor(50, true), Tor(60, true));
+
+        Realismusauswertung.FuehrungsAusgang([dreiNull, gastVierNull], 45, 3).Anzahl.Should().Be(1);
+        var mindestens = Realismusauswertung.FuehrungsAusgang([dreiNull, gastVierNull], 45, 3, mindestens: true);
+        mindestens.Anzahl.Should().Be(2);
+        mindestens.Sieg.Should().Be(1);
+    }
+
+    private static SimuliertesSpiel MitPause(int heimPause, int gastPause, int heimTore, int gastTore) =>
+        new(1, 2, 0,
+            new SimulationsErgebnis(heimTore, gastTore, null, null, null, null,
+                EntscheidungArt.RegulaereSpielzeit, [], heimPause, gastPause),
+            new PaarungsDaten(0.5, 0.3, 1.5, 1.2));
+
+    [Fact]
+    public void ToreZweiteHalbzeit_AusSichtDesFuehrendenZurPause()
+    {
+        var heimFuehrt = MitPause(1, 0, 2, 2);  // 2. HZ: Führender 1, Zurückliegender 2
+        var gastFuehrt = MitPause(0, 1, 1, 1);  // 2. HZ: Führender 0, Zurückliegender 1
+        var gleich     = MitPause(1, 1, 3, 1);  // Gleichstand: Heim 2, Gast 0
+
+        Realismusauswertung.ToreZweiteHalbzeit([heimFuehrt, gastFuehrt, gleich], 1).Should().Be((0.5, 1.5));
+        Realismusauswertung.ToreZweiteHalbzeit([heimFuehrt, gastFuehrt, gleich], 0).Should().Be((2.0, 0.0));
+        Realismusauswertung.ToreZweiteHalbzeit([heimFuehrt, gleich], 2).Should().Be((0.0, 0.0), "keine Spiele");
+        Realismusauswertung.ToreZweiteHalbzeit([heimFuehrt, gastFuehrt, gleich], 1, mindestens: true).Should().Be((0.5, 1.5));
+    }
+
+    [Fact]
     public void RoteKarten_ZaehltJeMannschaftNurInRegulaererSpielzeit()
     {
         var spiel = Spiel(0, 0,

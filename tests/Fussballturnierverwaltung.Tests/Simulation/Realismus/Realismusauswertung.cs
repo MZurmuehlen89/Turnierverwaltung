@@ -72,15 +72,17 @@ internal static class Realismusauswertung
     }
 
     /// <summary>Wie ein Team mit Vorsprung <paramref name="vorsprung"/> nach <paramref name="minute"/> das Spiel beendet.
-    /// <paramref name="filter"/> bekommt Spiel und „Führender ist Heim“.</summary>
+    /// <paramref name="filter"/> bekommt Spiel und „Führender ist Heim“; <paramref name="mindestens"/> zählt auch
+    /// größere Vorsprünge mit (#674).</summary>
     public static Fuehrungsausgang FuehrungsAusgang(
-        IEnumerable<SimuliertesSpiel> spiele, int minute, int vorsprung, Func<SimuliertesSpiel, bool, bool>? filter = null)
+        IEnumerable<SimuliertesSpiel> spiele, int minute, int vorsprung, Func<SimuliertesSpiel, bool, bool>? filter = null,
+        bool mindestens = false)
     {
         int n = 0, sieg = 0, remis = 0, niederlage = 0;
         foreach (var spiel in spiele)
         {
             var (heim, gast) = Stand(spiel.Ergebnis.Ereignisse, minute);
-            if (Math.Abs(heim - gast) != vorsprung) continue;
+            if (!VorsprungPasst(Math.Abs(heim - gast), vorsprung, mindestens)) continue;
             bool fuehrerIstHeim = heim > gast;
             if (filter != null && !filter(spiel, fuehrerIstHeim)) continue;
             int differenz = (spiel.HeimTore - spiel.GastTore) * (fuehrerIstHeim ? 1 : -1);
@@ -89,6 +91,29 @@ internal static class Realismusauswertung
         }
         return n == 0 ? new(0, 0, 0, 0) : new(n, (double)sieg / n, (double)remis / n, (double)niederlage / n);
     }
+
+    /// <summary>Mittlere Tore der 2. Halbzeit (#674) von Führendem und Zurückliegendem bei <paramref name="vorsprung"/>
+    /// zur Pause (Halbzeitstand des Ergebnisses, wie BL); bei Gleichstand Heim und Gast. <paramref name="mindestens"/>
+    /// zählt auch größere Vorsprünge mit.</summary>
+    public static (double Fuehrender, double Zurueckliegender) ToreZweiteHalbzeit(
+        IEnumerable<SimuliertesSpiel> spiele, int vorsprung, bool mindestens = false)
+    {
+        int n = 0, fuehrender = 0, zurueckliegender = 0;
+        foreach (var spiel in spiele)
+        {
+            int heimPause = spiel.Ergebnis.HalbzeitHeimTore ?? 0, gastPause = spiel.Ergebnis.HalbzeitAuswaertsTore ?? 0;
+            if (!VorsprungPasst(Math.Abs(heimPause - gastPause), vorsprung, mindestens)) continue;
+            int heimDanach = spiel.HeimTore - heimPause, gastDanach = spiel.GastTore - gastPause;
+            bool heimFuehrt = heimPause >= gastPause;
+            n++;
+            fuehrender       += heimFuehrt ? heimDanach : gastDanach;
+            zurueckliegender += heimFuehrt ? gastDanach : heimDanach;
+        }
+        return n == 0 ? (0, 0) : ((double)fuehrender / n, (double)zurueckliegender / n);
+    }
+
+    private static bool VorsprungPasst(int abstand, int vorsprung, bool mindestens) =>
+        mindestens ? abstand >= vorsprung : abstand == vorsprung;
 
     /// <summary>Rote Karten der regulären Spielzeit je Mannschaft (Heim, Gast).</summary>
     public static (int Heim, int Gast) RoteKarten(SimuliertesSpiel spiel)

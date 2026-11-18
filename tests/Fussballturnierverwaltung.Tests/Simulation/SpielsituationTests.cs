@@ -29,13 +29,15 @@ public class SpielsituationTests
         }
     }
 
+    /// <summary>#674, K2: Wer mauert, greift weniger an und überlässt dem Gegner das Spiel – bis #674 sank auch der
+    /// Angriff des Gegners, das fror ein 1:0 ein.</summary>
     [Fact]
-    public void Mauern_SenktDieTorerwartungBeiderSeiten()
+    public void Mauern_SenktDenEigenenAngriffUndLaedtDruckEin()
     {
         var mauernd = new Teamzustand(Risikostufe.Mauern, 0);
 
-        Torwirkung(mauernd, _neutral).Should().BeLessThan(Torwirkung(_neutral, _neutral));
-        Torwirkung(_neutral, mauernd).Should().BeLessThan(Torwirkung(_neutral, _neutral));
+        Torwirkung(mauernd, _neutral).Should().BeApproximately(0.90, 1e-9);
+        Torwirkung(_neutral, mauernd).Should().BeApproximately(1.10, 1e-9);
     }
 
     [Fact]
@@ -96,20 +98,47 @@ public class SpielsituationTests
 
     // ── Risikoachse (#667, K1) ────────────────────────────────────────────
 
+    /// <summary>Die Achse (Haltung) behält ihre Werte; auf den Stufen Defensiv und Mauern kommt seit #674 der Rückzug
+    /// hinzu.</summary>
     [Theory]
-    [InlineData(Risikostufe.Mauern, -2, 0.75, 0.85)]
-    [InlineData(Risikostufe.Defensiv, -1, 0.875, 0.925)]
-    [InlineData(Risikostufe.Neutral, 0, 1.0, 1.0)]
-    [InlineData(Risikostufe.Offensiv, 1, 1.10, 1.30)]
-    [InlineData(Risikostufe.AllesNachVorn, 2, 1.20, 1.60)]
-    [InlineData(Risikostufe.Brechstange, 3, 1.30, 2.00)]
-    public void Risikoachse_GanzePositionen_LiefernDieWerteDerStufe(Risikostufe stufe, double position, double eigener, double gegner)
+    [InlineData(Risikostufe.Mauern, -2, 0.75, 0.85, 0.90, 1.10)]
+    [InlineData(Risikostufe.Defensiv, -1, 0.875, 0.925, 0.95, 1.05)]
+    [InlineData(Risikostufe.Neutral, 0, 1.0, 1.0, 1.0, 1.0)]
+    [InlineData(Risikostufe.Offensiv, 1, 1.10, 1.30, 1.10, 1.30)]
+    [InlineData(Risikostufe.AllesNachVorn, 2, 1.20, 1.60, 1.20, 1.60)]
+    [InlineData(Risikostufe.Brechstange, 3, 1.30, 2.00, 1.30, 2.00)]
+#pragma warning disable S107 // je Stufe Position, Werte der Achse und Werte der Stufe – eine Zeile InlineData je Stufe
+    public void Risikoachse_GanzePositionen_WerteDerAchse_DieStufeMitRueckzug(
+        Risikostufe stufe, double position, double eigener, double gegner, double stufeEigener, double stufeGegner)
+#pragma warning restore S107
     {
         Spielsituation.Position(stufe).Should().Be(position);
         Spielsituation.EigenerAngriff(position).Should().BeApproximately(eigener, 1e-9);
         Spielsituation.AngriffDesGegners(position).Should().BeApproximately(gegner, 1e-9);
-        Spielsituation.EigenerAngriff(stufe).Should().BeApproximately(eigener, 1e-9);
-        Spielsituation.AngriffDesGegners(stufe).Should().BeApproximately(gegner, 1e-9);
+        Spielsituation.EigenerAngriff(stufe).Should().BeApproximately(stufeEigener, 1e-9);
+        Spielsituation.AngriffDesGegners(stufe).Should().BeApproximately(stufeGegner, 1e-9);
+    }
+
+    /// <summary>#674, K2: Eine defensive Haltung (Grundausrichtung, Spielbedeutung – Stufe Neutral) bleibt kompakt und
+    /// senkt die Tore auf beiden Seiten; nur der Rückzug in Führung lädt Druck ein (#667, #668 unverändert).</summary>
+    [Fact]
+    public void DefensiveHaltung_OhneRueckzug_WenigerToreAufBeidenSeiten()
+    {
+        var defensiveHaltung = new Teamzustand(Risikostufe.Neutral, 0, Position: -1);
+
+        Torwirkung(defensiveHaltung, _neutral).Should().BeApproximately(0.875, 1e-9);
+        Torwirkung(_neutral, defensiveHaltung).Should().BeApproximately(0.925, 1e-9);
+    }
+
+    /// <summary>#674, K2: Der Rückzug wirkt als Faktor zusätzlich zur Achse – auch für ein Team, das wegen seines Profils
+    /// nicht genau auf der Stufe steht.</summary>
+    [Fact]
+    public void Rueckzug_WirktZusaetzlichZurPositionAufDerAchse()
+    {
+        var mauerndOffensivAusgerichtet = new Teamzustand(Risikostufe.Mauern, 0, Position: -1.5);
+
+        Torwirkung(mauerndOffensivAusgerichtet, _neutral).Should().BeApproximately(0.8125 * 0.90 / 0.75, 1e-9);
+        Torwirkung(_neutral, mauerndOffensivAusgerichtet).Should().BeApproximately(0.8875 * 1.10 / 0.85, 1e-9);
     }
 
     [Theory]
@@ -153,8 +182,10 @@ public class SpielsituationTests
             .Should().Be(new Teamzustand(Risikostufe.Mauern, 1, Position: -1.5));
     }
 
+    /// <summary>#674, K2: Defensiv ist der halbe Schritt zum Mauern – eigener Angriff und Druck des Gegners liegen
+    /// jeweils zwischen Neutral und Mauern.</summary>
     [Fact]
-    public void Defensiv_SenktDieTorerwartungBeiderSeiten_WenigerAlsMauern()
+    public void Defensiv_LiegtZwischenNeutralUndMauern()
     {
         var defensiv = new Teamzustand(Risikostufe.Defensiv, 0);
         var mauernd  = new Teamzustand(Risikostufe.Mauern, 0);
@@ -162,8 +193,22 @@ public class SpielsituationTests
 
         Torwirkung(defensiv, _neutral).Should().BeLessThan(neutral)
             .And.BeGreaterThan(Torwirkung(mauernd, _neutral));
-        Torwirkung(_neutral, defensiv).Should().BeLessThan(neutral)
-            .And.BeGreaterThan(Torwirkung(_neutral, mauernd));
+        Torwirkung(_neutral, defensiv).Should().BeGreaterThan(neutral)
+            .And.BeLessThan(Torwirkung(_neutral, mauernd));
+    }
+
+    // ── Spielstand (#674, K3) ─────────────────────────────────────────────
+
+    [Theory]
+    [InlineData(0, 0, 1.0)]
+    [InlineData(1, 1, 0.80)]
+    [InlineData(2, 2, 0.80)]
+    [InlineData(1, 0, 0.96)]
+    [InlineData(0, 2, 0.96)]
+    [InlineData(3, 1, 0.96)]
+    public void Spielstandfaktor_NullNullUnveraendert_NachAusgleichRuhiger_SonstLeichtUnterEins(int heim, int gast, double faktor)
+    {
+        Spielsituation.Spielstandfaktor(heim, gast).Should().BeApproximately(faktor, 1e-9);
     }
 
     [Theory]

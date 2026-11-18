@@ -1,3 +1,5 @@
+using Fussballturnierverwaltung.Application.Simulation;
+
 namespace Fussballturnierverwaltung.Tests.Simulation;
 
 /// <summary>
@@ -8,7 +10,7 @@ namespace Fussballturnierverwaltung.Tests.Simulation;
 /// Next() ohne Grenze nutzt Sample nicht und ist deshalb gesperrt. Ist die Folge erschöpft, liefert sie
 /// <paramref name="danach"/> – ohne diesen Wert wirft sie, damit ein Test nicht unbemerkt mit anderen Zahlen weiterläuft.
 /// </summary>
-internal sealed class VorgegebenerZufall(IEnumerable<double> werte, double? danach = null) : Random
+internal sealed class VorgegebenerZufall(IEnumerable<double> werte, double? danach = null) : Random, IZufallsabzweigung
 {
     private readonly Queue<double> _werte = new(werte);
 
@@ -22,4 +24,7 @@ internal sealed class VorgegebenerZufall(IEnumerable<double> werte, double? dana
     }
 
     public override int Next() => throw new NotSupportedException("Next() zieht nicht aus der vorgegebenen Folge");
+
+    /// <summary>Die Spielkontrolle (#674) steht still – die vorgegebene Folge bleibt unberührt.</summary>
+    public Random Abzweigen() => new RuhenderZufall();
 }

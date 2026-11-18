@@ -48,11 +48,25 @@ public class SimulationsRealismusTests(RealismusStichprobe stichprobe) : IClassF
         ImBand("Tordifferenz ≥ 3", Anteil(Spiele, s => Math.Abs(s.HeimTore - s.GastTore) >= 3), 0.175, 0.225, "BL 19,9 %");
     }
 
-    [Fact(Skip = "Abweichung: 1:0 + 0:1 15,4 % statt höchstens 13,7 %, 1:1 10,1 % statt mindestens 10,5 % (vor #682 14,8 / 10,7 %) – Korrektur in #674 (Nachlassen bei Führung erzeugt Ausgleiche)")]
+    [Fact(Skip = SKIP_MUTATION, SkipWhen = nameof(Mutationslauf.Aktiv), SkipType = typeof(Mutationslauf))]
     public void Ergebnisverteilung_EinsNullNullEinsUndEinsEins()
     {
         ImBand("1:0 + 0:1", Anteil(Spiele, s => s.HeimTore + s.GastTore == 1), 0.105, 0.137, "BL 12,1 %");
         ImBand("1:1", Anteil(Spiele, s => s.HeimTore == 1 && s.GastTore == 1), 0.105, 0.133, "BL 11,9 %");
+    }
+
+    /// <summary>#674, K8: nur Bericht – Ergebnisse im Verhältnis zu unabhängigen Poisson-Ziehungen. BL: 0:0 1,04,
+    /// 2:0 + 0:2 0,94, 2:1 + 1:2 1,04, 2:2 1,11, Remis gesamt 1,14 (Auswertung in #674).</summary>
+    [Fact(Skip = SKIP_MUTATION, SkipWhen = nameof(Mutationslauf.Aktiv), SkipType = typeof(Mutationslauf))]
+    public void Ergebnisverteilung_NurBericht_VerhaeltnisZuUnabhaengigenZiehungen()
+    {
+        var daten = DixonColesDaten();
+        Bericht($"÷ unabhängig: 0:0 {DixonColes.VerhaeltnisZuUnabhaengig(daten, 0, 0):F2} (BL 1,04), " +
+                $"2:0 + 0:2 {DixonColes.VerhaeltnisZuUnabhaengig(daten, [(2, 0), (0, 2)]):F2} (BL 0,94), " +
+                $"2:1 + 1:2 {DixonColes.VerhaeltnisZuUnabhaengig(daten, [(2, 1), (1, 2)]):F2} (BL 1,04), " +
+                $"2:2 {DixonColes.VerhaeltnisZuUnabhaengig(daten, 2, 2):F2} (BL 1,11), " +
+                $"Remis {DixonColes.VerhaeltnisZuUnabhaengig(daten, [.. Enumerable.Range(0, 12).Select(k => (k, k))]):F2} (BL 1,14)");
+        daten.Should().NotBeEmpty();
     }
 
     // ── K2 Dixon-Coles als Maßstab ────────────────────────────────────────
@@ -60,7 +74,7 @@ public class SimulationsRealismusTests(RealismusStichprobe stichprobe) : IClassF
     private List<(double Lambda, double Mu, int Heim, int Gast)> DixonColesDaten() =>
         Spiele.Select(s => (s.Paarung.MittlereToreHeim, s.Paarung.MittlereToreGast, s.HeimTore, s.GastTore)).ToList();
 
-    [Fact(Skip = "Abweichung: ρ −0,036, 1:1 ×1,05, 1:0 + 0:1 ×0,98 statt ρ ≤ −0,09, ≥ 1,10, ≤ 0,90 – Korrektur in #674")]
+    [Fact(Skip = SKIP_MUTATION, SkipWhen = nameof(Mutationslauf.Aktiv), SkipType = typeof(Mutationslauf))]
     public void DixonColes_RhoUndVerhaeltnisseZuUnabhaengigenPoissonZiehungen()
     {
         var daten = DixonColesDaten();
@@ -109,7 +123,7 @@ public class SimulationsRealismusTests(RealismusStichprobe stichprobe) : IClassF
         ImBand("+1 zur Pause, Führender ist Außenseiter: Sieg", aussenseiter.Sieg, 0.490, 0.615, "BL 55,2 %");
     }
 
-    [Fact(Skip = "Abweichung: 71,2 % statt höchstens 71,0 % (vor #682 70,3 %; seit #682 sieht öfter Rot, wer knapp hinten liegt) – Korrektur in #674 (Nachlassen bei Führung)")]
+    [Fact(Skip = SKIP_MUTATION, SkipWhen = nameof(Mutationslauf.Aktiv), SkipType = typeof(Mutationslauf))]
     public void Fuehrung_EinTorVorsprungZurPause_Siegquote()
     {
         ImBand("+1 zur Pause: Sieg", Realismusauswertung.FuehrungsAusgang(Spiele, 45, 1).Sieg, 0.635, 0.710, "BL 67,3 %");
@@ -121,6 +135,25 @@ public class SimulationsRealismusTests(RealismusStichprobe stichprobe) : IClassF
         var ausgang = Realismusauswertung.FuehrungsAusgang(Spiele, 45, 2);
         Bericht($"+2 zur Pause: n = {ausgang.Anzahl}");
         ImBand("+2 zur Pause: Sieg", ausgang.Sieg, 0.880, 0.945, "BL 91,3 %");
+    }
+
+    /// <summary>#674, K8: nur Bericht – durch die Stärkeauswahl verzerrt (wer zur Pause führt, ist meist stärker) und bei
+    /// +3 mit n = 121 zu unsicher für ein Band. BL: +3 und mehr → Sieg 95,9 %; Tore der 2. Halbzeit (Führender /
+    /// Zurückliegender) bei Gleichstand 0,86 / 0,68 (Heim / Gast), bei +1 0,93 / 0,80, bei +2 1,12 / 0,78, bei +3 und mehr
+    /// 1,22 / 0,71.</summary>
+    [Fact(Skip = SKIP_MUTATION, SkipWhen = nameof(Mutationslauf.Aktiv), SkipType = typeof(Mutationslauf))]
+    public void Fuehrung_NurBericht_DreiToreUndZweiteHalbzeit()
+    {
+        var dreiUndMehr = Realismusauswertung.FuehrungsAusgang(Spiele, 45, 3, mindestens: true);
+        Bericht($"+3 und mehr zur Pause: n = {dreiUndMehr.Anzahl}, Sieg {dreiUndMehr.Sieg:P1} (BL 95,9 %)");
+        string[] real = ["0,86 / 0,68", "0,93 / 0,80", "1,12 / 0,78", "1,22 / 0,71"];
+        for (int vorsprung = 0; vorsprung <= 3; vorsprung++)
+        {
+            var (fuehrender, zurueckliegender) = Realismusauswertung.ToreZweiteHalbzeit(Spiele, vorsprung, mindestens: vorsprung == 3);
+            Bericht($"2. Halbzeit bei {(vorsprung == 0 ? "Gleichstand (Heim / Gast)" : $"+{vorsprung}{(vorsprung == 3 ? " und mehr" : "")}")}: " +
+                    $"{fuehrender:F2} / {zurueckliegender:F2} (BL {real[vorsprung]})");
+        }
+        dreiUndMehr.Anzahl.Should().BePositive();
     }
 
     [Fact(Skip = SKIP_MUTATION, SkipWhen = nameof(Mutationslauf.Aktiv), SkipType = typeof(Mutationslauf))]

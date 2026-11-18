@@ -5,7 +5,8 @@ namespace Fussballturnierverwaltung.Application.Simulation;
 /// <summary>
 /// Ausführliche Simulation Minute für Minute (#361). Ein Exemplar hält den Zustand eines Spiels: Spielstand des
 /// laufenden Abschnitts, Risikostufe und Platzverweise je Team, gespielte Minuten (Ermüdung). Je Minute wird die
-/// Chancenrate aus diesem Zustand neu berechnet (<see cref="Spielsituation"/>), jede Chance hat eine Art
+/// Chancenrate aus diesem Zustand neu berechnet (<see cref="Spielsituation"/>, dazu Spielstand und Spielkontrolle seit
+/// #674), jede Chance hat eine Art
 /// (<see cref="Chancenmodell"/>) und wird mit deren Quote zum Tor (#431); Chancen fallen nacheinander, eine zweite
 /// Chance derselben Minute rechnet mit dem neuen Spielstand. Karten werden ebenfalls je Minute gezogen und
 /// wirken ab der Folgeminute. Platzverweise und Ermüdung gelten bis zum Ende des Spiels, also auch in der
@@ -14,8 +15,11 @@ namespace Fussballturnierverwaltung.Application.Simulation;
 internal sealed class Spielablauf
 {
     // Die Nachspielzeit verlängert die Spielzeit um gut 6 % und die Spielsituation verschiebt die Torerwartung; die
-    // Korrektur hält den ausführlichen Pfad bei den Kennzahlen aus #404 (SimulationsKalibrierungTests).
-    private const double ABLAUF_KORREKTUR = 0.872;
+    // Korrektur hält den ausführlichen Pfad bei den Kennzahlen aus #404 (SimulationsKalibrierungTests). Seit #674 von
+    // 0,872 auf 0,882: Spielstand und Rückzug senken die Tore im Mittel um gut 1 %, der Wert hält 3,03 Tore je Spiel.
+    // Er ist an die Realismus-Stichprobe gebunden – Messreihe über 10 Seeds in #674 (1:0 + 0:1 und ≥ 7 Tore liegen
+    // beide am Bandrand, jede Verschiebung kippt eine der beiden).
+    private const double ABLAUF_KORREKTUR = 0.882;
 
     // Real 1,88 gelbe und 0,073 rote Karten je Team und Spiel (Bundesliga 2015/16–2024/25, #678); bis #682 stand hier
     // der Je-Spiel-Wert ~0,15 als Je-Team-Wert. Die Korrektur gleicht Nachspielzeit und Kartenfaktor (im Mittel über
@@ -47,6 +51,7 @@ internal sealed class Spielablauf
     private readonly Hinspielstand _hinspielstand;
     // Grundausrichtung und Flexibilität beider Teams (#667).
     private readonly Teamprofile _profile;
+    private Spielkontrolle? _kontrolle;
     private readonly List<SimuliertesEreignis> _ereignisse = [];
     private Teamzustand _heim;
     private Teamzustand _gast;
@@ -151,6 +156,7 @@ internal sealed class Spielablauf
     private bool MinuteSpielen(int minute, int? nachspielminute, int verbleibend, bool goldenGoal)
     {
         _gespielteMinuten++;
+        Kontrolle.Fortschreiben();
         double ermuedung = Spielsituation.Ermuedung(_gespielteMinuten);
         double zeitfaktor = Spielsituation.Zeitfaktor(minute, nachspielminute != null, ermuedung);
         TaktikAnpassen(minute, nachspielminute, verbleibend, nachTor: false);
@@ -168,13 +174,20 @@ internal sealed class Spielablauf
         return false;
     }
 
+    /// <summary>Spielkontrolle (#674) mit eigenem Zufallsstrom, damit die Würfe je Minute unverändert bleiben. Den
+    /// Startwert zieht sie in der ersten gespielten Minute aus dem Zufall des Spiels – reproduzierbar mit dem Seed; ein
+    /// Ablauf, der nur ins Elfmeterschießen führt, zieht ihn nie. Abgeleitet, keine eigene Zufallsquelle (#519).</summary>
+    private Spielkontrolle Kontrolle => _kontrolle ??= new Spielkontrolle(
+        _rng is IZufallsabzweigung abzweigung ? abzweigung.Abzweigen() : new Random(_rng.Next(int.MaxValue)));
+
     /// <summary>Erst, ob überhaupt eine Chance entsteht (gemeinsame Chancenrate beider Teams), dann wessen (Anteil an
     /// der Chancenrate). Die Wahrscheinlichkeit r / (1 + r) macht die erwartete Zahl Chancen der Schleife je Minute
-    /// genau gleich r.</summary>
+    /// genau gleich r. Spielstand und Spielkontrolle (#674) wirken auf die Menge, nicht auf die Güte der Chancen.</summary>
     private bool ChanceEntsteht(double zeitfaktor, out bool heimAngriff)
     {
-        double heim = _heimChancenJeMinute * Spielsituation.Angriffsfaktor(_heim, _gast, zeitfaktor);
-        double gast = _gastChancenJeMinute * Spielsituation.Angriffsfaktor(_gast, _heim, zeitfaktor);
+        double spielstand = Spielsituation.Spielstandfaktor(_heimTore, _gastTore);
+        double heim = _heimChancenJeMinute * Spielsituation.Angriffsfaktor(_heim, _gast, zeitfaktor) * spielstand * Kontrolle.HeimFaktor;
+        double gast = _gastChancenJeMinute * Spielsituation.Angriffsfaktor(_gast, _heim, zeitfaktor) * spielstand * Kontrolle.GastFaktor;
         double gesamt = heim + gast;
         heimAngriff = false;
         if (_rng.NextDouble() >= gesamt / (1 + gesamt))
