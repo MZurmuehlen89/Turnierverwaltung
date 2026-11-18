@@ -115,7 +115,8 @@ public class SpielErgebnisService(
         HalbzeitHeimTore           = eingabe.HalbzeitHeimTore,
         HalbzeitAuswaertsTore      = eingabe.HalbzeitAuswaertsTore,
         SiegerMannschaftId         = sieger,
-        EntscheidungArt            = entscheidungArt
+        EntscheidungArt            = entscheidungArt,
+        MitChancendaten            = eingabe.MitChancendaten
     };
 
     /// <summary>Issue #346: Rückspiele (mit Ergebnis) der übergebenen K.-o.-Hinspiele — deren Gesamtwertung

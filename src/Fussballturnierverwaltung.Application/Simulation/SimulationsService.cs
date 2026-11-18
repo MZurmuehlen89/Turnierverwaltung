@@ -478,7 +478,8 @@ public class SimulationsService(
             sim.AuswaertsElfmetertore,
             sim.HalbzeitHeimTore,
             sim.HalbzeitAuswaertsTore,
-            sim.LosGewinnerHeim);
+            sim.LosGewinnerHeim,
+            MitChancendaten: true);
 
         await ergebnisService.ErgebnisErfassenAsync(spiel.Id, eingabe, ct, platzhalterAufloesen: false);
 

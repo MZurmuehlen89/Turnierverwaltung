@@ -12,4 +12,5 @@ public record ErgebnisErfassenEingabe(
     int? AuswaertsElfmetertore = null,
     int? HalbzeitHeimTore = null,
     int? HalbzeitAuswaertsTore = null,
-    bool? LosGewinnerHeim = null);
+    bool? LosGewinnerHeim = null,
+    bool MitChancendaten = false);

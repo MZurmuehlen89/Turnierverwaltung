@@ -264,10 +264,16 @@ public class StatistikBerechnungTests
     private static SpielEreignis Chance(Mannschaft mannschaft, EreignisArt art, Chancenart? chancenart) =>
         new() { MannschaftId = mannschaft.Id, EreignisArt = art, Chancenart = chancenart };
 
+    private static Spiel MitChancendaten(Spiel spiel)
+    {
+        spiel.Ergebnis!.MitChancendaten = true;
+        return spiel;
+    }
+
     [Fact]
     public void Grosschancen_ZaehltGrosschancenElfmeterUndToreDaraus_BesteVerwertungZuerst()
     {
-        var spiel = Spiel(_a, _b, 2, 0);
+        var spiel = MitChancendaten(Spiel(_a, _b, 2, 0));
         spiel.Ereignisse =
         [
             Chance(_a, EreignisArt.Tor, Chancenart.Grosschance),
@@ -291,13 +297,13 @@ public class StatistikBerechnungTests
     [Fact]
     public void Grosschancen_SpieleOhneChancendatenZaehlenNicht_UndWerdenGenannt()
     {
-        var mitDaten = Spiel(_a, _b, 1, 0);
+        var mitDaten = MitChancendaten(Spiel(_a, _b, 1, 0));
         mitDaten.Ereignisse = [Chance(_a, EreignisArt.Tor, Chancenart.Grosschance)];
-        var altdaten = Spiel(_a, _c, 3, 0);                                   // schnell simuliert, keine Ereignisse
+        var manuell = Spiel(_a, _c, 3, 0);                                    // manuell erfasst, keine Ereignisse
         var ohneChancenart = Spiel(_b, _c, 1, 0);                             // vor #431: Tor ohne Chancenart
         ohneChancenart.Ereignisse = [Chance(_b, EreignisArt.Tor, null)];
 
-        var auswertung = StatistikBerechnung.Grosschancen(Sicht(mitDaten, altdaten, ohneChancenart));
+        var auswertung = StatistikBerechnung.Grosschancen(Sicht(mitDaten, manuell, ohneChancenart));
 
         auswertung.SpieleMitChancendaten.Should().Be(1);
         auswertung.Spiele.Should().Be(3);
@@ -305,13 +311,29 @@ public class StatistikBerechnungTests
         auswertung.Eintraege.Select(e => e.Mannschaft.Name).Should().NotContain("Team C");
     }
 
+    // Review-Fund zu #431: ein ausführlich simuliertes 0:0 ganz ohne Großchance hat kein Ereignis mit Chancenart,
+    // gehört aber zu den Spielen mit Chancendaten (Spalte „Sp“ und Fußnote).
     [Fact]
-    public void HatSpieleMitChancendaten_NurWennEinEreignisEineChancenartTraegt()
+    public void Grosschancen_SpielOhneToreUndGrosschancen_ZaehltAlsSpielMitChancendaten()
+    {
+        var torlos = MitChancendaten(Spiel(_a, _b, 0, 0));
+        torlos.Ereignisse = [new SpielEreignis { MannschaftId = _a.Id, EreignisArt = EreignisArt.GelbeKarte }];
+        var mitTor = MitChancendaten(Spiel(_a, _c, 1, 0));
+        mitTor.Ereignisse = [Chance(_a, EreignisArt.Tor, Chancenart.Grosschance)];
+
+        var auswertung = StatistikBerechnung.Grosschancen(Sicht(torlos, mitTor));
+
+        auswertung.SpieleMitChancendaten.Should().Be(2);
+        auswertung.Eintraege.Single(e => e.Mannschaft.Id == _a.Id).Spiele.Should().Be(2);
+        auswertung.Eintraege.Single(e => e.Mannschaft.Id == _b.Id).Grosschancen.Should().Be(0);
+    }
+
+    [Fact]
+    public void HatSpieleMitChancendaten_NurWennEinErgebnisChancendatenHat()
     {
         var altdaten = Spiel(_a, _b, 1, 0);
         altdaten.Ereignisse = [Chance(_a, EreignisArt.Tor, null)];
-        var neu = Spiel(_a, _c, 1, 0);
-        neu.Ereignisse = [Chance(_a, EreignisArt.Tor, Chancenart.Normal)];
+        var neu = MitChancendaten(Spiel(_a, _c, 0, 0));
 
         StatistikBerechnung.HatSpieleMitChancendaten(Sicht(altdaten)).Should().BeFalse();
         StatistikBerechnung.HatSpieleMitChancendaten(Sicht(altdaten, neu)).Should().BeTrue();
@@ -321,7 +343,7 @@ public class StatistikBerechnungTests
     [Fact]
     public void Grosschancen_Elfmeterschiessen_ZaehltNicht()
     {
-        var spiel = Spiel(_a, _b, 1, 1);
+        var spiel = MitChancendaten(Spiel(_a, _b, 1, 1));
         spiel.Ereignisse =
         [
             Chance(_a, EreignisArt.Tor, Chancenart.Normal),
@@ -337,7 +359,7 @@ public class StatistikBerechnungTests
     [Fact]
     public void Grosschancen_GleicheVerwertung_MehrGrosschancenZuerst_DannName()
     {
-        var spiel = Spiel(_a, _b, 0, 0);
+        var spiel = MitChancendaten(Spiel(_a, _b, 0, 0));
         spiel.Ereignisse =
         [
             Chance(_a, EreignisArt.Grosschance, Chancenart.Grosschance),

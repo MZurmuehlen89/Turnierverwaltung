@@ -673,6 +673,9 @@ namespace Fussballturnierverwaltung.Infrastructure.Persistenz.Migrationen
                     b.Property<int?>("HeimToreVerlaengerung")
                         .HasColumnType("integer");
 
+                    b.Property<bool>("MitChancendaten")
+                        .HasColumnType("boolean");
+
                     b.Property<int?>("SiegerMannschaftId")
                         .HasColumnType("integer");
 

@@ -21,6 +21,10 @@ public class SpielErgebnis : BasisEntitaet
     public Mannschaft? SiegerMannschaft { get; set; }
     public EntscheidungArt EntscheidungArt { get; set; }
 
+    /// <summary>Ausführlich simuliert mit Chancenmodell (#431): Tore und Großchancen tragen ihre Chancenart. Manuell
+    /// erfasste Ergebnisse und Simulationen von davor haben keine Chancendaten.</summary>
+    public bool MitChancendaten { get; set; }
+
     // Gesamttore inklusive Verlängerung (ohne Elfmeter, da die kein Teil des Spielstands sind)
     public int HeimToreGesamt => HeimToreRegulaer + (HeimToreVerlaengerung ?? 0);
     public int AuswaertsToreGesamt => AuswaertsToreRegulaer + (AuswaertsToreVerlaengerung ?? 0);

@@ -95,9 +95,9 @@ public static class StatistikBerechnung
             .ThenBy(e => e.RoteKarten)
             .ThenBy(e => e.Mannschaft.Name)];
 
-    /// <summary>Großchancen und ihre Verwertung je Mannschaft (#431); die beste Verwertung steht oben. Ein Spiel hat
-    /// Chancendaten, wenn eines seiner Ereignisse eine Chancenart trägt – ein ausführlich simuliertes Spiel ganz ohne
-    /// Tor und Großchance (rund 2 %) fehlt deshalb. Ereignisse des Elfmeterschießens tragen keine Chancenart.</summary>
+    /// <summary>Großchancen und ihre Verwertung je Mannschaft (#431); die beste Verwertung steht oben. Es zählen nur
+    /// Spiele, deren Ergebnis Chancendaten hat (<see cref="SpielErgebnis.MitChancendaten"/>) – auch eines ganz ohne
+    /// Tor und Großchance. Ereignisse des Elfmeterschießens tragen keine Chancenart.</summary>
     public static GrosschancenAuswertung Grosschancen(IEnumerable<MannschaftsSpiel> spiele)
     {
         var alle = spiele as IReadOnlyCollection<MannschaftsSpiel> ?? [.. spiele];
@@ -114,7 +114,7 @@ public static class StatistikBerechnung
     /// <summary>Gibt es mindestens ein Spiel mit Chancendaten? Sonst ist die Großchancen-Auswertung nicht verfügbar.</summary>
     public static bool HatSpieleMitChancendaten(IEnumerable<MannschaftsSpiel> spiele) => spiele.Any(HatChancendaten);
 
-    private static bool HatChancendaten(MannschaftsSpiel spiel) => spiel.Spiel.Ereignisse.Any(e => e.Chancenart is not null);
+    private static bool HatChancendaten(MannschaftsSpiel spiel) => spiel.Spiel.Ergebnis?.MitChancendaten == true;
 
     private static GrosschancenEintrag GrosschancenAus(Mannschaft mannschaft, IReadOnlyList<MannschaftsSpiel> spiele)
     {
