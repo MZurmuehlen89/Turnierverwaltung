@@ -548,7 +548,7 @@ public partial class SimulationsViewModel : ViewModelBase, IRibbonAware
             ProtokollKopf = SimulationsProtokollHelfer.SpielKopfErstellen(
                 kontext, spiel.HeimMannschaft, heim, spiel.AuswaertsMannschaft, auswaerts, ergebnis, untertitel);
 
-            SimulationsProtokollHelfer.ZeitleisteHinzufuegen(
+            Zeitleiste.ZeitleisteHinzufuegen(
                 ProtokollEreignisse,
                 // #361: nach Id, damit Ereignisse derselben Minute in der Reihenfolge ihrer Entstehung bleiben.
                 spiel.Ereignisse.OrderBy(ev => ev.Id).Select(ev =>

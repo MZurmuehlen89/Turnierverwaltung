@@ -4,6 +4,7 @@
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:vm="using:Fussballturnierverwaltung.WinUi.ViewModels"
+    xmlns:sim="using:Fussballturnierverwaltung.Application.Simulation"
     xmlns:dom="using:Fussballturnierverwaltung.Domain.Entitaeten.Stammdaten"
     xmlns:views="using:Fussballturnierverwaltung.WinUi.Views">
 
@@ -70,7 +71,7 @@
              Minuten-Pille, Ereignis auf der jeweiligen Team-Seite (kompaktere Kopie des ItemTemplates aus
              SpielberichtControl.xaml, ohne Wappen-Bild — bei freier Simulation zweier beliebiger Teams
              lohnt sich der Bild-Ladeaufwand hier nicht extra je Zeile). -->
-        <DataTemplate x:Key="MiniZeitleisteZeileVorlage" x:DataType="vm:EinzelspielEreignisZeile">
+        <DataTemplate x:Key="MiniZeitleisteZeileVorlage" x:DataType="sim:EinzelspielEreignisZeile">
             <Grid>
                 <Grid Margin="0,4" Visibility="{Binding IstTrenner, Converter={StaticResource InverseBoolToVisibility}}"
                       ColumnDefinitions="*,40,*">

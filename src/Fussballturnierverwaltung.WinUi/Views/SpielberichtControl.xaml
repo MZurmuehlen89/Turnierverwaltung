@@ -5,6 +5,7 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:views="using:Fussballturnierverwaltung.WinUi.Views"
     xmlns:vm="using:Fussballturnierverwaltung.WinUi.ViewModels"
+    xmlns:sim="using:Fussballturnierverwaltung.Application.Simulation"
     x:Name="Wurzel">
 
     <!-- Issue #237/#302: vereinheitlichte Spielbericht-Karte (Scoreboard + Zeitleiste), 1:1-Port aus
@@ -85,7 +86,7 @@
 
                             <ItemsControl ItemsSource="{Binding ProtokollEreignisse}">
                                 <ItemsControl.ItemTemplate>
-                                    <DataTemplate x:DataType="vm:EinzelspielEreignisZeile">
+                                    <DataTemplate x:DataType="sim:EinzelspielEreignisZeile">
                                         <Grid>
 
                                             <!-- Ereignis-Zeile -->

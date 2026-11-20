@@ -334,7 +334,7 @@ public partial class EinzelspielSimulationsViewModel : ViewModelBase, IRibbonAwa
             ProtokollKopf = SimulationsProtokollHelfer.SpielKopfErstellen(
                 null, heim, heim.Name, auswaerts, auswaerts.Name, erg, _untertitel);
 
-            SimulationsProtokollHelfer.ZeitleisteHinzufuegen(
+            Zeitleiste.ZeitleisteHinzufuegen(
                 ProtokollEreignisse,
                 erg.Ereignisse.Select(ev => (ev.Minute, ev.Nachspielminute, ev.Art, ev.IstHeim, ev.Beschreibung, ev.ImWiederholungsspiel)),
                 heim.Name, auswaerts.Name, erg.EntscheidungArt,
@@ -428,7 +428,7 @@ public partial class EinzelspielSimulationsViewModel : ViewModelBase, IRibbonAwa
 
         ProtokollSpielInfo = $"{heim.Name} vs. {auswaerts.Name} (Hin & Rück)";
 
-        SimulationsProtokollHelfer.ZeitleisteHinzufuegen(
+        Zeitleiste.ZeitleisteHinzufuegen(
             HinspielEreignisse,
             erg.Ereignisse.Select(ev => (ev.Minute, ev.Nachspielminute, ev.Art, ev.IstHeim, ev.Beschreibung, ev.ImWiederholungsspiel)),
             heim.Name, auswaerts.Name, erg.EntscheidungArt,
@@ -542,7 +542,7 @@ public partial class EinzelspielSimulationsViewModel : ViewModelBase, IRibbonAwa
             SiegerText = sieger is null ? "Unentschieden" : $"Sieger: {sieger}";
 
             RueckspielEreignisse.Clear();
-            SimulationsProtokollHelfer.ZeitleisteHinzufuegen(
+            Zeitleiste.ZeitleisteHinzufuegen(
                 RueckspielEreignisse,
                 erg2.Ereignisse.Select(ev => (ev.Minute, ev.Nachspielminute, ev.Art, ev.IstHeim, ev.Beschreibung, ev.ImWiederholungsspiel)),
                 auswaerts.Name, heim.Name, erg2.EntscheidungArt,

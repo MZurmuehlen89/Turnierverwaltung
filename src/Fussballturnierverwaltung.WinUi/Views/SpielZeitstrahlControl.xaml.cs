@@ -1,3 +1,4 @@
+using Fussballturnierverwaltung.Application.Simulation;
 using Fussballturnierverwaltung.WinUi.ViewModels;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Automation;
@@ -16,7 +17,7 @@ public sealed record ElfmeterPunkt(bool IstTreffer)
 
 /// <summary>Issue #341 Teil B: kompakter horizontaler Zeitstrahl über die Spieldauer. Liest dieselben
 /// <see cref="EinzelspielEreignisZeile"/>n wie die vertikale Zeitleiste (siehe
-/// <see cref="SimulationsProtokollHelfer.ZeitleisteHinzufuegen"/>) und ergänzt sie als Überblick.</summary>
+/// <see cref="Zeitleiste.ZeitleisteHinzufuegen"/>) und ergänzt sie als Überblick.</summary>
 public sealed partial class SpielZeitstrahlControl : UserControl
 {
     // ── Geometrie ────────────────────────────────────────────────────────────
