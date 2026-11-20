@@ -27,12 +27,15 @@ internal static class DixonColes
     /// <summary>Maximum-Likelihood-Schätzung von ρ bei festen λ und μ je Spiel (Gitter −0,300 … +0,100, Schritt 0,001).</summary>
     public static double RhoSchaetzen(IReadOnlyList<(double Lambda, double Mu, int Heim, int Gast)> spiele)
     {
+        // Nur 0:0, 1:0, 0:1 und 1:1 haben τ ≠ 1 und tragen damit zur Log-Likelihood bei (log 1 = 0) – #683: das Gitter
+        // läuft über rund ein Drittel der Spiele statt über alle.
+        var betroffene = spiele.Where(s => s.Heim <= 1 && s.Gast <= 1).ToList();
         double bestesRho = 0, besteLogLikelihood = double.NegativeInfinity;
         for (int i = -300; i <= 100; i++)
         {
             double rho = i / 1000.0;
             double logLikelihood = 0;
-            foreach (var s in spiele)
+            foreach (var s in betroffene)
                 logLikelihood += Math.Log(Math.Max(MIN_TAU, Tau(s.Heim, s.Gast, s.Lambda, s.Mu, rho)));
             if (logLikelihood > besteLogLikelihood) { besteLogLikelihood = logLikelihood; bestesRho = rho; }
         }

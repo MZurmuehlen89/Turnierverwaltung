@@ -59,7 +59,17 @@ Spielplan, Tabelle, Simulation in Application, without `*Service` classes. Repor
 of the detailed simulation against real target values (result distribution, Dixon-Coles, goal minutes, protecting a
 lead, draw rate per favourite class, red cards). One shared Monte-Carlo sample per class fixture (100 Bundesliga
 seasons, seed 678, ~3 s); targets and their sources are in the class comment and in `tools/Realismus-Zielwerte/`. They
-are not meant to kill mutants. A metric the simulation misses today is **not** loosened: its test carries an
+are not meant to kill mutants. **Noise margin (#683):** every band lives once in the catalog `Realismus/Realismuskennzahlen`
+(name, band, target text, measurement); a test estimates the Monte-Carlo noise of each metric from its own sample
+(`Rauschschaetzung`, jackknife over 10 blocks of 10 seasons) and turns red only when the metric exceeds the band by more
+than 2 standard errors (`Bandpruefung`). Bands, target texts and skip rules are unchanged; the report line shows value ± SE.
+Reason: the noise is small (SD over seeds ≈ 0.2 points), a test went red because its mean sat *on* the band edge — more
+games or a mean over seeds would only make that deterministic. **Measurement series** `Realismus/RealismusMessreihe`
+(`Explicit`, not in the normal run or CI, ~8 s per seed): `$env:REALISMUS_SEEDS='678,1,2,3'; $env:REALISMUS_AUSGABE='<csv>'`,
+then `dotnet test --project tests/Fussballturnierverwaltung.Tests -- --filter-class "*RealismusMessreihe" --explicit only`
+(default: seeds 678, 1–29). It writes value and jackknife SE per metric and seed as CSV and, next to it, a summary
+(mean, SD over seeds, mean SE, red seeds with/without margin). Run it after every change to the simulation instead of
+switching the seed by hand; the genuine deviations from the real picture (≥ 2.5 σ) belong to the calibration issues. A metric the simulation misses today is **not** loosened: its test carries an
 unconditional `Skip` naming the measured value and the issue that is to fix it — that issue switches it back on.
 Classes built from a noisy per-pairing estimate (half A) must not use that estimate as the prediction as well: it
 regresses to the mean (#678) — group by A, measure everything in B.

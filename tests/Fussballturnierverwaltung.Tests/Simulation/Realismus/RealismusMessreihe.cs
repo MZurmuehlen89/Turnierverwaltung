@@ -3,97 +3,68 @@ using System.Text;
 
 namespace Fussballturnierverwaltung.Tests.Simulation.Realismus;
 
-/// <summary>#683 (vorläufig, Messung): alle Realismus-Kennzahlen je Seed als Tabelle, nur auf ausdrücklichen Aufruf.</summary>
+/// <summary>
+/// #683: Messwerkzeug – alle Realismus-Kennzahlen je Seed als Tabelle, nur auf ausdrücklichen Aufruf (<c>Explicit</c>, läuft
+/// weder im normalen Testlauf noch in CI). Es nutzt denselben Katalog wie <c>SimulationsRealismusTests</c> (<see cref="Realismuskennzahlen"/>)
+/// und schreibt je Seed Wert und Jackknife-Standardfehler je Kennzahl in eine CSV sowie am Ende eine Zusammenfassung
+/// (Mittel, Streuung über die Seeds, mittlerer Jackknife-SE, Zahl roter Seeds ohne und mit Rauschzuschlag).
+/// Aufruf (PowerShell, ~6 s je Seed):
+/// <c>$env:REALISMUS_SEEDS='678,1,2,3'; dotnet test --project tests/Fussballturnierverwaltung.Tests -- --filter-class "*RealismusMessreihe" --explicit only</c>
+/// – <c>REALISMUS_SEEDS</c> (Standard 678 und 1–29), <c>REALISMUS_AUSGABE</c> (CSV, Standard <c>realismus-messreihe.csv</c>
+/// im Temp-Ordner; die Zusammenfassung liegt daneben als <c>.zusammenfassung.txt</c>).
+/// </summary>
 public class RealismusMessreihe
 {
-    private static readonly (double Von, double Bis)[] _favoritenklassen =
-        [(0.33, 0.40), (0.40, 0.50), (0.50, 0.60), (0.60, 0.70), (0.70, 0.80), (0.80, 1.01)];
-    private static readonly (double X, double Y)[] _remisJeSiegchance =
-        [(0.378, 0.283), (0.447, 0.270), (0.547, 0.244), (0.645, 0.205), (0.748, 0.157), (0.848, 0.101)];
-
-    private sealed record Kennzahl(string Name, double Von, double Bis, Func<List<SimuliertesSpiel>, double> Messen);
-
-    private static double A(List<SimuliertesSpiel> s, Func<SimuliertesSpiel, bool> b) => Realismusauswertung.Anteil(s, b);
-    private static IEnumerable<SimuliertesSpiel> B(List<SimuliertesSpiel> s) => s.Where(x => x.Durchlauf >= RealismusStichprobe.ENDE_HAELFTE_A);
-    private static List<(double, double, int, int)> Dc(List<SimuliertesSpiel> s) =>
-        s.Select(x => (x.Paarung.MittlereToreHeim, x.Paarung.MittlereToreGast, x.HeimTore, x.GastTore)).ToList();
-
-    private static readonly Kennzahl[] _kennzahlen =
-    [
-        new("Remis", 0.220, 0.275, s => A(s, x => x.HeimTore == x.GastTore)),
-        new("0:0", 0.045, 0.072, s => A(s, x => x.HeimTore == 0 && x.GastTore == 0)),
-        new("Zu null", 0.215, 0.260, s => s.Sum(x => (x.HeimTore == 0 ? 1 : 0) + (x.GastTore == 0 ? 1 : 0)) / (2.0 * s.Count)),
-        new(">=5 Tore", 0.165, 0.215, s => A(s, x => x.HeimTore + x.GastTore >= 5)),
-        new(">=7 Tore", 0.024, 0.046, s => A(s, x => x.HeimTore + x.GastTore >= 7)),
-        new("TD>=3", 0.175, 0.225, s => A(s, x => Math.Abs(x.HeimTore - x.GastTore) >= 3)),
-        new("1:0+0:1", 0.105, 0.137, s => A(s, x => x.HeimTore + x.GastTore == 1)),
-        new("1:1", 0.105, 0.133, s => A(s, x => x.HeimTore == 1 && x.GastTore == 1)),
-        new("rho", -0.19, -0.09, s => DixonColes.RhoSchaetzen(Dc(s))),
-        new("DC 1:1", 1.10, 9, s => DixonColes.VerhaeltnisZuUnabhaengig(Dc(s), 1, 1)),
-        new("DC 1:0", 0, 0.90, s => DixonColes.VerhaeltnisZuUnabhaengig(Dc(s), [(1, 0), (0, 1)])),
-        new("1.HZ", 0.425, 0.465, s => Realismusauswertung.AnteilErsteHalbzeit(s)),
-        new("Min1-15", 0.110, 0.136, s => Realismusauswertung.TorminutenAnteile(s)[0]),
-        new("Min76-90", 0.215, 0.253, s => Realismusauswertung.TorminutenAnteile(s)[5]),
-        new("+1 Ndl", 0.085, 0.140, s => Realismusauswertung.FuehrungsAusgang(s, 45, 1).Niederlage),
-        new("+1 Fav Sieg", 0.695, 0.795, s => Realismusauswertung.FuehrungsAusgang(B(s), 45, 1, (x, h) => x.Paarung.HeimIstFavorit == h).Sieg),
-        new("+1 Auß Sieg", 0.490, 0.615, s => Realismusauswertung.FuehrungsAusgang(B(s), 45, 1, (x, h) => x.Paarung.HeimIstFavorit != h).Sieg),
-        new("+1 Sieg", 0.635, 0.710, s => Realismusauswertung.FuehrungsAusgang(s, 45, 1).Sieg),
-        new("+2 Sieg", 0.880, 0.945, s => Realismusauswertung.FuehrungsAusgang(s, 45, 2).Sieg),
-        new("Zuwachs45-85", 0.10, 0.21, s => Realismusauswertung.FuehrungsAusgang(s, 85, 1).Sieg - Realismusauswertung.FuehrungsAusgang(s, 45, 1).Sieg),
-        new("Remisklasse max|Abw|", 0, 0.030, RemisklasseMaxAbweichung),
-        new("GC je Team", 1.6, 2.6, s => Realismusauswertung.Chancen(s).GrosschancenJeTeam),
-        new("GC Verwertung", 0.35, 0.45, s => Realismusauswertung.Chancen(s).Verwertung),
-        new("Elfm je Spiel", 0.26, 0.38, s => Realismusauswertung.Chancen(s).ElfmeterJeSpiel),
-        new("Elfm Quote", 0.72, 0.84, s => Realismusauswertung.Chancen(s).ElfmeterQuote),
-        new("Elfm Anteil", 0.065, 0.100, s => Realismusauswertung.Chancen(s).AnteilElfmeterTore),
-        new("Rot je Team", 0.060, 0.088, s => s.Sum(x => { var (h, g) = Realismusauswertung.RoteKarten(x); return h + g; }) / (2.0 * s.Count)),
-        new("Überzahl", 0.10, 0.22, Ueberzahl),
-    ];
-
-    private static double RemisklasseMaxAbweichung(List<SimuliertesSpiel> s)
-    {
-        var b = B(s).ToList();
-        double max = 0;
-        foreach (var (von, bis) in _favoritenklassen)
-        {
-            var k = b.Where(x => x.Paarung.FavoritenChanceA >= von && x.Paarung.FavoritenChanceA < bis).ToList();
-            if (k.Count < 1000) continue;
-            double sieg = A(k, x => x.Paarung.HeimIstFavorit ? x.HeimTore > x.GastTore : x.GastTore > x.HeimTore);
-            double remis = A(k, x => x.HeimTore == x.GastTore);
-            max = Math.Max(max, Math.Abs(remis - Realismusauswertung.Interpolieren(_remisJeSiegchance, sieg)));
-        }
-        return max;
-    }
-
-    private static double Ueberzahl(List<SimuliertesSpiel> s)
-    {
-        double siege = 0, erwartet = 0; int n = 0;
-        foreach (var x in B(s))
-        {
-            var (h, g) = Realismusauswertung.RoteKarten(x);
-            if (h == g) continue;
-            bool heimU = h < g;
-            n++;
-            siege += (heimU ? x.HeimTore > x.GastTore : x.GastTore > x.HeimTore) ? 1 : 0;
-            erwartet += heimU ? x.Paarung.SiegHeimA : x.Paarung.SiegGastA;
-        }
-        return (siege - erwartet) / n;
-    }
+    private const string STANDARD_SEEDS = "678,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29";
 
     [Fact(Explicit = true)]
     public void Messreihe_JeSeed()
     {
-        var seedText = Environment.GetEnvironmentVariable("REALISMUS_SEEDS") ?? "678,1,2,3,4,5,6,7,8,9";
-        var ausgabe = Environment.GetEnvironmentVariable("REALISMUS_AUSGABE") ?? Path.Combine(Path.GetTempPath(), "realismus-messreihe.csv");
-        var seeds = seedText.Split(',').Select(int.Parse).ToList();
-        var sb = new StringBuilder("Seed;" + string.Join(";", _kennzahlen.Select(k => k.Name)) + "\n");
-        sb.Append("Von;" + string.Join(";", _kennzahlen.Select(k => k.Von.ToString(CultureInfo.InvariantCulture))) + "\n");
-        sb.Append("Bis;" + string.Join(";", _kennzahlen.Select(k => k.Bis.ToString(CultureInfo.InvariantCulture))) + "\n");
+        var seeds = (Environment.GetEnvironmentVariable("REALISMUS_SEEDS") ?? STANDARD_SEEDS).Split(',').Select(int.Parse).ToList();
+        var ausgabe = Environment.GetEnvironmentVariable("REALISMUS_AUSGABE")
+                      ?? Path.Combine(Path.GetTempPath(), "realismus-messreihe.csv");
+
+        var namen = new Realismuskennzahlen([]).Alle.Select(k => k.Name).ToList();
+        var csv = new StringBuilder("Seed;" + string.Join(";", namen.SelectMany(n => new[] { n, n + " SE" })) + "\n");
+        var werte = new List<(double Wert, double Se)[]>();
+
         foreach (int seed in seeds)
         {
             var spiele = RealismusStichprobe.Erzeugen(seed);
-            sb.Append(seed + ";" + string.Join(";", _kennzahlen.Select(k => k.Messen(spiele).ToString("F5", CultureInfo.InvariantCulture))) + "\n");
-            File.WriteAllText(ausgabe, sb.ToString());
+            var katalog = new Realismuskennzahlen(spiele);
+            var zeile = katalog.Alle
+                .Select(k => (Wert: k.Messen(spiele), Se: Rauschschaetzung.JackknifeStandardfehler(spiele, k.Messen)))
+                .ToArray();
+            werte.Add(zeile);
+            csv.Append(seed + ";" + string.Join(";", zeile.Select(z => Zahl(z.Wert) + ";" + Zahl(z.Se))) + "\n");
+            File.WriteAllText(ausgabe, csv.ToString());
         }
+
+        var zusammenfassung = Zusammenfassen(new Realismuskennzahlen([]).Alle, werte);
+        File.WriteAllText(Path.ChangeExtension(ausgabe, ".zusammenfassung.txt"), zusammenfassung);
+        TestContext.Current.TestOutputHelper?.WriteLine(zusammenfassung);
+    }
+
+    private static string Zahl(double wert) => wert.ToString("F5", CultureInfo.InvariantCulture);
+
+    private static string Zusammenfassen(IReadOnlyList<Realismuskennzahl> katalog, List<(double Wert, double Se)[]> werte)
+    {
+        var sb = new StringBuilder($"{werte.Count} Seeds\nKennzahl | Mittel | SD über Seeds | Ø Jackknife-SE | SE/SD | rot ohne Zuschlag | rot mit z = {Bandpruefung.Z:0.#}\n");
+        for (int i = 0; i < katalog.Count; i++)
+        {
+            var k = katalog[i];
+            var spalte = werte.Select(w => w[i]).ToList();
+            double mittel = spalte.Average(s => s.Wert);
+            double sd = werte.Count > 1 ? Math.Sqrt(spalte.Sum(s => (s.Wert - mittel) * (s.Wert - mittel)) / (werte.Count - 1)) : double.NaN;
+            double se = spalte.Average(s => s.Se);
+            int rotOhne = spalte.Count(s => !Bandpruefung.Pruefen(k, s.Wert, s.Se, 0).Gruen);
+            int rotMit = spalte.Count(s => !Bandpruefung.Pruefen(k, s.Wert, s.Se).Gruen);
+            sb.Append(string.Create(CultureInfo.InvariantCulture,
+                $"{k.Name} | {mittel:F4} | {sd:F4} | {se:F4} | {se / sd:F2} | {rotOhne} | {rotMit}\n"));
+        }
+        int seedsRotMit = werte.Count(w => Enumerable.Range(0, katalog.Count).Any(i => !Bandpruefung.Pruefen(katalog[i], w[i].Wert, w[i].Se).Gruen));
+        int seedsRotOhne = werte.Count(w => Enumerable.Range(0, katalog.Count).Any(i => !Bandpruefung.Pruefen(katalog[i], w[i].Wert, w[i].Se, 0).Gruen));
+        sb.Append($"Seeds mit mindestens einer roten Kennzahl: ohne Zuschlag {seedsRotOhne} von {werte.Count}, mit Zuschlag {seedsRotMit} von {werte.Count}\n");
+        return sb.ToString();
     }
 }
