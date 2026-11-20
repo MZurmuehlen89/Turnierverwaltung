@@ -123,13 +123,15 @@ public partial class EinzelspielSimulationsViewModel : ViewModelBase, IRibbonAwa
 
     [ObservableProperty] private string? _protokollSpielInfo;
 
-    // Issue #341: Spielkopf (kicker-Vorbild) statt der früheren Scoreboard-Zeilenliste
-    [ObservableProperty] private SpielKopf? _protokollKopf;
-    public ObservableCollection<EinzelspielEreignisZeile> ProtokollEreignisse { get; } = [];
+    // Issue #341: Spielkopf (kicker-Vorbild) statt der früheren Scoreboard-Zeilenliste; #247: Kopf und
+    // Ereignisse in einer Ansicht, die SpielberichtKarte direkt bindet
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HatProtokoll))]
+    [NotifyPropertyChangedFor(nameof(ZeigeLeerZustand))]
+    private SpielBeinAnsicht? _protokoll;
 
-    public bool HatProtokoll           => ProtokollKopf is not null;
-    public bool HatProtokollEreignisse => ProtokollEreignisse.Count > 0;
-    public bool ZeigeLeerZustand       => !HatProtokoll;
+    public bool HatProtokoll     => Protokoll is not null;
+    public bool ZeigeLeerZustand => !HatProtokoll;
 
     // ── Protokoll: mit Rückspiel (#248, zweistufig, aufklappbare Karten) ────────
 
@@ -339,10 +341,10 @@ public partial class EinzelspielSimulationsViewModel : ViewModelBase, IRibbonAwa
         {
             var erg = _simulationsService.EinzelspielSimulieren(heim, auswaerts, verfahren, SimulationsModus.AusfuehrlicheSimulation);
             ProtokollSpielInfo = $"{heim.Name} vs. {auswaerts.Name}";
-            ProtokollKopf = SpielKopf.Aus(
-                null, SpielSeite.Von(heim), SpielSeite.Von(auswaerts), erg, _untertitel);
-
-            ZeitleisteFuellen(ProtokollEreignisse, erg, SpielSeite.Von(heim), SpielSeite.Von(auswaerts));
+            ObservableCollection<EinzelspielEreignisZeile> ereignisse = [];
+            ZeitleisteFuellen(ereignisse, erg, SpielSeite.Von(heim), SpielSeite.Von(auswaerts));
+            Protokoll = new SpielBeinAnsicht(
+                SpielKopf.Aus(null, SpielSeite.Von(heim), SpielSeite.Von(auswaerts), erg, _untertitel), ereignisse);
         }
         catch (Exception ex)
         {
@@ -352,9 +354,6 @@ public partial class EinzelspielSimulationsViewModel : ViewModelBase, IRibbonAwa
         {
             IstLadend = false;
             AktualisiereBefehle();
-            OnPropertyChanged(nameof(HatProtokoll));
-            OnPropertyChanged(nameof(HatProtokollEreignisse));
-            OnPropertyChanged(nameof(ZeigeLeerZustand));
         }
     }
 
@@ -534,11 +533,7 @@ public partial class EinzelspielSimulationsViewModel : ViewModelBase, IRibbonAwa
     private void LeerProtokoll()
     {
         ProtokollSpielInfo = null;
-        ProtokollKopf = null;
-        ProtokollEreignisse.Clear();
-        OnPropertyChanged(nameof(HatProtokoll));
-        OnPropertyChanged(nameof(HatProtokollEreignisse));
-        OnPropertyChanged(nameof(ZeigeLeerZustand));
+        Protokoll = null;
     }
 
     // Mannschaften kommen ohne Verband (AlleAbrufenMitLandAsync) — Kurzname über die ohnehin geladene

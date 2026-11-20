@@ -11,7 +11,10 @@
 
     <Grid Background="{ThemeResource ApplicationPageBackgroundThemeBrush}">
 
-        <views:SpielberichtKarte />
+        <!-- Wrapper trägt die Visibility: am Element mit eigenem DataContext liefe die Bindung gegen die Ansicht -->
+        <Grid Visibility="{Binding HatProtokoll, Converter={StaticResource BoolToVisibility}}">
+            <views:SpielberichtKarte DataContext="{Binding Protokoll}" />
+        </Grid>
 
         <!-- Leer-Zustand -->
         <TextBlock Text="{Binding LeerZustandText, ElementName=Wurzel}"

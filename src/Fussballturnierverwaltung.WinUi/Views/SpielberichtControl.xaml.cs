@@ -3,12 +3,10 @@ using Microsoft.UI.Xaml.Controls;
 
 namespace Fussballturnierverwaltung.WinUi.Views;
 
-/// <summary>Vereinheitlichte Spielbericht-Karte (Scoreboard + Zeitleiste), 1:1-Port aus
-/// Wpf/Views/SpielberichtControl.xaml.cs (#302). <see cref="LeerZustandText"/> ist der einzige
-/// View-spezifische Teil — der DataContext liefert lose über Property-Namen (ProtokollKopf/
-/// ProtokollEreignisse/HatProtokoll/HatProtokollEreignisse/ZeigeLeerZustand), die
-/// <see cref="ViewModels.SimulationsViewModel"/> über <see cref="Fussballturnierverwaltung.Application.Simulation.Zeitleiste"/>
-/// bereitstellt.</summary>
+/// <summary>Vereinheitlichte Spielbericht-Karte mit Leer-Zustand (#302, #247). <see cref="LeerZustandText"/> ist der
+/// einzige View-spezifische Teil — der DataContext liefert lose über Property-Namen <c>Protokoll</c>
+/// (<see cref="ViewModels.SpielBeinAnsicht"/>), <c>HatProtokoll</c> und <c>ZeigeLeerZustand</c>, die
+/// <see cref="ViewModels.SimulationsViewModel"/> und <see cref="ViewModels.EinzelspielSimulationsViewModel"/> bereitstellen.</summary>
 public sealed partial class SpielberichtControl : UserControl
 {
     public static readonly DependencyProperty LeerZustandTextProperty = DependencyProperty.Register(

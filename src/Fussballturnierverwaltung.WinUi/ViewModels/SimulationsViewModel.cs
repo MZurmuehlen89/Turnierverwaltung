@@ -93,12 +93,14 @@ public partial class SimulationsViewModel : ViewModelBase, IRibbonAware
     // ── Protokoll ─────────────────────────────────────────────────────────────
 
     [ObservableProperty] private string? _protokollSpielInfo;
-    // Issue #341: Spielkopf (kicker-Vorbild) statt der früheren Scoreboard-Zeilenliste
-    [ObservableProperty] private SpielKopf? _protokollKopf;
-    public ObservableCollection<EinzelspielEreignisZeile> ProtokollEreignisse { get; } = [];
+    // Issue #341: Spielkopf (kicker-Vorbild) statt der früheren Scoreboard-Zeilenliste; #247: Kopf und
+    // Ereignisse in einer Ansicht, die SpielberichtKarte direkt bindet
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HatProtokoll))]
+    [NotifyPropertyChangedFor(nameof(ZeigeLeerZustand))]
+    private SpielBeinAnsicht? _protokoll;
 
-    public bool HatProtokoll           => ProtokollKopf is not null;
-    public bool HatProtokollEreignisse => ProtokollEreignisse.Count > 0;
+    public bool HatProtokoll => Protokoll is not null;
 
     // ── Status ────────────────────────────────────────────────────────────────
 
@@ -519,10 +521,9 @@ public partial class SimulationsViewModel : ViewModelBase, IRibbonAware
         // Fügte bisher nur hinzu, ohne vorher zu leeren — beim Wechsel zwischen zwei bereits simulierten
         // Spielen (Breadcrumb-Combobox oder "Spielverlauf ansehen" aus dem Spielplan) hängten sich die
         // Einträge des neuen Spiels an die des vorherigen an, statt sie zu ersetzen.
-        ProtokollKopf = null;
-        ProtokollEreignisse.Clear();
+        Protokoll = null;
 
-        string heim      = spiel.HeimMannschaft?.Name ?? spiel.HeimPlatzhalterName ?? "?";
+        string heim     = spiel.HeimMannschaft?.Name ?? spiel.HeimPlatzhalterName ?? "?";
         string auswaerts = spiel.AuswaertsMannschaft?.Name ?? spiel.AuswaertsPlatzhalterName ?? "?";
 
         ProtokollSpielInfo = $"{heim} vs. {auswaerts}";
@@ -542,30 +543,22 @@ public partial class SimulationsViewModel : ViewModelBase, IRibbonAware
                 Wiederholungsergebnis.Aus(e));
             var untertitel = new UntertitelQuellen(
                 m => m.Land?.Verband?.Kurzname, await _ranglisteService.LigazugehoerigkeitAbrufenAsync());
-            ProtokollKopf = SpielKopf.Aus(
+            var kopf = SpielKopf.Aus(
                 kontext, new SpielSeite(spiel.HeimMannschaft, heim), new SpielSeite(spiel.AuswaertsMannschaft, auswaerts), ergebnis, untertitel);
 
             // #361: nach Id, damit Ereignisse derselben Minute in der Reihenfolge ihrer Entstehung bleiben.
             var ereignisse = spiel.Ereignisse.OrderBy(ev => ev.Id).Select(ev => new ZeitleistenEreignis(
                 ev.Minute, ev.Nachspielminute, ev.EreignisArt, ev.MannschaftId == spiel.HeimMannschaftId, ev.Beschreibung, ev.ImWiederholungsspiel));
-            foreach (var zeile in Zeitleiste.Erstellen(
-                         ergebnis, ereignisse, new SpielSeite(spiel.HeimMannschaft, heim), new SpielSeite(spiel.AuswaertsMannschaft, auswaerts)))
-                ProtokollEreignisse.Add(zeile);
+            var zeilen = Zeitleiste.Erstellen(
+                ergebnis, ereignisse, new SpielSeite(spiel.HeimMannschaft, heim), new SpielSeite(spiel.AuswaertsMannschaft, auswaerts)).ToList();
+            Protokoll = new SpielBeinAnsicht(kopf, zeilen);
         }
-
-        OnPropertyChanged(nameof(HatProtokoll));
-        OnPropertyChanged(nameof(HatProtokollEreignisse));
-        OnPropertyChanged(nameof(ZeigeLeerZustand));
     }
 
     private void LeerProtokoll()
     {
         ProtokollSpielInfo = null;
-        ProtokollKopf = null;
-        ProtokollEreignisse.Clear();
-        OnPropertyChanged(nameof(HatProtokoll));
-        OnPropertyChanged(nameof(HatProtokollEreignisse));
-        OnPropertyChanged(nameof(ZeigeLeerZustand));
+        Protokoll = null;
     }
 
     // ── Hilfsmethoden ─────────────────────────────────────────────────────────

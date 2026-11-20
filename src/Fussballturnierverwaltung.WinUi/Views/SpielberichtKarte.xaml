@@ -55,25 +55,24 @@
     <Grid Background="{ThemeResource ApplicationPageBackgroundThemeBrush}">
 
         <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1"
-                CornerRadius="6"
-                Visibility="{Binding HatProtokoll, Converter={StaticResource BoolToVisibility}}">
+                CornerRadius="6">
             <Grid RowDefinitions="Auto,Auto,*">
 
                 <!-- ── Spielkopf ── Issue #341: kicker-Vorbild, geteilt mit den Hinspiel-/Rückspiel-Karten -->
-                <views:SpielKopfControl Grid.Row="0" DataContext="{Binding ProtokollKopf}" Margin="16,16,16,14" />
+                <views:SpielKopfControl Grid.Row="0" DataContext="{Binding Kopf}" Margin="16,16,16,14" />
 
                 <!-- ── Zeitleiste ── nur wenn Ereignisse vorhanden, füllt die Restfläche -->
-                <Grid Grid.Row="1" Grid.RowSpan="2" Visibility="{Binding HatProtokollEreignisse, Converter={StaticResource BoolToVisibility}}"
+                <Grid Grid.Row="1" Grid.RowSpan="2" Visibility="{Binding HatEreignisse, Converter={StaticResource BoolToVisibility}}"
                       RowDefinitions="Auto,Auto,*">
 
                     <Border Grid.Row="0" Height="1" Background="{ThemeResource CardStrokeColorDefaultBrush}" />
                     <StackPanel Grid.Row="1">
                         <TextBlock Text="SPIELVERLAUF" FontSize="10" FontWeight="Bold" Opacity="0.6" Margin="14,8,14,4" />
                         <!-- Issue #341: kompakter Zeitstrahl als Überblick über der ausführlichen Zeitleiste -->
-                        <views:SpielZeitstrahlControl Ereignisse="{Binding ProtokollEreignisse}"
+                        <views:SpielZeitstrahlControl Ereignisse="{Binding Ereignisse}"
                                                       IconVorlage="{StaticResource EreignisIconVorlage}"
-                                                      HeimKuerzel="{Binding ProtokollKopf.HeimKuerzel}"
-                                                      AuswaertsKuerzel="{Binding ProtokollKopf.AuswaertsKuerzel}"
+                                                      HeimKuerzel="{Binding Kopf.HeimKuerzel}"
+                                                      AuswaertsKuerzel="{Binding Kopf.AuswaertsKuerzel}"
                                                       Margin="14,2,14,6" />
                     </StackPanel>
 
@@ -84,7 +83,7 @@
                             <Border Width="2" Background="{ThemeResource CardStrokeColorDefaultBrush}" HorizontalAlignment="Center"
                                     Margin="0,18" />
 
-                            <ItemsControl ItemsSource="{Binding ProtokollEreignisse}">
+                            <ItemsControl ItemsSource="{Binding Ereignisse}">
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate x:DataType="sim:EinzelspielEreignisZeile">
                                         <Grid>
