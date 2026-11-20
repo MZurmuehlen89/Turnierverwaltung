@@ -36,15 +36,15 @@ public sealed class RealismusStichprobe
 
     public RealismusStichprobe()
     {
-        Spiele = Mutationslauf.Aktiv ? [] : Erzeugen();
+        Spiele = Mutationslauf.Aktiv ? [] : Erzeugen(SEED);
     }
 
     private sealed record Rohspiel(int Heim, int Gast, int Durchlauf, SimulationsErgebnis Ergebnis);
 
-    private static List<SimuliertesSpiel> Erzeugen()
+    public static List<SimuliertesSpiel> Erzeugen(int seed)
     {
         var teams = KalibrierungsTeams.Teams(KalibrierungsTeams.Bundesliga, 1, mitSpielweise: true);
-        var rng = new Random(SEED);
+        var rng = new Random(seed);
         var roh = new List<Rohspiel>();
         for (int d = 0; d < DURCHLAEUFE; d++)
         {
