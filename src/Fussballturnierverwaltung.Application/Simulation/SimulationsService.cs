@@ -58,24 +58,35 @@ public class SimulationsService(
         logger.LogDebug("Rückspiel: {Heim} {H}:{G} {Gast}",
             heim.Name, ergebnis.HeimToreRegulaer, ergebnis.AuswaertsToreRegulaer, auswaerts.Name);
 
-        int heimGesamtRegulaer      = hinspiel.HeimToreRegulaer      + ergebnis.AuswaertsToreRegulaer;
-        int auswaertsGesamtRegulaer = hinspiel.AuswaertsToreRegulaer + ergebnis.HeimToreRegulaer;
-        if (heimGesamtRegulaer != auswaertsGesamtRegulaer || verfahren.Count == 0)
+        // Das Rückspiel-Heimteam war im Hinspiel der Gast; die freie Simulation kennt keine Auswärtstorregel.
+        bool noetig = HinRueckspielWertung.EntscheidungsverfahrenNoetig(
+            hinspiel.HeimToreRegulaer, hinspiel.AuswaertsToreRegulaer,
+            ergebnis.HeimToreRegulaer, ergebnis.AuswaertsToreRegulaer,
+            auswaertstorRegelAktiv: false);
+        if (!noetig || verfahren.Count == 0)
             return ergebnis;
 
-        var (hv, gv, he, ge, art, extras, losGewinnerHeim, wiederholung) =
-            SimulationsEngine.EntscheidungsverfahrenAnwenden(heim, auswaerts, verfahren, ausfuehrlich: true, rng,
-                platzverweise: Platzverweise.AusEreignissen(ergebnis.Ereignisse));
-        return ergebnis with
-        {
-            HeimToreVerlaengerung = hv, AuswaertsToreVerlaengerung = gv,
-            HeimElfmetertore = he, AuswaertsElfmetertore = ge,
-            EntscheidungArt = art,
-            Ereignisse = [.. ergebnis.Ereignisse, .. extras],
-            LosGewinnerHeim = losGewinnerHeim,
-            Wiederholung = wiederholung,
-        };
+        return MitEntscheidung(ergebnis, SimulationsEngine.EntscheidungsverfahrenAnwenden(
+            heim, auswaerts, verfahren, ausfuehrlich: true, rng,
+            platzverweise: Platzverweise.AusEreignissen(ergebnis.Ereignisse)));
     }
+
+    // Das Ergebnis der regulären Spielzeit um den Ausgang des Entscheidungsverfahrens ergänzen.
+    private static SimulationsErgebnis MitEntscheidung(
+        SimulationsErgebnis ergebnis,
+        (int? HeimVerl, int? GastVerl, int? HeimElf, int? GastElf, EntscheidungArt Art,
+            IReadOnlyList<SimuliertesEreignis> Ereignisse, bool? LosGewinnerHeim, Wiederholungsergebnis? Wiederholung) entscheidung)
+        => ergebnis with
+        {
+            HeimToreVerlaengerung      = entscheidung.HeimVerl,
+            AuswaertsToreVerlaengerung = entscheidung.GastVerl,
+            HeimElfmetertore           = entscheidung.HeimElf,
+            AuswaertsElfmetertore      = entscheidung.GastElf,
+            EntscheidungArt            = entscheidung.Art,
+            Ereignisse                 = [.. ergebnis.Ereignisse, .. entscheidung.Ereignisse],
+            LosGewinnerHeim            = entscheidung.LosGewinnerHeim,
+            Wiederholung               = entscheidung.Wiederholung,
+        };
 
     // ── Ein einzelnes Spiel ───────────────────────────────────────────────
 
@@ -200,21 +211,10 @@ public class SimulationsService(
             return ergebnis;
 
         // #361: die Verlängerung setzt das Rückspiel fort – mit dessen Platzverweisen, nicht denen des Hinspiels.
-        var (hv, gv, he, ge, art, extras, losGewinnerHeim, wiederholung) = SimulationsEngine.EntscheidungsverfahrenAnwenden(
+        return MitEntscheidung(ergebnis, SimulationsEngine.EntscheidungsverfahrenAnwenden(
             spiel.HeimMannschaft!, spiel.AuswaertsMannschaft!, verfahren, ausfuehrlich: true, rng, spielortvorteil,
             runde.Ueberraschungsfaktor, Platzverweise.AusEreignissen(ergebnis.Ereignisse), runde.Spielbedeutung,
-            runde.NeutralerSpielort);
-        return ergebnis with
-        {
-            HeimToreVerlaengerung      = hv,
-            AuswaertsToreVerlaengerung = gv,
-            HeimElfmetertore           = he,
-            AuswaertsElfmetertore      = ge,
-            EntscheidungArt            = art,
-            Ereignisse                 = [.. ergebnis.Ereignisse, .. extras],
-            LosGewinnerHeim            = losGewinnerHeim,
-            Wiederholung               = wiederholung,
-        };
+            runde.NeutralerSpielort));
     }
 
     /// <summary>Simuliert die übergebenen Spiele in dieser Reihenfolge und löst danach einmal die Platzhalter

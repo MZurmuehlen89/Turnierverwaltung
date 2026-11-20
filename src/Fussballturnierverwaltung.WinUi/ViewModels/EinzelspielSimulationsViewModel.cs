@@ -462,31 +462,11 @@ public partial class EinzelspielSimulationsViewModel : ViewModelBase, IRibbonAwa
 
         try
         {
-            var rng = _zufallsquelle.Erzeugen();
 #pragma warning disable S2234 // Rückspiel: Heim und Auswärts bewusst getauscht
-            var erg2 = _simulationsService.RueckspielSimulieren(auswaerts, heim, erg1, verfahren, rng);
-            RueckspielErgebnis = erg2;
-
-            var gesamt = FreiePaarungGesamt.Bewerten(erg1, erg2);
-            string? sieger = gesamt.Sieger switch
-            {
-                PaarungSieger.Heim      => heim.Name,
-                PaarungSieger.Auswaerts => auswaerts.Name,
-                _                       => null
-            };
-
-            GesamtKopf = SpielKopf.Gesamt(
-                SpielSeite.Von(heim), SpielSeite.Von(auswaerts), $"{gesamt.HeimTore}:{gesamt.AuswaertsTore}", gesamt.Zusatz, _untertitel);
-            SiegerText = sieger is null ? "Unentschieden" : $"Sieger: {sieger}";
-
-            RueckspielEreignisse.Clear();
-            ZeitleisteFuellen(RueckspielEreignisse, erg2, SpielSeite.Von(auswaerts), SpielSeite.Von(heim));
-
-            RueckspielAnsicht = new SpielBeinAnsicht(
-                SpielKopf.Aus(
-                    "Rückspiel", SpielSeite.Von(auswaerts), SpielSeite.Von(heim), erg2, _untertitel),
-                RueckspielEreignisse);
+            var erg2 = _simulationsService.RueckspielSimulieren(auswaerts, heim, erg1, verfahren, _zufallsquelle.Erzeugen());
 #pragma warning restore S2234
+            RueckspielErgebnis = erg2;
+            RueckspielAnzeigen(SpielSeite.Von(heim), SpielSeite.Von(auswaerts), FreiePaarungGesamt.Bewerten(erg1, erg2), erg2);
 
             // Rückspiel steht fest → aufgeklappt, Hinspiel klappt automatisch ein (Nutzer-Vorgabe #248).
             HinspielOffen   = false;
@@ -502,6 +482,26 @@ public partial class EinzelspielSimulationsViewModel : ViewModelBase, IRibbonAwa
             AktualisiereBefehle();
             OnPropertyChanged(nameof(HatRueckspielEreignisse));
         }
+    }
+
+    // Gesamtkopf, Sieger und die Rückspiel-Karte; das Rückspiel hat vertauschte Rollen (dessen Heim = Hinspiel-Auswärts).
+    private void RueckspielAnzeigen(SpielSeite heim, SpielSeite auswaerts, FreiePaarungGesamt gesamt, SimulationsErgebnis erg2)
+    {
+        string? sieger = gesamt.Sieger switch
+        {
+            PaarungSieger.Heim      => heim.Name,
+            PaarungSieger.Auswaerts => auswaerts.Name,
+            _                       => null
+        };
+
+        GesamtKopf = SpielKopf.Gesamt(heim, auswaerts, $"{gesamt.HeimTore}:{gesamt.AuswaertsTore}", gesamt.Zusatz, _untertitel);
+        SiegerText = sieger is null ? "Unentschieden" : $"Sieger: {sieger}";
+
+        RueckspielEreignisse.Clear();
+#pragma warning disable S2234 // Rückspiel: Heim und Auswärts bewusst getauscht
+        ZeitleisteFuellen(RueckspielEreignisse, erg2, auswaerts, heim);
+        RueckspielAnsicht = new SpielBeinAnsicht(SpielKopf.Aus("Rückspiel", auswaerts, heim, erg2, _untertitel), RueckspielEreignisse);
+#pragma warning restore S2234
     }
 
     private void LeerProtokoll()
