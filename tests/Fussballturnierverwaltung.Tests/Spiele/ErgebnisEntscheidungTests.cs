@@ -1,4 +1,5 @@
 using FluentAssertions;
+using Fussballturnierverwaltung.Application.Simulation;
 using Fussballturnierverwaltung.Application.Spiele;
 using Fussballturnierverwaltung.Domain.Entitaeten.Spiele;
 using Fussballturnierverwaltung.Domain.Enums;
@@ -237,11 +238,61 @@ public class ErgebnisEntscheidungTests
         ErgebnisEntscheidung.LosArt(KoSpiel(VerfahrenArt.Muenzwurf), Tore(0, 0)).Should().Be(EntscheidungArt.Muenzwurf);
 
     [Fact]
-    public void LosArt_WiederholungsspielInDerKette_WirdWieInDerSimulationUebersprungen() =>
-        ErgebnisEntscheidung.LosArt(
-                KoSpiel(VerfahrenArt.VerlaengerungKlassisch, VerfahrenArt.Wiederholungsspiel, VerfahrenArt.Losentscheid),
-                Tore(1, 1, 1, 1))
+    public void LosArt_WiederholungsspielInDerKette_ErstNachTorgleichemWiederholungsspiel()
+    {
+        var rahmen = KoSpiel(VerfahrenArt.VerlaengerungKlassisch, VerfahrenArt.Wiederholungsspiel, VerfahrenArt.Losentscheid);
+
+        ErgebnisEntscheidung.LosArt(rahmen, Tore(1, 1, 1, 1)).Should().BeNull("das Wiederholungsspiel steht noch aus");
+        ErgebnisEntscheidung.LosArt(rahmen, Tore(1, 1, 1, 1) with { HeimWiederholung = 2, AuswaertsWiederholung = 2 })
+            .Should().BeNull("die Verlängerung des Wiederholungsspiels fehlt noch");
+        ErgebnisEntscheidung.LosArt(rahmen, Tore(1, 1, 1, 1) with
+            {
+                HeimWiederholung = 2, AuswaertsWiederholung = 2,
+                HeimWiederholungNachVerlaengerung = 2, AuswaertsWiederholungNachVerlaengerung = 2
+            })
             .Should().Be(EntscheidungArt.Losentscheid);
+        ErgebnisEntscheidung.LosArt(rahmen, Tore(1, 1, 1, 1) with { HeimWiederholung = 2, AuswaertsWiederholung = 0 })
+            .Should().BeNull("das Wiederholungsspiel hat entschieden");
+    }
+
+    [Fact]
+    public void Wiederholungsspiel_NachTorgleicherVerlaengerung_WirdFaellig()
+    {
+        var rahmen = KoSpiel(VerfahrenArt.VerlaengerungKlassisch, VerfahrenArt.Wiederholungsspiel, VerfahrenArt.Losentscheid);
+
+        ErgebnisEntscheidung.WiederholungAktiv(rahmen, Tore(1, 1, 1, 1)).Should().BeTrue();
+        ErgebnisEntscheidung.WiederholungAktiv(rahmen, Tore(1, 1, 2, 1)).Should().BeFalse();
+        ErgebnisEntscheidung.WiederholungAktiv(rahmen, Tore(1, 1)).Should().BeFalse("die Verlängerung ist noch nicht eingegeben");
+        ErgebnisEntscheidung.Art(rahmen, Tore(1, 1, 1, 1)).Should().Be(EntscheidungArt.Wiederholungsspiel);
+    }
+
+    [Fact]
+    public void Wiederholungsspiel_OhneVerlaengerungImRegelwerk_DirektNachRemis()
+    {
+        var rahmen = KoSpiel(VerfahrenArt.Wiederholungsspiel, VerfahrenArt.Losentscheid);
+
+        ErgebnisEntscheidung.WiederholungAktiv(rahmen, Tore(0, 0)).Should().BeTrue();
+        ErgebnisEntscheidung.WiederholungAktiv(rahmen, Tore(1, 0)).Should().BeFalse();
+        ErgebnisEntscheidung.WiederholungVerlaengerungAktiv(rahmen, Tore(0, 0) with { HeimWiederholung = 1, AuswaertsWiederholung = 1 })
+            .Should().BeFalse("vor dem Wiederholungsspiel steht keine Verlängerung");
+        ErgebnisEntscheidung.Wiederholung(rahmen, Tore(0, 0) with { HeimWiederholung = 2, AuswaertsWiederholung = 1 })
+            .Should().Be(new Wiederholungsergebnis(2, 1, null, null));
+    }
+
+    [Fact]
+    public void Wiederholungsspiel_Verlaengerung_WirdAlsDifferenzGeliefert()
+    {
+        var rahmen = KoSpiel(VerfahrenArt.VerlaengerungKlassisch, VerfahrenArt.Wiederholungsspiel);
+        var tore = Tore(1, 1, 1, 1) with
+        {
+            HeimWiederholung = 0, AuswaertsWiederholung = 0,
+            HeimWiederholungNachVerlaengerung = 1, AuswaertsWiederholungNachVerlaengerung = 0
+        };
+
+        ErgebnisEntscheidung.WiederholungVerlaengerungAktiv(rahmen, tore).Should().BeTrue();
+        ErgebnisEntscheidung.Wiederholung(rahmen, tore).Should().Be(new Wiederholungsergebnis(0, 0, 1, 0));
+        ErgebnisEntscheidung.Art(rahmen, tore).Should().Be(EntscheidungArt.Wiederholungsspiel);
+    }
 
     [Fact]
     public void LosArt_ElfmeterschiessenImRegelwerk_Nie() =>

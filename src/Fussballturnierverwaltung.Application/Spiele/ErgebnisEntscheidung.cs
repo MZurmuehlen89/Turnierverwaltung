@@ -1,3 +1,4 @@
+using Fussballturnierverwaltung.Application.Simulation;
 using Fussballturnierverwaltung.Domain.Entitaeten.Spiele;
 using Fussballturnierverwaltung.Domain.Enums;
 
@@ -16,9 +17,12 @@ public sealed record ErgebnisRahmen(
 }
 
 /// <summary>Eingegebene Spielstände; der Stand nach Verlängerung enthält die Tore der regulären Spielzeit.
-/// <c>null</c> = noch nicht eingegeben.</summary>
+/// <c>null</c> = noch nicht eingegeben. Die Wiederholungsspiel-Felder (#547) folgen derselben Regel: der Stand nach
+/// Verlängerung des Wiederholungsspiels enthält dessen Tore nach 90 Minuten; alle aus Sicht des Heimteams des Spiels.</summary>
 public readonly record struct TorEingabe(
-    int? HeimRegulaer, int? AuswaertsRegulaer, int? HeimNachVerlaengerung, int? AuswaertsNachVerlaengerung);
+    int? HeimRegulaer, int? AuswaertsRegulaer, int? HeimNachVerlaengerung, int? AuswaertsNachVerlaengerung,
+    int? HeimWiederholung = null, int? AuswaertsWiederholung = null,
+    int? HeimWiederholungNachVerlaengerung = null, int? AuswaertsWiederholungNachVerlaengerung = null);
 
 /// <summary>Leitet während der Ergebniseingabe aus den bisher eingegebenen Toren ab, welche Abschnitte
 /// (Verlängerung, Elfmeterschießen, Losentscheid) fällig sind, ob die Eingabe in sich stimmig ist und wie das Spiel
@@ -47,11 +51,40 @@ public static class ErgebnisEntscheidung
         FolgeArtFaellig(rahmen, tore) == EntscheidungArt.Elfmeterschiessen;
 
     /// <summary>Losentscheid bzw. Münzwurf, wenn er an derselben Stelle fällig ist wie sonst das Elfmeterschießen
-    /// (#391), sonst <c>null</c>. Ein Wiederholungsspiel davor überspringt die Eingabe wie die Simulation (#547).</summary>
+    /// (#391), sonst <c>null</c>. Steht ein Wiederholungsspiel davor, ist das Los erst fällig, wenn auch dieses
+    /// torgleich endete (#547).</summary>
     public static EntscheidungArt? LosArt(ErgebnisRahmen rahmen, TorEingabe tore) =>
         FolgeArtFaellig(rahmen, tore) is { } art && art is EntscheidungArt.Losentscheid or EntscheidungArt.Muenzwurf
             ? art
             : null;
+
+    /// <summary>#547: Ob die Tore eines Wiederholungsspiels einzugeben sind – es steht im Regelwerk an der Stelle, an der
+    /// sonst das Entscheidungsverfahren fällig wäre (nach der Verlängerung, wenn sie torgleich endete).</summary>
+    public static bool WiederholungAktiv(ErgebnisRahmen rahmen, TorEingabe tore) =>
+        FolgeArtFaellig(rahmen, tore with { HeimWiederholung = null, AuswaertsWiederholung = null })
+            == EntscheidungArt.Wiederholungsspiel;
+
+    /// <summary>#547: Ob das Wiederholungsspiel nach 90 Minuten torgleich stand und – steht eine Verlängerung vor ihm im
+    /// Regelwerk – eine eigene Verlängerung einzugeben ist.</summary>
+    public static bool WiederholungVerlaengerungAktiv(ErgebnisRahmen rahmen, TorEingabe tore) =>
+        WiederholungAktiv(rahmen, tore) && VerlaengerungVorWiederholung(rahmen) is not null
+        && tore.HeimWiederholung is { } heim && tore.AuswaertsWiederholung == heim;
+
+    /// <summary>#547: Das eingegebene Wiederholungsspiel als Ergebnis (Verlängerungstore = Stand nach Verlängerung minus
+    /// Stand nach 90 Minuten), oder <c>null</c>, solange es nicht fällig oder nicht eingegeben ist.</summary>
+    public static Wiederholungsergebnis? Wiederholung(ErgebnisRahmen rahmen, TorEingabe tore)
+    {
+        if (!WiederholungAktiv(rahmen, tore)
+            || tore.HeimWiederholung is not { } heim || tore.AuswaertsWiederholung is not { } auswaerts)
+            return null;
+
+        if (WiederholungVerlaengerungAktiv(rahmen, tore)
+            && tore.HeimWiederholungNachVerlaengerung is { } heimNach
+            && tore.AuswaertsWiederholungNachVerlaengerung is { } auswaertsNach)
+            return new Wiederholungsergebnis(heim, auswaerts, heimNach - heim, auswaertsNach - auswaerts);
+
+        return new Wiederholungsergebnis(heim, auswaerts, null, null);
+    }
 
     /// <summary>Silver Goal: ob gefragt wird, ob die Verlängerung schon nach ihrer ersten Hälfte entschieden war
     /// (#391) — nur bei einem stimmigen Sieg in der Verlängerung.</summary>
@@ -73,7 +106,7 @@ public static class ErgebnisEntscheidung
         if (VerlaengerungsVerfahren(rahmen) == VerfahrenArt.GoldenGoal && verlaengerung.Heim + verlaengerung.Auswaerts > 1)
             return "Golden Goal: Die Verlängerung endet mit dem ersten Tor, in ihr fällt höchstens ein Tor.";
         // Ohne Folgeverfahren im Regelwerk bliebe das Spiel ohne Sieger – das lehnt der Validator beim Speichern ab.
-        if (verlaengerung.Heim == verlaengerung.Auswaerts && FolgeArt(rahmen) is null)
+        if (verlaengerung.Heim == verlaengerung.Auswaerts && FolgeArt(rahmen, default) is null)
             return "Die Verlängerung endete torgleich, das Regelwerk sieht danach keine Entscheidung vor.";
         return null;
     }
@@ -115,7 +148,7 @@ public static class ErgebnisEntscheidung
             && (VerlaengerungsTore(tore) is not { } verlaengerung || verlaengerung.Heim != verlaengerung.Auswaerts
                 || verlaengerung.Heim < 0))
             return null;
-        return FolgeArt(rahmen);
+        return FolgeArt(rahmen, tore);
     }
 
     /// <summary>Allein die in der Verlängerung gefallenen Tore, oder <c>null</c>, solange der Stand nach
@@ -138,13 +171,42 @@ public static class ErgebnisEntscheidung
         return null;
     }
 
-    /// <summary>Das erste Verfahren im Regelwerk, das ohne weiteres Spiel entscheidet.</summary>
-    private static EntscheidungArt? FolgeArt(ErgebnisRahmen rahmen)
+    /// <summary>Die Verlängerungsart, die im Regelwerk vor dem Wiederholungsspiel steht – sie läuft im Wiederholungsspiel
+    /// noch einmal (#547).</summary>
+    private static VerfahrenArt? VerlaengerungVorWiederholung(ErgebnisRahmen rahmen)
+    {
+        foreach (var verfahren in rahmen.ErlaubteVerfahren)
+        {
+            if (verfahren == VerfahrenArt.Wiederholungsspiel) return null;
+            if (verfahren is VerfahrenArt.VerlaengerungKlassisch or VerfahrenArt.GoldenGoal or VerfahrenArt.SilverGoal)
+                return verfahren;
+        }
+        return null;
+    }
+
+    /// <summary>Endete das Wiederholungsspiel (vollständig eingegeben) nach 90 Minuten bzw. nach seiner Verlängerung
+    /// torgleich? Dann greift das Verfahren dahinter (#547).</summary>
+    private static bool WiederholungTorgleich(ErgebnisRahmen rahmen, TorEingabe tore)
+    {
+        if (tore.HeimWiederholung is not { } heim || tore.AuswaertsWiederholung is not { } auswaerts || heim != auswaerts)
+            return false;
+        if (VerlaengerungVorWiederholung(rahmen) is null)
+            return true;
+        return tore.HeimWiederholungNachVerlaengerung is { } heimNach
+            && tore.AuswaertsWiederholungNachVerlaengerung == heimNach;
+    }
+
+    /// <summary>Das erste Verfahren im Regelwerk, das entscheidet: ohne weiteres Spiel – oder das Wiederholungsspiel,
+    /// solange es nicht torgleich endete (#547).</summary>
+    private static EntscheidungArt? FolgeArt(ErgebnisRahmen rahmen, TorEingabe tore)
     {
         foreach (var verfahren in rahmen.ErlaubteVerfahren)
         {
             switch (verfahren)
             {
+                case VerfahrenArt.Wiederholungsspiel:
+                    if (WiederholungTorgleich(rahmen, tore)) break;
+                    return EntscheidungArt.Wiederholungsspiel;
                 case VerfahrenArt.Elfmeterschiessen: return EntscheidungArt.Elfmeterschiessen;
                 case VerfahrenArt.Losentscheid:      return EntscheidungArt.Losentscheid;
                 case VerfahrenArt.Muenzwurf:         return EntscheidungArt.Muenzwurf;
