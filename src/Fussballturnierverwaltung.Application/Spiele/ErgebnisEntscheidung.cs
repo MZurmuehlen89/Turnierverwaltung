@@ -87,6 +87,13 @@ public static class ErgebnisEntscheidung
             : null;
     }
 
+    /// <summary>#547: Endete das Wiederholungsspiel torgleich und sieht das Regelwerk danach nichts mehr vor, bliebe das
+    /// Spiel ohne Sieger – das lehnt der Validator beim Speichern ab, hier schon beim Tippen.</summary>
+    public static string? WiederholungFehler(ErgebnisRahmen rahmen, TorEingabe tore) =>
+        Wiederholung(rahmen, tore) is { } wdh && wdh.HeimGesamt == wdh.AuswaertsGesamt && FolgeArt(rahmen, tore) is null
+            ? "Das Wiederholungsspiel endete torgleich, das Regelwerk sieht danach keine Entscheidung vor."
+            : null;
+
     /// <summary>Silver Goal: ob gefragt wird, ob die Verlängerung schon nach ihrer ersten Hälfte entschieden war
     /// (#391) — nur bei einem stimmigen Sieg in der Verlängerung.</summary>
     public static bool SilverGoalWaehlbar(ErgebnisRahmen rahmen, TorEingabe tore) =>

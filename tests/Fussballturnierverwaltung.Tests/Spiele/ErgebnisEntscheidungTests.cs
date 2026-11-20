@@ -280,6 +280,16 @@ public class ErgebnisEntscheidungTests
     }
 
     [Fact]
+    public void WiederholungFehler_TorgleichOhneFolgeverfahren_WirdGemeldet()
+    {
+        var torgleich = Tore(0, 0) with { HeimWiederholung = 1, AuswaertsWiederholung = 1 };
+
+        ErgebnisEntscheidung.WiederholungFehler(KoSpiel(VerfahrenArt.Wiederholungsspiel), torgleich).Should().NotBeNull();
+        ErgebnisEntscheidung.WiederholungFehler(KoSpiel(VerfahrenArt.Wiederholungsspiel, VerfahrenArt.Losentscheid), torgleich)
+            .Should().BeNull("das Los entscheidet danach");
+    }
+
+    [Fact]
     public void Wiederholungsspiel_Verlaengerung_WirdAlsDifferenzGeliefert()
     {
         var rahmen = KoSpiel(VerfahrenArt.VerlaengerungKlassisch, VerfahrenArt.Wiederholungsspiel);

@@ -82,7 +82,8 @@ public partial class ErgebnisFormularViewModel : ObservableObject
         : "LOS FIEL AUF";
 
     /// <summary>Was an der eingegebenen Verlängerung nicht stimmen kann (#391), sonst <c>null</c>.</summary>
-    public string? EingabeFehler => ErgebnisEntscheidung.VerlaengerungFehler(_rahmen, Tore);
+    public string? EingabeFehler =>
+        ErgebnisEntscheidung.VerlaengerungFehler(_rahmen, Tore) ?? ErgebnisEntscheidung.WiederholungFehler(_rahmen, Tore);
 
     /// <summary>Speichern geht nur mit stimmiger Eingabe, vollständigem Wiederholungsspiel (falls fällig) und
     /// — falls fällig — gewähltem Losgewinner.</summary>

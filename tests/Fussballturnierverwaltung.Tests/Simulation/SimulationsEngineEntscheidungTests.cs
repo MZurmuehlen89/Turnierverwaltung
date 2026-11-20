@@ -268,6 +268,30 @@ public class SimulationsEngineEntscheidungTests
         e.LosGewinnerHeim.Should().BeTrue();
     }
 
+    // K3: ausführlich – Ereignisse des Wiederholungsspiels sind markiert, spiegeln das getauschte Heimrecht, und der
+    // Halbzeitstand des ersten Spiels zählt sie nicht.
+    [Fact]
+    public void Wiederholungsspiel_Ausfuehrlich_MarkiertEreignisseUndLaesstHalbzeitstandUnberuehrt()
+    {
+        int mitWiederholung = 0;
+        for (int seed = 1; seed <= 300; seed++)
+        {
+            var e = SimulationsEngine.Simulieren(HeimTeam(), GastTeam(),
+                VerfahrenKette(VerfahrenArt.Wiederholungsspiel, VerfahrenArt.Losentscheid), true, new Random(seed));
+            if (e.Wiederholung is not { } wdh) continue;
+            mitWiederholung++;
+
+            var tore = e.Ereignisse.Where(x => x.Art == EreignisArt.Tor && x.ImWiederholungsspiel).ToList();
+            tore.Count(x => x.IstHeim).Should().Be(wdh.HeimTore, "Tore aus Sicht des Heimteams des ersten Spiels");
+            tore.Count(x => !x.IstHeim).Should().Be(wdh.AuswaertsTore);
+            e.Ereignisse.Where(x => !x.ImWiederholungsspiel && x.Art == EreignisArt.Tor).Count(x => x.IstHeim)
+                .Should().Be(e.HeimToreRegulaer);
+            e.HalbzeitHeimTore.Should().BeLessThanOrEqualTo(e.HeimToreRegulaer);
+            e.HalbzeitAuswaertsTore.Should().BeLessThanOrEqualTo(e.AuswaertsToreRegulaer);
+        }
+        mitWiederholung.Should().BeGreaterThan(10);
+    }
+
     [Fact]
     public void Wiederholungsspiel_ErsteSpielOhneVerlaengerungVorDemWiederholungsspiel_KeineVerlaengerungDort()
     {

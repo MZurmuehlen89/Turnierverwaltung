@@ -9,7 +9,7 @@ namespace Fussballturnierverwaltung.WinUi.ViewModels;
 /// <summary>Issue #237: Trenner-Untertyp fürs Rendering der Zeitleisten-Grafik — Abschnitt/Elfmeter
 /// durchbrechen die Mittelachse mit einer Linie, Start/Ende/Beinabschnitt stehen als eigenständige
 /// Marke ohne Linie (Anpfiff/Abpfiff bzw. HINSPIEL/RÜCKSPIEL-Kopf bei Hin- und Rückspiel).</summary>
-public enum TrennerArt { Abschnitt, Elfmeter, Start, Ende, Beinabschnitt }
+public enum TrennerArt { Abschnitt, Elfmeter, Start, Ende, Beinabschnitt, Wiederholung }
 
 public record EinzelspielEreignisZeile(
     string Minute, string Seite, string Art, bool IstHeimSeite,
@@ -22,7 +22,7 @@ public record EinzelspielEreignisZeile(
     // Nur fuer IstTrenner==true aussagekräftig — die beiden Properties kombinieren beides, damit die
     // Zeitleisten-DataTemplate-Grids nicht zusätzlich auf IstTrenner prüfen müssen (sonst würde bei
     // TrennerArt-Default=Abschnitt jede normale Ereignis-Zeile fälschlich als Abschnittstrenner gelten).
-    public bool ZeigtAlsAbschnittMitLinie   => IstTrenner && TrennerArt is TrennerArt.Abschnitt or TrennerArt.Elfmeter;
+    public bool ZeigtAlsAbschnittMitLinie   => IstTrenner && TrennerArt is TrennerArt.Abschnitt or TrennerArt.Elfmeter or TrennerArt.Wiederholung;
     public bool ZeigtAlsEigenstaendigeMarke => IstTrenner && TrennerArt is TrennerArt.Start or TrennerArt.Ende or TrennerArt.Beinabschnitt;
 
     // WinUI3 kennt kein Style.Triggers/DataTrigger (anders als das WPF-Original) — die Abschnitt-Pille
@@ -280,14 +280,14 @@ internal static class SimulationsProtokollHelfer
 
         if (wiederholung is not null || wiederholungsEreignisse.Count > 0)
         {
-            ziel.Add(EinzelspielEreignisZeile.Trenner("WIEDERHOLUNGSSPIEL", minuteWert: 0));
+            ziel.Add(EinzelspielEreignisZeile.Trenner("WIEDERHOLUNGSSPIEL", TrennerArt.Wiederholung));
             foreach (var (minute, nachspielminute, art, istHeimSeite, beschreibung, _) in
                      wiederholungsEreignisse.Chronologisch(ev => ev.Minute, ev => ev.Nachspielminute))
                 ziel.Add(Zeile(minute, nachspielminute, art, istHeimSeite, beschreibung));
 
             if (wiederholung is { } wdh)
                 ziel.Add(EinzelspielEreignisZeile.Trenner(
-                    $"ENDE WIEDERHOLUNGSSPIEL · {wdh.HeimGesamt}:{wdh.AuswaertsGesamt}", minuteWert: 120));
+                    $"ENDE WIEDERHOLUNGSSPIEL · {wdh.HeimGesamt}:{wdh.AuswaertsGesamt}", TrennerArt.Wiederholung));
         }
 
         if (hatElfmeter)
@@ -299,6 +299,8 @@ internal static class SimulationsProtokollHelfer
             int heimEndstand      = heimToreRegulaer      + (heimToreVerlaengerung ?? 0);
             int auswaertsEndstand = auswaertsToreRegulaer + (auswaertsToreVerlaengerung ?? 0);
             string elfmeterZusatz = hatElfmeter ? $" ({heimElfmetertore}:{auswaertsElfmetertore} i.E.)" : "";
+            if (wiederholung is { } wiederholungsStand)
+                elfmeterZusatz += $" (Wdh. {wiederholungsStand.HeimGesamt}:{wiederholungsStand.AuswaertsGesamt})";
             ziel.Add(EinzelspielEreignisZeile.Trenner(
                 $"{abpfiffPraefix} · {heimEndstand}:{auswaertsEndstand}{elfmeterZusatz}", TrennerArt.Ende));
         }

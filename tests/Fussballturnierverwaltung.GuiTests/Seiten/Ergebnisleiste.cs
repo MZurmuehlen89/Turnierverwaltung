@@ -11,6 +11,8 @@ public sealed class Ergebnisleiste(Window fenster, Hauptfenster hauptfenster)
     public const string TORE = "Tore";
     public const string VERLAENGERUNG = "ToreVerlaengerung";
     public const string ELFMETER = "Elfmetertore";
+    public const string WIEDERHOLUNG = "ToreWiederholung";
+    public const string WIEDERHOLUNG_VERLAENGERUNG = "ToreWiederholungVerlaengerung";
 
     /// <summary>Ohne gewähltes Spiel zeigt die Leiste nur den Hinweis zum Auswählen.</summary>
     public bool ZeigtAuswahlHinweis => fenster.TryFindById("Ergebnis.Hinweis") is not null;
