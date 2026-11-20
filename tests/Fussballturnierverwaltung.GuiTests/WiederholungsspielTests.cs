@@ -18,7 +18,7 @@ public sealed class WiederholungsspielTests(TurnierverwaltungApp app) : IClassFi
     [Fact]
     public void Wiederholungsspiel_EntscheidetNachTorgleicherVerlaengerung_LosErstDanach()
     {
-        var (spielplan, halbfinale) = TurnierAufbauen();
+        var (turnier, spielplan, halbfinale) = TurnierAufbauen();
         var leiste = spielplan.Leiste();
         var (entschieden, gelost) = (halbfinale[0], halbfinale[1]);
 
@@ -47,6 +47,17 @@ public sealed class WiederholungsspielTests(TurnierverwaltungApp app) : IClassFi
         leiste.LosFielAuf(heim: true);
         leiste.Speichern();
 
+        // #247: Spielverlauf ansehen – das Wiederholungsspiel steht als eigene Karte neben dem Spiel, mit dem tatsächlichen
+        // Heimteam links (die Runde ist nicht neutral, das Heimrecht tauscht) und dem Ergebnis aus dessen Sicht.
+        spielplan.SpielWaehlen(entschieden.Heim, entschieden.Auswaerts);
+        var karten = turnier.SpielverlaufAnsehen().WiederholungsspielAbwarten(entschieden.Heim, entschieden.Auswaerts);
+        karten.Spiel.Score.Should().Be("2:2", "das erste Spiel endete 1:1 und 1:1 n.V.");
+        karten.Spiel.Zwischenstaende.Should().Contain("Wdh. 0:2");
+        karten.Kontext.Should().Be("Wiederholungsspiel");
+        karten.Wiederholungsspiel.Should().Match<SpielKopfAnzeige>(k =>
+            k.Heim == entschieden.Auswaerts && k.Auswaerts == entschieden.Heim && k.Score == "2:0" && k.Entscheidung == "Heimrecht getauscht");
+        turnier.Spielplan(); // zurück in den Reiter Spielplan
+
         var spiele = spielplan.Spiele();
         Zeile(spiele, entschieden).Zusatz.Should().Contain("Wdh. 0:2");
         Zeile(spiele, gelost).Zusatz.Should().Contain("Wdh. 1:1 n.V.").And.Contain("Los");
@@ -61,7 +72,7 @@ public sealed class WiederholungsspielTests(TurnierverwaltungApp app) : IClassFi
     private static SpielZeile Zeile(IReadOnlyList<SpielZeile> spiele, SpielZeile gesucht) =>
         spiele.Single(s => s.Heim == gesucht.Heim && s.Auswaerts == gesucht.Auswaerts);
 
-    private (SpielplanReiter Spielplan, IReadOnlyList<SpielZeile> Halbfinale) TurnierAufbauen()
+    private (TurnierdurchfuehrungSeite Turnier, SpielplanReiter Spielplan, IReadOnlyList<SpielZeile> Halbfinale) TurnierAufbauen()
     {
         string name = HandTurnier.EindeutigerName();
         var turniere = app.Hauptfenster.TurniereOeffnen();
@@ -84,6 +95,6 @@ public sealed class WiederholungsspielTests(TurnierverwaltungApp app) : IClassFi
 
         var halbfinale = turnier.SpieleDerRunde(HALBFINALE);
         halbfinale.Should().HaveCount(2);
-        return (turnier.Spielplan(), halbfinale);
+        return (turnier, turnier.Spielplan(), halbfinale);
     }
 }

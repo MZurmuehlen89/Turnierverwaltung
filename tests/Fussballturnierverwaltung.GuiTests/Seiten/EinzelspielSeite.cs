@@ -1,3 +1,4 @@
+using System.Drawing;
 using FlaUI.Core.AutomationElements;
 using FlaUI.Core.Definitions;
 using GuiTest.Framework;
@@ -16,6 +17,7 @@ public sealed class EinzelspielSeite(Window fenster)
     private const string RUECKSPIEL = "Einzelspiel.Rueckspiel";
     private const string GESAMT = "Einzelspiel.Gesamt";
     private const string SIEGER = "Einzelspiel.Sieger";
+    private const string RUECKSPIEL_AUSSTEHEND = "Einzelspiel.RueckspielAusstehend";
 
     // Die gewählten Mannschaften: Erst wenn ein Spielkopf sie zeigt, gehört er zur letzten Aktion und nicht zu einer
     // früheren Paarung.
@@ -100,9 +102,21 @@ public sealed class EinzelspielSeite(Window fenster)
     }
 
     /// <summary>Ob ein vorhandenes Rückspiel samt Siegerzeile verworfen ist (#539) – beide sind dann nicht mehr im
-    /// UIA-Baum, weil ihre Elemente eingeklappt sind.</summary>
+    /// UIA-Baum, weil ihre Elemente ausgeblendet sind.</summary>
     public bool RueckspielVerworfen =>
         fenster.TryFindById(RUECKSPIEL) is null && fenster.TryFindById(SIEGER) is null;
+
+    /// <summary>Ob rechts neben dem Hinspiel der Platzhalter „Rückspiel steht noch aus“ steht (#247).</summary>
+    public bool RueckspielAusstehend => fenster.TryFindById(RUECKSPIEL_AUSSTEHEND) is not null;
+
+    // Lage der Karten und des Gesamtkopfs auf dem Bildschirm (#247: Spalten nebeneinander, Gesamtkopf darüber).
+    public Rectangle HinspielLage => Lage(HINSPIEL);
+    public Rectangle RueckspielLage => Lage(RUECKSPIEL);
+    public Rectangle GesamtLage => Lage(GESAMT);
+    public Rectangle PlatzhalterLage => Lage(RUECKSPIEL_AUSSTEHEND);
+
+    private Rectangle Lage(string id) =>
+        (fenster.TryFindById(id) ?? throw new InvalidOperationException($"'{id}' ist nicht zu sehen.")).BoundingRectangle;
 
     public string Fehlermeldung => fenster.TryFindById("Einzelspiel.Fehlermeldung")?.NameOrEmpty() ?? string.Empty;
 

@@ -23,10 +23,17 @@ public sealed record Spielbericht(
     public IReadOnlyList<string> AuswaertsImZeitstrahl => [.. AuswaertsEreignisse.Where(e => !_nichtImZeitstrahl.Contains(e))];
 }
 
+/// <summary>Die beiden Karten eines Spiels mit Wiederholungsspiel (#247): das Spiel und daneben das Wiederholungsspiel mit
+/// seinem Kontext („Wiederholungsspiel“).</summary>
+public sealed record Wiederholungskarten(SpielKopfAnzeige Spiel, SpielKopfAnzeige Wiederholungsspiel, string Kontext);
+
 /// <summary>Reiter „Simulation“ der Turnierdurchführung: zeigt den Spielbericht einer Partie, nach „Ausführlich
 /// simulieren“ oder „Spielverlauf ansehen“ aus dem Spielplan (#302).</summary>
 public sealed class SimulationsReiter(Window fenster, Hauptfenster hauptfenster)
 {
+    private const string SPIEL = "Spielbericht.Spiel";
+    private const string WIEDERHOLUNGSSPIEL = "Spielbericht.Wiederholungsspiel";
+
     /// <summary>Wartet, bis der Bericht <paramref name="heim"/> – <paramref name="auswaerts"/> mit Ergebnis zeigt und
     /// die Zeitleiste dazu geladen ist (ihre Tore passen zum Stand), höchstens <see cref="Hauptfenster.Ladezeit"/>;
     /// danach wird gelesen, was dasteht, und der Test prüft es selbst.</summary>
@@ -40,19 +47,39 @@ public sealed class SimulationsReiter(Window fenster, Hauptfenster hauptfenster)
         return Lesen() ?? throw new InvalidOperationException("Der Spielbericht ist verschwunden.");
     }
 
+    /// <summary>Wartet, bis das Spiel <paramref name="heim"/> – <paramref name="auswaerts"/> mit seiner Karte und der
+    /// Karte des Wiederholungsspiels dasteht (#247). Ein von Hand eingetragenes Ergebnis hat keine Ereignisse – gelesen
+    /// werden darum nur die Köpfe.</summary>
+    public Wiederholungskarten WiederholungsspielAbwarten(string heim, string auswaerts) =>
+        Wait.UntilFound(
+            () => fenster.TryFindById(SPIEL) is { } spiel && KopfLesen(spiel) is { } kopf
+                  && kopf.Heim == heim && kopf.Auswaerts == auswaerts
+                  && fenster.TryFindById(WIEDERHOLUNGSSPIEL) is { } wdh && KopfLesen(wdh) is { } wdhKopf
+                ? new Wiederholungskarten(kopf, wdhKopf, wdh.TextOf("SpielKopf.Kontext"))
+                : null,
+            Hauptfenster.Ladezeit, $"Spielbericht {heim} – {auswaerts} mit Wiederholungsspiel");
+
+    /// <summary>Ob neben dem Spiel eine Karte des Wiederholungsspiels steht.</summary>
+    public bool ZeigtWiederholungsspiel => fenster.TryFindById(WIEDERHOLUNGSSPIEL) is not null;
+
+    // Gelesen wird nur die Karte des Spiels – die des Wiederholungsspiels hat eigene Ereignisse und eine eigene Uhr.
     private Spielbericht? Lesen()
     {
-        if (fenster.TryFindById("SpielKopf.Score") is null) return null;
-        var kopf = new SpielKopfAnzeige(
-            fenster.TextOf("SpielKopf.HeimName"),
-            fenster.TextOf("SpielKopf.AuswaertsName"),
-            fenster.TextOf("SpielKopf.Score"),
-            fenster.TextOf("SpielKopf.Entscheidung"),
-            fenster.TextOf("SpielKopf.Zwischenstaende"));
-        return new Spielbericht(kopf, Namen("Spielbericht.HeimEreignis"), Namen("Spielbericht.AuswaertsEreignis"),
-            Namen("Zeitstrahl.HeimMarker"), Namen("Zeitstrahl.AuswaertsMarker"));
+        if (fenster.TryFindById(SPIEL) is not { } karte || KopfLesen(karte) is not { } kopf) return null;
+        return new Spielbericht(kopf, Namen(karte, "Spielbericht.HeimEreignis"), Namen(karte, "Spielbericht.AuswaertsEreignis"),
+            Namen(karte, "Zeitstrahl.HeimMarker"), Namen(karte, "Zeitstrahl.AuswaertsMarker"));
     }
 
-    private IReadOnlyList<string> Namen(string automationId) =>
-        [.. fenster.FindAllById(automationId).Select(e => e.NameOrEmpty())];
+    private static SpielKopfAnzeige? KopfLesen(AutomationElement karte) =>
+        karte.TryFindById("SpielKopf.Score") is null
+            ? null
+            : new SpielKopfAnzeige(
+                karte.TextOf("SpielKopf.HeimName"),
+                karte.TextOf("SpielKopf.AuswaertsName"),
+                karte.TextOf("SpielKopf.Score"),
+                karte.TextOf("SpielKopf.Entscheidung"),
+                karte.TextOf("SpielKopf.Zwischenstaende"));
+
+    private static IReadOnlyList<string> Namen(AutomationElement karte, string automationId) =>
+        [.. karte.FindAllById(automationId).Select(e => e.NameOrEmpty())];
 }

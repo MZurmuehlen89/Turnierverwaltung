@@ -165,7 +165,44 @@ public sealed class EinzelspielSimulationsTests(TurnierverwaltungApp app) : ICla
         _seite.AuswaertstorregelSetzen(false);
 
         Wait.Until(() => _seite.RueckspielVerworfen, Wait.DefaultTimeout, "Rückspiel nach dem Wechsel verworfen");
+        Wait.Until(() => _seite.RueckspielAusstehend, Wait.DefaultTimeout, "Platzhalter statt der Rückspiel-Karte (#247 K5)");
         _seite.GesamtNachHinspiel().Entscheidung.Should().Be("Ergebnis nach Hinspiel");
+    }
+
+    /// <summary>#247 K1: Nach dem Hinspiel steht der Gesamtkopf oben, links die Hinspiel-Karte und rechts davon auf
+    /// gleicher Höhe der Platzhalter für das Rückspiel.</summary>
+    [Fact]
+    public void HinUndRueckspiel_NachDemHinspiel_HinspielLinksUndPlatzhalterRechtsDaneben()
+    {
+        _seite.MannschaftenWaehlen(HEIM, SCHWACHE_GEGNER[0]);
+        _seite.MitRueckspielSetzen(true);
+
+        _seite.HinspielEingeben(3, 1);
+        _seite.GesamtNachHinspiel().Entscheidung.Should().Be("Ergebnis nach Hinspiel");
+
+        var (gesamt, hinspiel, platzhalter) = (_seite.GesamtLage, _seite.HinspielLage, _seite.PlatzhalterLage);
+        gesamt.Bottom.Should().BeLessThanOrEqualTo(hinspiel.Top + 2, "der Gesamtkopf steht über den Spalten");
+        platzhalter.Left.Should().BeGreaterThanOrEqualTo(hinspiel.Right - 2, "der Platzhalter steht rechts der Hinspiel-Karte");
+        platzhalter.Top.Should().BeInRange(hinspiel.Top, hinspiel.Bottom, "beide Spalten beginnen auf gleicher Höhe");
+    }
+
+    /// <summary>#247 K2: Nach dem Rückspiel stehen Hinspiel links und Rückspiel rechts mit gleicher Oberkante, der
+    /// Gesamtkopf darüber; im Rückspiel steht das Auswärtsteam des Hinspiels links.</summary>
+    [Fact]
+    public void HinUndRueckspiel_NachDemRueckspiel_ZweiSpaltenMitGleicherOberkante()
+    {
+        _seite.MannschaftenWaehlen(HEIM, SCHWACHE_GEGNER[0]);
+        _seite.MitRueckspielSetzen(true);
+        _seite.HinspielEingeben(3, 1);
+
+        var paarung = _seite.RueckspielSimulieren();
+
+        paarung.Rueckspiel.Should().Match<SpielKopfAnzeige>(k => k.Heim == SCHWACHE_GEGNER[0] && k.Auswaerts == HEIM);
+        var (gesamt, hinspiel, rueckspiel) = (_seite.GesamtLage, _seite.HinspielLage, _seite.RueckspielLage);
+        rueckspiel.Left.Should().BeGreaterThanOrEqualTo(hinspiel.Right - 2, "das Rückspiel steht rechts vom Hinspiel");
+        rueckspiel.Top.Should().BeInRange(hinspiel.Top - 2, hinspiel.Top + 2, "beide Karten haben dieselbe Oberkante");
+        gesamt.Bottom.Should().BeLessThanOrEqualTo(hinspiel.Top + 2, "der Gesamtkopf steht über den Spalten");
+        _seite.RueckspielAusstehend.Should().BeFalse("an seiner Stelle steht jetzt die Rückspiel-Karte");
     }
 
     public void Dispose() => app.BeiFehlschlagBelegeSichern();
