@@ -19,10 +19,10 @@ public class SpielKopfTests
     private static SpielKopf Kopf(
         SimulationsErgebnis e, string? kontext = null, Mannschaft? heim = null, string heimName = "Alpha",
         Mannschaft? auswaerts = null, string auswaertsName = "Beta Berlin")
-        => SpielKopfBau.SpielKopfErstellen(kontext, heim ?? _alpha, heimName, auswaerts ?? _beta, auswaertsName, e, _quellen);
+        => SpielKopf.Aus(kontext, new SpielSeite(heim ?? _alpha, heimName), new SpielSeite(auswaerts ?? _beta, auswaertsName), e, _quellen);
 
     private static SpielKopf Gesamt(Mannschaft heim, Mannschaft auswaerts, string score, string zusatz)
-        => SpielKopfBau.GesamtKopfErstellen(heim, auswaerts, score, zusatz, _quellen);
+        => SpielKopf.Gesamt(SpielSeite.Von(heim), SpielSeite.Von(auswaerts), score, zusatz, _quellen);
 
     private static SimulationsErgebnis Ergebnis(
         int heim, int auswaerts, EntscheidungArt art = EntscheidungArt.RegulaereSpielzeit,
@@ -147,8 +147,8 @@ public class SpielKopfTests
         kopf.HeimKuerzel.Should().Be("ALP");
         kopf.AuswaertsKuerzel.Should().Be("BET");
 
-        var platzhalter = SpielKopfBau.SpielKopfErstellen(
-            null, null, "Sieger Gruppe A", new Mannschaft { Name = "FC", Kurzname = "  " }, "FC", Ergebnis(0, 0), _quellen);
+        var platzhalter = SpielKopf.Aus(
+            null, new SpielSeite(null, "Sieger Gruppe A"), new SpielSeite(new Mannschaft { Name = "FC", Kurzname = "  " }, "FC"), Ergebnis(0, 0), _quellen);
         platzhalter.HeimKuerzel.Should().Be("SIE");
         platzhalter.AuswaertsKuerzel.Should().Be("FC");
         platzhalter.HeimWappen.Should().BeNull();

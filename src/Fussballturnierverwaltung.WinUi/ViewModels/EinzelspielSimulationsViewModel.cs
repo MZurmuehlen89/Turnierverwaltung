@@ -19,7 +19,7 @@ namespace Fussballturnierverwaltung.WinUi.ViewModels;
 /// #289: freie Einzelspiel-Simulation als eigenständiger Menüpunkt, 1:1-Port aus
 /// Wpf/ViewModels/EinzelspielSimulationsViewModel.cs — braucht anders als
 /// <see cref="SimulationsViewModel"/> keinen Turnier/Runde/Spiel-Kontext, nur zwei Mannschaften. Teilt
-/// sich die Protokoll-Formatierung mit SimulationsViewModel über Zeitleiste und SpielKopfBau statt sie
+/// sich die Protokoll-Formatierung mit SimulationsViewModel über Zeitleiste und SpielKopf statt sie
 /// zu duplizieren. <see cref="VerbandFilterOption"/> ist die bereits in MannschaftenViewModel
 /// definierte, hier wiederverwendete Filter-Option (public record, gleicher Namespace).
 ///
@@ -329,8 +329,8 @@ public partial class EinzelspielSimulationsViewModel : ViewModelBase, IRibbonAwa
         {
             var erg = _simulationsService.EinzelspielSimulieren(heim, auswaerts, verfahren, SimulationsModus.AusfuehrlicheSimulation);
             ProtokollSpielInfo = $"{heim.Name} vs. {auswaerts.Name}";
-            ProtokollKopf = SpielKopfBau.SpielKopfErstellen(
-                null, heim, heim.Name, auswaerts, auswaerts.Name, erg, _untertitel);
+            ProtokollKopf = SpielKopf.Aus(
+                null, SpielSeite.Von(heim), SpielSeite.Von(auswaerts), erg, _untertitel);
 
             ZeitleisteFuellen(ProtokollEreignisse, erg, SpielSeite.Von(heim), SpielSeite.Von(auswaerts));
         }
@@ -426,11 +426,11 @@ public partial class EinzelspielSimulationsViewModel : ViewModelBase, IRibbonAwa
         ZeitleisteFuellen(HinspielEreignisse, erg, SpielSeite.Von(heim), SpielSeite.Von(auswaerts));
 
         HinspielAnsicht = new SpielBeinAnsicht(
-            SpielKopfBau.SpielKopfErstellen(
-                "Hinspiel", heim, heim.Name, auswaerts, auswaerts.Name, erg, _untertitel),
+            SpielKopf.Aus(
+                "Hinspiel", SpielSeite.Von(heim), SpielSeite.Von(auswaerts), erg, _untertitel),
             HinspielEreignisse);
-        GesamtKopf = SpielKopfBau.GesamtKopfErstellen(
-            heim, auswaerts, score, "Ergebnis nach Hinspiel", _untertitel);
+        GesamtKopf = SpielKopf.Gesamt(
+            SpielSeite.Von(heim), SpielSeite.Von(auswaerts), score, "Ergebnis nach Hinspiel", _untertitel);
 
         // Hinspiel steht fest → aufgeklappt; ein vorheriges Rückspiel ist jetzt ungültig → eingeklappt.
         HinspielOffen   = true;
@@ -523,16 +523,16 @@ public partial class EinzelspielSimulationsViewModel : ViewModelBase, IRibbonAwa
                 _                                 => "nach 180 Minuten"
             };
 
-            GesamtKopf = SpielKopfBau.GesamtKopfErstellen(
-                heim, auswaerts, $"{heimGesamt}:{auswaertsGesamt}", gesamtZusatz, _untertitel);
+            GesamtKopf = SpielKopf.Gesamt(
+                SpielSeite.Von(heim), SpielSeite.Von(auswaerts), $"{heimGesamt}:{auswaertsGesamt}", gesamtZusatz, _untertitel);
             SiegerText = sieger is null ? "Unentschieden" : $"Sieger: {sieger}";
 
             RueckspielEreignisse.Clear();
             ZeitleisteFuellen(RueckspielEreignisse, erg2, SpielSeite.Von(auswaerts), SpielSeite.Von(heim));
 
             RueckspielAnsicht = new SpielBeinAnsicht(
-                SpielKopfBau.SpielKopfErstellen(
-                    "Rückspiel", auswaerts, auswaerts.Name, heim, heim.Name, erg2, _untertitel),
+                SpielKopf.Aus(
+                    "Rückspiel", SpielSeite.Von(auswaerts), SpielSeite.Von(heim), erg2, _untertitel),
                 RueckspielEreignisse);
 #pragma warning restore S2234
 

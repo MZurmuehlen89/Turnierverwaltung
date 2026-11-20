@@ -19,30 +19,36 @@ public sealed record SpielKopf(
     public bool HatAuswaertsUntertitel => AuswaertsUntertitel is not null;
     public bool HatEntscheidung        => Entscheidung is not null;
     public bool HatZwischenstaende     => Zwischenstaende is not null;
-}
-
-
-/// <summary>Baut den Spielkopf (#302, #341; #509: aus SimulationsProtokollHelfer verschoben).</summary>
-public static class SpielKopfBau
-{
-    // ── Spielkopf (Issue #341) ────────────────────────────────────────────────
 
     /// <summary>Baut den Spielkopf aus einem Ergebnis; <paramref name="untertitel"/> liefert Verband und Liga für die
     /// Untertitel (#384).</summary>
-    public static SpielKopf SpielKopfErstellen(
-        string? kontext,
-        Mannschaft? heim, string heimName,
-        Mannschaft? auswaerts, string auswaertsName,
-        SimulationsErgebnis e,
-        UntertitelQuellen untertitel)
+    public static SpielKopf Aus(string? kontext, SpielSeite heim, SpielSeite auswaerts, SimulationsErgebnis e, UntertitelQuellen untertitel) =>
+        new(kontext,
+            heim.Name, heim.Wappen, SpielKopfUntertitel.Fuer(heim.Mannschaft, auswaerts.Mannschaft, untertitel), Kuerzel(heim),
+            auswaerts.Name, auswaerts.Wappen, SpielKopfUntertitel.Fuer(auswaerts.Mannschaft, heim.Mannschaft, untertitel), Kuerzel(auswaerts),
+            ScoreText(e), EntscheidungText(e, heim, auswaerts), ZwischenstandText(e));
+
+    /// <summary>Gesamtkopf einer Hin-/Rückspiel-Paarung aus Sicht des Hinspiel-Heimteams — Summenergebnis
+    /// in der Box, <paramref name="zusatz"/> ("Ergebnis nach Hinspiel", "nach 180 Minuten", …) darunter;
+    /// ohne Zwischenstands-Streifen, die Einzelergebnisse stehen in den Karten darüber.</summary>
+    public static SpielKopf Gesamt(SpielSeite heim, SpielSeite auswaerts, string score, string zusatz, UntertitelQuellen untertitel) =>
+        new("Gesamt",
+            heim.Name, heim.Wappen, SpielKopfUntertitel.Fuer(heim.Mannschaft, auswaerts.Mannschaft, untertitel), Kuerzel(heim),
+            auswaerts.Name, auswaerts.Wappen, SpielKopfUntertitel.Fuer(auswaerts.Mannschaft, heim.Mannschaft, untertitel), Kuerzel(auswaerts),
+            score, zusatz, null);
+
+    // Wie bei kicker: nach Elfmeterschießen steht der Elfmeterstand groß in der Box, das Ergebnis
+    // nach Verlängerung wandert in die Zwischenstände.
+    private static string ScoreText(SimulationsErgebnis e)
     {
-        // Wie bei kicker: nach Elfmeterschießen steht der Elfmeterstand groß in der Box, das Ergebnis
-        // nach Verlängerung wandert in die Zwischenstände.
         bool imElfmeterschiessen = e is { EntscheidungArt: EntscheidungArt.Elfmeterschiessen, HeimElfmetertore: not null, AuswaertsElfmetertore: not null };
-        string score = imElfmeterschiessen
+        return imElfmeterschiessen
             ? $"{e.HeimElfmetertore}:{e.AuswaertsElfmetertore}"
             : $"{e.HeimToreRegulaer + (e.HeimToreVerlaengerung ?? 0)}:{e.AuswaertsToreRegulaer + (e.AuswaertsToreVerlaengerung ?? 0)}";
+    }
 
+    private static string? EntscheidungText(SimulationsErgebnis e, SpielSeite heim, SpielSeite auswaerts)
+    {
         string? entscheidung = e.EntscheidungArt switch
         {
             EntscheidungArt.Elfmeterschiessen => "im Elfmeterschießen",
@@ -58,25 +64,9 @@ public static class SpielKopfBau
 
         // Issue #383: bei Los/Münze zeigt der (ausgeglichene) Spielstand keinen Sieger — daher ausschreiben.
         if (e.LosGewinnerHeim is bool losFuerHeim)
-            entscheidung += $" für {(losFuerHeim ? heimName : auswaertsName)}";
-
-        return new SpielKopf(
-            kontext,
-            heimName, MannschaftsIcon.Fuer(heim), SpielKopfUntertitel.Fuer(heim, auswaerts, untertitel), Kuerzel(heim, heimName),
-            auswaertsName, MannschaftsIcon.Fuer(auswaerts), SpielKopfUntertitel.Fuer(auswaerts, heim, untertitel), Kuerzel(auswaerts, auswaertsName),
-            score, entscheidung, ZwischenstandText(e));
+            entscheidung += $" für {(losFuerHeim ? heim.Name : auswaerts.Name)}";
+        return entscheidung;
     }
-
-    /// <summary>Gesamtkopf einer Hin-/Rückspiel-Paarung aus Sicht des Hinspiel-Heimteams — Summenergebnis
-    /// in der Box, <paramref name="zusatz"/> ("Ergebnis nach Hinspiel", "nach 180 Minuten", …) darunter;
-    /// ohne Zwischenstands-Streifen, die Einzelergebnisse stehen in den Karten darüber.</summary>
-    public static SpielKopf GesamtKopfErstellen(
-        Mannschaft heim, Mannschaft auswaerts, string score, string zusatz,
-        UntertitelQuellen untertitel) =>
-        new("Gesamt",
-            heim.Name, MannschaftsIcon.Fuer(heim), SpielKopfUntertitel.Fuer(heim, auswaerts, untertitel), Kuerzel(heim, heim.Name),
-            auswaerts.Name, MannschaftsIcon.Fuer(auswaerts), SpielKopfUntertitel.Fuer(auswaerts, heim, untertitel), Kuerzel(auswaerts, auswaerts.Name),
-            score, zusatz, null);
 
     // Zwischenstände ("HZ 1:0 · 90' 1:1 · n.V. 2:1"). Der Halbzeitstand fehlt bei manuell eingegebenen
     // Ergebnissen — ohne jeden Zwischenstand liefert die Methode null.
@@ -97,11 +87,10 @@ public static class SpielKopfBau
 
     // Issue #341: Team-Kürzel am Zeitstrahl — Kurzname, sonst die ersten drei Buchstaben des Namens
     // (auch für Platzhalter-Teams ohne Mannschaft, z. B. "Sieger Gruppe A").
-    public static string Kuerzel(Mannschaft? mannschaft, string ersatzName)
+    private static string Kuerzel(SpielSeite seite)
     {
-        if (!string.IsNullOrWhiteSpace(mannschaft?.Kurzname)) return mannschaft.Kurzname;
-        string name = mannschaft?.Name ?? ersatzName;
+        if (!string.IsNullOrWhiteSpace(seite.Mannschaft?.Kurzname)) return seite.Mannschaft.Kurzname;
+        string name = seite.Mannschaft?.Name ?? seite.Name;
         return name[..Math.Min(3, name.Length)].ToUpperInvariant();
     }
-
 }
