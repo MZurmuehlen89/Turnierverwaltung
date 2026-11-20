@@ -113,6 +113,49 @@ public class SpielablaufTaktikTests
         (e.HeimToreRegulaer, e.AuswaertsToreRegulaer).Should().Be((1, 1));
     }
 
+    /// <summary>#676 K1: Das Heimteam führt in der 84. und mauert deshalb („verteidigt die Führung“), sieht dann Rot;
+    /// der Ausgleich in der 86. ändert nichts an der Stufe (in Unterzahl mauert es auch bei Gleichstand), aber der
+    /// Spielbericht muss jetzt „verteidigt das Unentschieden“ nennen – als eigenes Ereignis in der Minute des Ausgleichs.</summary>
+    [Fact]
+    public void Ausgleich_MauerndesTeamInUnterzahl_NenntDasUnentschieden()
+    {
+        var zufall = new Ablauffolge()
+            .Ruhig(45).Nachspielzeit(JA).Ruhig(1).Ruhig(38)
+            .Tor(heim: true).KeinTor().Karten(rotHeim: true)    // 84.: 1:0, Rot gegen den Führenden
+            .Taktikwurf(JA).Ruhig(1)                            // 85.: der Gast in Überzahl legt nach (alles nach vorn)
+            .MinuteMitTor(heim: false)                          // 86.: 1:1
+            .Zufall();
+
+        var e = Simulieren(zufall);
+
+        (e.HeimToreRegulaer, e.AuswaertsToreRegulaer).Should().Be((1, 1));
+        Kurz(e.Ereignisse.Where(x => x.Art == EreignisArt.Taktikwechsel && x.IstHeim)).Should().Equal(
+            (84, null, EreignisArt.Taktikwechsel, true, "Zieht sich zurück und verteidigt die Führung"),
+            (86, null, EreignisArt.Taktikwechsel, true, "Zieht sich zurück und verteidigt das Unentschieden"));
+    }
+
+    /// <summary>#676 K2 (Gegenrichtung): Das Heimteam mauert bei 1:1 in Unterzahl („verteidigt das Unentschieden“),
+    /// trifft in der 86. zum 2:1 – dann verteidigt es die Führung.</summary>
+    [Fact]
+    public void Fuehrungstor_MauerndesTeamInUnterzahl_NenntDieFuehrung()
+    {
+        var zufall = new Ablauffolge()
+            .Ruhig(9).MinuteMitTor(heim: false)                 // 10.: 0:1
+            .Ruhig(9).MinuteMitTor(heim: true)                  // 20.: 1:1
+            .Ruhig(25).Nachspielzeit(JA).Ruhig(1).Ruhig(38)
+            .KeinTor().Karten(rotHeim: true)                    // 84.: Rot gegen das Heimteam
+            .Taktikwurf(JA).Ruhig(1)                            // 85.: mauert, Wurf „jetzt“
+            .MinuteMitTor(heim: true)                           // 86.: 2:1
+            .Zufall();
+
+        var e = Simulieren(zufall);
+
+        (e.HeimToreRegulaer, e.AuswaertsToreRegulaer).Should().Be((2, 1));
+        Kurz(e.Ereignisse.Where(x => x.Art == EreignisArt.Taktikwechsel && x.IstHeim)).Should().Equal(
+            (85, null, EreignisArt.Taktikwechsel, true, "Zieht sich zurück und verteidigt das Unentschieden"),
+            (86, null, EreignisArt.Taktikwechsel, true, "Zieht sich zurück und verteidigt die Führung"));
+    }
+
     [Theory]
     [InlineData(true, "Tor ins leere Tor")]
     [InlineData(false, KOPFBALL)]

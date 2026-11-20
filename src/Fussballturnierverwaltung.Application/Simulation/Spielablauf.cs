@@ -55,6 +55,9 @@ internal sealed class Spielablauf
     private readonly List<SimuliertesEreignis> _ereignisse = [];
     private Teamzustand _heim;
     private Teamzustand _gast;
+    // Text des letzten Taktikwechsels je Team (#676): ändert sich bei gleicher Stufe nach einem Tor der Vorsprung, braucht der Bericht einen neuen
+    private string? _heimTaktiktext;
+    private string? _gastTaktiktext;
     private int _heimTore;
     private int _gastTore;
     private int _gespielteMinuten;
@@ -275,13 +278,21 @@ internal sealed class Spielablauf
 #pragma warning restore S107
     {
         var faellig = Risikoentscheidung.Faellig(lage);
+        string text = Spielsituation.Taktiktext(faellig.Stufe, lage.Vorsprung);
+        ref string? letzterText = ref (istHeim ? ref _heimTaktiktext : ref _gastTaktiktext);
+
         if (faellig.Stufe == team.Stufe)
-            return team;
-        if (!nachTor && !ZeitMachtWechselFaellig(faellig, lage))
+        {
+            // #676: gleiche Stufe, aber nach einem Tor ein anderer Text (Führung ↔ Unentschieden beim Mauern/Sichern)
+            if (!nachTor || letzterText is null || letzterText == text)
+                return team;
+        }
+        else if (!nachTor && !ZeitMachtWechselFaellig(faellig, lage))
             return team;
 
-        _ereignisse.Add(new(minute, EreignisArt.Taktikwechsel, istHeim, Spielsituation.Taktiktext(faellig.Stufe, lage.Vorsprung), nachspielminute));
-        return team.Umstellen(faellig.Stufe, lage.Profil);
+        _ereignisse.Add(new(minute, EreignisArt.Taktikwechsel, istHeim, text, nachspielminute));
+        letzterText = text;
+        return faellig.Stufe == team.Stufe ? team : team.Umstellen(faellig.Stufe, lage.Profil);
     }
 
     /// <summary>Würfelt, ob ein Team einen Wechsel vollzieht, den nur die Zeit fällig macht; ohne Schwelle (zurück zur
