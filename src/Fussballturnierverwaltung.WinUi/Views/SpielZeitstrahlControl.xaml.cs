@@ -136,7 +136,7 @@ public sealed partial class SpielZeitstrahlControl : UserControl
             ? Visibility.Collapsed : Visibility.Visible;
 
         // Verlängerung fand statt, sobald ein Abschnittstrenner jenseits der 90. Minute existiert
-        // (HALBZEIT VERLÄNGERUNG/ENDE VERLÄNGERUNG, siehe SimulationsProtokollHelfer.SchwellenPruefen) —
+        // (HALBZEIT VERLÄNGERUNG/ENDE VERLÄNGERUNG, siehe Zeitleiste.Aufbau.SchwellenPruefen) —
         // unabhängig davon, ob in der Verlängerung selbst ein Ereignis fiel.
         bool hatVerlaengerung = zeilen.Any(z => z.IstTrenner && z.MinuteWert > 90);
         var segmente = hatVerlaengerung ? _segmenteVerlaengerung : _segmenteRegulaer;

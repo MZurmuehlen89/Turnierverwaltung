@@ -542,7 +542,7 @@ public partial class SimulationsViewModel : ViewModelBase, IRibbonAware
                 Wiederholungsergebnis.Aus(e));
             var untertitel = new UntertitelQuellen(
                 m => m.Land?.Verband?.Kurzname, await _ranglisteService.LigazugehoerigkeitAbrufenAsync());
-            ProtokollKopf = SimulationsProtokollHelfer.SpielKopfErstellen(
+            ProtokollKopf = SpielKopfBau.SpielKopfErstellen(
                 kontext, spiel.HeimMannschaft, heim, spiel.AuswaertsMannschaft, auswaerts, ergebnis, untertitel);
 
             // #361: nach Id, damit Ereignisse derselben Minute in der Reihenfolge ihrer Entstehung bleiben.

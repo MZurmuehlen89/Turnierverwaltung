@@ -1,16 +1,13 @@
-﻿using Fussballturnierverwaltung.Application.Simulation;
 using Fussballturnierverwaltung.Application.Stammdaten;
 using Fussballturnierverwaltung.Domain.Entitaeten.Stammdaten;
 using Fussballturnierverwaltung.Domain.Enums;
-using System.Collections.ObjectModel;
 
-namespace Fussballturnierverwaltung.WinUi.ViewModels;
-
+namespace Fussballturnierverwaltung.Application.Simulation;
 
 /// <summary>Issue #341: Spielkopf nach kicker.de-Vorbild — Kontextzeile (Turnier/Runde bzw. Hinspiel/
 /// Rückspiel), große Wappen mit Name und Untertitel, Ergebnis-Box mit Entscheidungsart und
 /// Zwischenständen. Gemeinsam genutzt von Spielbericht-Karte und Hinspiel-/Rückspiel-Karten
-/// (<see cref="Views.SpielKopfControl"/>).</summary>
+/// (SpielKopfControl).</summary>
 public sealed record SpielKopf(
     string? Kontext,
     string HeimName, byte[]? HeimWappen, string? HeimUntertitel, string HeimKuerzel,
@@ -24,21 +21,9 @@ public sealed record SpielKopf(
     public bool HatZwischenstaende     => Zwischenstaende is not null;
 }
 
-/// <summary>Issue #341: Kopf einer Hinspiel-/Rückspiel-Karte (Expander-Header) — Spielkopf plus
-/// kompakter Zeitstrahl in einem Objekt, damit der Header über den bewährten Header/HeaderTemplate-Weg
-/// gebunden bleibt (jede neue Simulation liefert eine neue Instanz).</summary>
-public sealed record SpielBeinAnsicht(SpielKopf Kopf, IReadOnlyCollection<EinzelspielEreignisZeile> Ereignisse)
-{
-    public bool HatEreignisse => Ereignisse.Count > 0;
-}
 
-/// <summary>
-/// Gemeinsame Protokoll-Formatierung für die Turnierspiel-Simulation (#302) — 1:1 aus
-/// Wpf/ViewModels/SimulationsProtokollHelfer.cs portiert. Das WPF-Original teilt sich diese Klasse
-/// zusätzlich mit der freien Einzelspiel-Simulation (#289 in dieser Issue-Serie, noch nicht portiert) —
-/// hier vorerst nur vom Simulation-Tab genutzt.
-/// </summary>
-internal static class SimulationsProtokollHelfer
+/// <summary>Baut den Spielkopf (#302, #341; #509: aus SimulationsProtokollHelfer verschoben).</summary>
+public static class SpielKopfBau
 {
     // ── Spielkopf (Issue #341) ────────────────────────────────────────────────
 
