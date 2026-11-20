@@ -222,7 +222,7 @@ public class SimulationsServiceHinRueckspielTests
 
         var ergebnis = service.RueckspielSimulieren(
             SimulationsEngineTestdaten.HeimTeam(), SimulationsEngineTestdaten.GastTeam(),
-            Hinspielstand.AusHinspiel(hinspielHeimTore: 5, hinspielAuswaertsTore: 0, auswaertstorRegelAktiv: false),
+            new SimulationsErgebnis(5, 0, null, null, null, null, EntscheidungArt.RegulaereSpielzeit, []), [],
             new Ablauffolge().Zufall());
 
         Taktikwechsel(ergebnis).Should().Equal(TaktikNachHinspielNullZuFuenf);

@@ -44,15 +44,37 @@ public class SimulationsService(
         return ergebnis;
     }
 
-    /// <summary>Rückspiel der freien Hin-/Rückspiel-Simulation (#248), ausführlich und ohne Entscheidungsverfahren –
-    /// das hängt am Gesamtstand und wendet der Aufrufer an. Die Risikostufe richtet sich nach dem Gesamtstand (#671).</summary>
+    /// <summary>Rückspiel der freien Hin-/Rückspiel-Simulation (#248), ausführlich; <paramref name="heim"/> ist das
+    /// Rückspiel-Heimteam, also das Hinspiel-Auswärtsteam. Ist der Gesamtstand nach 180 Minuten ausgeglichen, läuft das
+    /// Rückspiel gemäß <paramref name="verfahren"/> in die Verlängerung (und ggf. das Elfmeterschießen) – die im Stadion
+    /// des Rückspiels gespielt würde. Die Risikostufe richtet sich nach dem Gesamtstand (#671); die freie Simulation
+    /// kennt keine Auswärtstorregel.</summary>
     public SimulationsErgebnis RueckspielSimulieren(
-        Mannschaft heim, Mannschaft auswaerts, Hinspielstand hinspielstand, Random rng)
+        Mannschaft heim, Mannschaft auswaerts, SimulationsErgebnis hinspiel,
+        IReadOnlyList<EntscheidungsVerfahren> verfahren, Random rng)
     {
-        var ergebnis = SimulationsEngine.Simulieren(heim, auswaerts, [], ausfuehrlich: true, rng, hinspielstand: hinspielstand);
+        var ergebnis = SimulationsEngine.Simulieren(heim, auswaerts, [], ausfuehrlich: true, rng,
+            hinspielstand: Hinspielstand.AusHinspiel(hinspiel.HeimToreRegulaer, hinspiel.AuswaertsToreRegulaer, auswaertstorRegelAktiv: false));
         logger.LogDebug("Rückspiel: {Heim} {H}:{G} {Gast}",
             heim.Name, ergebnis.HeimToreRegulaer, ergebnis.AuswaertsToreRegulaer, auswaerts.Name);
-        return ergebnis;
+
+        int heimGesamtRegulaer      = hinspiel.HeimToreRegulaer      + ergebnis.AuswaertsToreRegulaer;
+        int auswaertsGesamtRegulaer = hinspiel.AuswaertsToreRegulaer + ergebnis.HeimToreRegulaer;
+        if (heimGesamtRegulaer != auswaertsGesamtRegulaer || verfahren.Count == 0)
+            return ergebnis;
+
+        var (hv, gv, he, ge, art, extras, losGewinnerHeim, wiederholung) =
+            SimulationsEngine.EntscheidungsverfahrenAnwenden(heim, auswaerts, verfahren, ausfuehrlich: true, rng,
+                platzverweise: Platzverweise.AusEreignissen(ergebnis.Ereignisse));
+        return ergebnis with
+        {
+            HeimToreVerlaengerung = hv, AuswaertsToreVerlaengerung = gv,
+            HeimElfmetertore = he, AuswaertsElfmetertore = ge,
+            EntscheidungArt = art,
+            Ereignisse = [.. ergebnis.Ereignisse, .. extras],
+            LosGewinnerHeim = losGewinnerHeim,
+            Wiederholung = wiederholung,
+        };
     }
 
     // ── Ein einzelnes Spiel ───────────────────────────────────────────────

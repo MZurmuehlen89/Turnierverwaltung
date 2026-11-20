@@ -464,67 +464,19 @@ public partial class EinzelspielSimulationsViewModel : ViewModelBase, IRibbonAwa
         {
             var rng = _zufallsquelle.Erzeugen();
 #pragma warning disable S2234 // Rückspiel: Heim und Auswärts bewusst getauscht
-            // #671: Risikostufe nach dem Gesamtstand; die freie Simulation kennt keine Auswärtstorregel.
-            var erg2 = _simulationsService.RueckspielSimulieren(auswaerts, heim,
-                Hinspielstand.AusHinspiel(erg1.HeimToreRegulaer, erg1.AuswaertsToreRegulaer, auswaertstorRegelAktiv: false), rng);
-
-            int heimGesamtRegulaer      = erg1.HeimToreRegulaer      + erg2.AuswaertsToreRegulaer;
-            int auswaertsGesamtRegulaer = erg1.AuswaertsToreRegulaer + erg2.HeimToreRegulaer;
-
-            // Aggregat nach 180 Minuten unentschieden → Rückspiel geht gemäß Regelwerk in die
-            // Verlängerung (und ggf. Elfmeterschießen) — angewandt auf erg2, da die Verlängerung
-            // real im Stadion des Rückspiels gespielt würde. Rollen bei EntscheidungsverfahrenAnwenden
-            // entsprechen erg2s eigener Heim/Auswärts-Zuordnung (auswaerts spielt zu Hause).
-            if (heimGesamtRegulaer == auswaertsGesamtRegulaer && verfahren.Count > 0)
-            {
-                var (hv, gv, he, ge, art, extras, losGewinnerHeim, wiederholung) =
-                    SimulationsEngine.EntscheidungsverfahrenAnwenden(auswaerts, heim, verfahren, ausfuehrlich: true, rng,
-                        platzverweise: Platzverweise.AusEreignissen(erg2.Ereignisse));
-                erg2 = erg2 with
-                {
-                    HeimToreVerlaengerung = hv, AuswaertsToreVerlaengerung = gv,
-                    HeimElfmetertore = he, AuswaertsElfmetertore = ge,
-                    EntscheidungArt = art,
-                    Ereignisse = [.. erg2.Ereignisse, .. extras],
-                    LosGewinnerHeim = losGewinnerHeim,
-                    Wiederholung = wiederholung,
-                };
-            }
-
+            var erg2 = _simulationsService.RueckspielSimulieren(auswaerts, heim, erg1, verfahren, rng);
             RueckspielErgebnis = erg2;
 
-            int heimGesamt      = heimGesamtRegulaer      + (erg2.AuswaertsToreVerlaengerung ?? 0);
-            int auswaertsGesamt = auswaertsGesamtRegulaer + (erg2.HeimToreVerlaengerung ?? 0);
-
-            string? sieger;
-            if (heimGesamt != auswaertsGesamt)
-                sieger = heimGesamt > auswaertsGesamt ? heim.Name : auswaerts.Name;
-            else if (erg2.EntscheidungArt == EntscheidungArt.Wiederholungsspiel && erg2.Wiederholung is { } wdh)
-                sieger = wdh.HeimGesamt > wdh.AuswaertsGesamt ? auswaerts.Name : heim.Name; // erg2 "Heim" = auswaerts (#547)
-            else if (erg2 is { EntscheidungArt: EntscheidungArt.Elfmeterschiessen, HeimElfmetertore: not null, AuswaertsElfmetertore: not null })
-                sieger = erg2.HeimElfmetertore > erg2.AuswaertsElfmetertore ? auswaerts.Name : heim.Name; // erg2 "Heim" = auswaerts
-            else if (erg2.LosGewinnerHeim is bool losFuerRueckspielHeim) // Losentscheid/Münzwurf (#383)
-                sieger = losFuerRueckspielHeim ? auswaerts.Name : heim.Name;
-            else
-                sieger = null;
-
-            // Gesamtzeile aus Sicht des Hinspiel-Heimteams — erg2 hat vertauschte Rollen, daher auch
-            // den Elfmeterstand spiegeln.
-            string gesamtZusatz = erg2.EntscheidungArt switch
+            var gesamt = FreiePaarungGesamt.Bewerten(erg1, erg2);
+            string? sieger = gesamt.Sieger switch
             {
-                EntscheidungArt.Elfmeterschiessen => $"nach Elfmeterschießen ({erg2.AuswaertsElfmetertore}:{erg2.HeimElfmetertore})",
-                EntscheidungArt.Verlaengerung
-                    or EntscheidungArt.GoldenGoal
-                    or EntscheidungArt.SilverGoal => "nach Verlängerung",
-                EntscheidungArt.Auswaertstorregel => "nach Auswärtstorregel",
-                EntscheidungArt.Wiederholungsspiel => "nach Wiederholungsspiel",
-                EntscheidungArt.Losentscheid      => "nach Losentscheid",
-                EntscheidungArt.Muenzwurf         => "nach Münzwurf",
-                _                                 => "nach 180 Minuten"
+                PaarungSieger.Heim      => heim.Name,
+                PaarungSieger.Auswaerts => auswaerts.Name,
+                _                       => null
             };
 
             GesamtKopf = SpielKopf.Gesamt(
-                SpielSeite.Von(heim), SpielSeite.Von(auswaerts), $"{heimGesamt}:{auswaertsGesamt}", gesamtZusatz, _untertitel);
+                SpielSeite.Von(heim), SpielSeite.Von(auswaerts), $"{gesamt.HeimTore}:{gesamt.AuswaertsTore}", gesamt.Zusatz, _untertitel);
             SiegerText = sieger is null ? "Unentschieden" : $"Sieger: {sieger}";
 
             RueckspielEreignisse.Clear();
