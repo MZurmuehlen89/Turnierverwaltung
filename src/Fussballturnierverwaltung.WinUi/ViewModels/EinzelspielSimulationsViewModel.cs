@@ -130,10 +130,16 @@ public partial class EinzelspielSimulationsViewModel : ViewModelBase, IRibbonAwa
     [NotifyPropertyChangedFor(nameof(ZeigeLeerZustand))]
     private SpielBeinAnsicht? _protokoll;
 
-    public bool HatProtokoll     => Protokoll is not null;
-    public bool ZeigeLeerZustand => !HatProtokoll;
+    // #247: das Wiederholungsspiel hat eine eigene Uhr und steht als zweite Karte neben dem Spiel
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HatProtokollWiederholung))]
+    private SpielBeinAnsicht? _protokollWiederholung;
 
-    // ── Protokoll: mit Rückspiel (#248, zweistufig, aufklappbare Karten) ────────
+    public bool HatProtokoll             => Protokoll is not null;
+    public bool HatProtokollWiederholung => ProtokollWiederholung is not null;
+    public bool ZeigeLeerZustand         => !HatProtokoll;
+
+    // ── Protokoll: mit Rückspiel (#248, zweistufig; #247: Karten nebeneinander) ────────
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(RueckspielSimulierenKann))]
@@ -154,11 +160,15 @@ public partial class EinzelspielSimulationsViewModel : ViewModelBase, IRibbonAwa
     [ObservableProperty] private int _hinspielHeimToreEingabe;
     [ObservableProperty] private int _hinspielAuswaertsToreEingabe;
 
-    [ObservableProperty] private bool _hinspielOffen;
-    [ObservableProperty] private bool _rueckspielOffen;
-
     [ObservableProperty] private SpielBeinAnsicht? _hinspielAnsicht;
     [ObservableProperty] private SpielBeinAnsicht? _rueckspielAnsicht;
+
+    // #247: ein Wiederholungsspiel nach dem Rückspiel (Aggregat unentschieden) steht als dritte Karte daneben
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HatRueckspielWiederholung))]
+    private SpielBeinAnsicht? _rueckspielWiederholung;
+
+    public bool HatRueckspielWiederholung => RueckspielWiederholung is not null;
     // Issue #341: Gesamtzeile steht schon nach dem Hinspiel ("Ergebnis nach Hinspiel"), Detail trägt den
     // Zusatz ("nach 180 Minuten", "nach Elfmeterschießen (3:4)", …).
     [ObservableProperty] private SpielKopf? _gesamtKopf;
@@ -343,6 +353,9 @@ public partial class EinzelspielSimulationsViewModel : ViewModelBase, IRibbonAwa
             ProtokollSpielInfo = $"{heim.Name} vs. {auswaerts.Name}";
             ObservableCollection<EinzelspielEreignisZeile> ereignisse = [];
             ZeitleisteFuellen(ereignisse, erg, SpielSeite.Von(heim), SpielSeite.Von(auswaerts));
+            ProtokollWiederholung = SpielBeinAnsicht.Wiederholungsspiel(
+                erg.Wiederholung, erg.Ereignisse.Select(ZeitleistenEreignis.Aus),
+                SpielSeite.Von(heim), SpielSeite.Von(auswaerts), neutralerSpielort: false, _untertitel);
             Protokoll = new SpielBeinAnsicht(
                 SpielKopf.Aus(null, SpielSeite.Von(heim), SpielSeite.Von(auswaerts), erg, _untertitel), ereignisse);
         }
@@ -435,12 +448,6 @@ public partial class EinzelspielSimulationsViewModel : ViewModelBase, IRibbonAwa
             HinspielEreignisse);
         GesamtKopf = GesamtNachHinspiel(heim, auswaerts, erg);
 
-        // Hinspiel steht fest → aufgeklappt; ein vorheriges Rückspiel ist jetzt ungültig → eingeklappt.
-        HinspielOffen   = true;
-        RueckspielOffen = false;
-
-        OnPropertyChanged(nameof(HatHinspielEreignisse));
-        OnPropertyChanged(nameof(HatRueckspielEreignisse));
         OnPropertyChanged(nameof(ZeigeHinRueckLeerZustand));
         AktualisiereBefehle();
     }
@@ -454,6 +461,7 @@ public partial class EinzelspielSimulationsViewModel : ViewModelBase, IRibbonAwa
     {
         RueckspielErgebnis = null;
         RueckspielAnsicht = null;
+        RueckspielWiederholung = null;
         SiegerText = null;
         RueckspielEreignisse.Clear();
     }
@@ -462,14 +470,8 @@ public partial class EinzelspielSimulationsViewModel : ViewModelBase, IRibbonAwa
     private void RueckspielVerwerfen(Mannschaft heim, Mannschaft auswaerts, SimulationsErgebnis hinspiel)
     {
         RueckspielDatenLeeren();
-        GesamtKopf      = GesamtNachHinspiel(heim, auswaerts, hinspiel);
-        RueckspielOffen = false;
-        HinspielOffen   = true;
-        OnPropertyChanged(nameof(HatRueckspielEreignisse));
+        GesamtKopf = GesamtNachHinspiel(heim, auswaerts, hinspiel);
     }
-
-    public bool HatHinspielEreignisse   => HinspielEreignisse.Count > 0;
-    public bool HatRueckspielEreignisse => RueckspielEreignisse.Count > 0;
 
     private async Task RueckspielSimulierenAsync()
     {
@@ -493,10 +495,6 @@ public partial class EinzelspielSimulationsViewModel : ViewModelBase, IRibbonAwa
 #pragma warning restore S2234
             RueckspielErgebnis = erg2;
             RueckspielAnzeigen(SpielSeite.Von(heim), SpielSeite.Von(auswaerts), FreiePaarungGesamt.Bewerten(erg1, erg2), erg2);
-
-            // Rückspiel steht fest → aufgeklappt, Hinspiel klappt automatisch ein (Nutzer-Vorgabe #248).
-            HinspielOffen   = false;
-            RueckspielOffen = true;
         }
         catch (Exception ex)
         {
@@ -506,7 +504,6 @@ public partial class EinzelspielSimulationsViewModel : ViewModelBase, IRibbonAwa
         {
             IstLadend = false;
             AktualisiereBefehle();
-            OnPropertyChanged(nameof(HatRueckspielEreignisse));
         }
     }
 
@@ -527,6 +524,8 @@ public partial class EinzelspielSimulationsViewModel : ViewModelBase, IRibbonAwa
 #pragma warning disable S2234 // Rückspiel: Heim und Auswärts bewusst getauscht
         ZeitleisteFuellen(RueckspielEreignisse, erg2, auswaerts, heim);
         RueckspielAnsicht = new SpielBeinAnsicht(SpielKopf.Aus("Rückspiel", auswaerts, heim, erg2, _untertitel), RueckspielEreignisse);
+        RueckspielWiederholung = SpielBeinAnsicht.Wiederholungsspiel(
+            erg2.Wiederholung, erg2.Ereignisse.Select(ZeitleistenEreignis.Aus), auswaerts, heim, neutralerSpielort: false, _untertitel);
 #pragma warning restore S2234
     }
 
@@ -534,6 +533,7 @@ public partial class EinzelspielSimulationsViewModel : ViewModelBase, IRibbonAwa
     {
         ProtokollSpielInfo = null;
         Protokoll = null;
+        ProtokollWiederholung = null;
     }
 
     // Mannschaften kommen ohne Verband (AlleAbrufenMitLandAsync) — Kurzname über die ohnehin geladene
@@ -547,16 +547,13 @@ public partial class EinzelspielSimulationsViewModel : ViewModelBase, IRibbonAwa
         RueckspielErgebnis = null;
         HinspielAnsicht = null;
         RueckspielAnsicht = null;
+        RueckspielWiederholung = null;
         GesamtKopf = null;
         SiegerText = null;
         HinspielEreignisse.Clear();
         RueckspielEreignisse.Clear();
         HinspielHeimToreEingabe = 0;
         HinspielAuswaertsToreEingabe = 0;
-        HinspielOffen = false;
-        RueckspielOffen = false;
-        OnPropertyChanged(nameof(HatHinspielEreignisse));
-        OnPropertyChanged(nameof(HatRueckspielEreignisse));
         OnPropertyChanged(nameof(ZeigeHinRueckLeerZustand));
     }
 

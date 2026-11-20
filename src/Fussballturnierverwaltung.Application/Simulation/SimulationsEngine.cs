@@ -138,6 +138,11 @@ public static class SimulationsEngine
     public static bool HeimrechtTauscht(Spielortvorteil spielortvorteil, bool neutralerSpielort) =>
         spielortvorteil == Spielortvorteil.Heim && !neutralerSpielort;
 
+    /// <summary>Wie <see cref="HeimrechtTauscht(Spielortvorteil, bool)"/> für die Anzeige, die nur die Runde kennt: Außerhalb
+    /// neutraler Runden hat immer das Heimteam den Ortsvorteil, auf neutralem Platz tauscht das Heimrecht nie.</summary>
+    public static bool HeimrechtTauscht(bool neutralerSpielort) =>
+        HeimrechtTauscht(SpielortvorteilErmitteln(neutralerSpielort, null, null, []), neutralerSpielort);
+
     /// <summary>Issue #352: Ortsvorteil eines Spiels. Außerhalb neutraler Runden hat immer das Heimteam den
     /// Vorteil; auf neutralem Platz nur ein Gastgeber des Turniers — auch wenn er nominell als Gast angesetzt
     /// ist. Treffen zwei Gastgeber (oder zwei Nicht-Gastgeber) aufeinander, bleibt der Platz neutral.</summary>

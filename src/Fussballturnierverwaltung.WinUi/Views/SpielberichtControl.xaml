@@ -11,9 +11,21 @@
 
     <Grid Background="{ThemeResource ApplicationPageBackgroundThemeBrush}">
 
-        <!-- Wrapper trägt die Visibility: am Element mit eigenem DataContext liefe die Bindung gegen die Ansicht -->
+        <!-- Wrapper tragen die Visibility: am Element mit eigenem DataContext liefe die Bindung gegen die Ansicht.
+             #247: das Wiederholungsspiel hat eine eigene Uhr und steht als zweite Karte neben dem Spiel; das
+             SpaltenPanel stellt sie bei schmaler Fläche untereinander und schaltet dafür den Bildlauf um. -->
         <Grid Visibility="{Binding HatProtokoll, Converter={StaticResource BoolToVisibility}}">
-            <views:SpielberichtKarte DataContext="{Binding Protokoll}" />
+            <ScrollViewer VerticalScrollBarVisibility="Disabled">
+                <views:SpaltenPanel>
+                    <Grid>
+                        <views:SpielberichtKarte DataContext="{Binding Protokoll}" AutomationProperties.AutomationId="Spielbericht.Spiel" />
+                    </Grid>
+                    <Grid Visibility="{Binding HatProtokollWiederholung, Converter={StaticResource BoolToVisibility}}">
+                        <views:SpielberichtKarte DataContext="{Binding ProtokollWiederholung}"
+                                                 AutomationProperties.AutomationId="Spielbericht.Wiederholungsspiel" />
+                    </Grid>
+                </views:SpaltenPanel>
+            </ScrollViewer>
         </Grid>
 
         <!-- Leer-Zustand -->

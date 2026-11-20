@@ -12,13 +12,10 @@
          rechte Spalte vereinheitlichte Spielbericht-Karte (SpielberichtControl, geteilt mit
          SimulationsView aus #302).
 
-         #248: Bei "Mit Rückspiel" ersetzt eine eigene, kompaktere Protokoll-Darstellung
-         (HinRueckProtokollBereich unten) die SpielberichtControl — zwei aufklappbare Karten
-         (Hinspiel/Rückspiel, WinUI-Expander) statt einer kombinierten Zeitleiste, da der Spielverlauf
-         jetzt je Bein direkt in dessen Karte steht statt in einem gemeinsamen Abschnitt am Ende.
-         Bewusst eigene, kleinere Kopie der Zeitleisten-Vorlage aus SpielberichtControl.xaml statt
-         Wiederverwendung — SpielberichtControl rendert eine eigene Karte mit großem Scoreboard-Kopf,
-         die innerhalb eines Expanders verschachtelt unpassend doppelte Rahmen/Chrome ergäbe. -->
+         #248/#247: Bei "Mit Rückspiel" zeigt der Bereich unten (HinRueckProtokollBereich) oben den Gesamtkopf mit
+         Siegerzeile und darunter je Spiel mit eigener Uhr eine Spalte (SpaltenPanel): Hinspiel | Rückspiel
+         (bzw. Platzhalter) | ggf. Wiederholungsspiel – jede die volle Spielbericht-Karte (SpielberichtKarte).
+         Bei schmaler Fläche stehen die Karten untereinander. -->
 
     <UserControl.Resources>
         <!-- Wappen bzw. bei Nationalmannschaften Landesflagge (Issue #230/#232, Precedent:
@@ -30,130 +27,6 @@
                        Visibility="{Binding Converter={StaticResource MannschaftHatWappen}}"
                        Width="16" Height="16" Stretch="Uniform" />
                 <TextBlock Text="{Binding Name}" FontSize="13" VerticalAlignment="Center" />
-            </StackPanel>
-        </DataTemplate>
-
-        <Style x:Key="MiniTrennerPillText" TargetType="TextBlock">
-            <Setter Property="FontSize" Value="9" />
-            <Setter Property="FontWeight" Value="Bold" />
-            <Setter Property="HorizontalAlignment" Value="Center" />
-        </Style>
-
-        <!-- Ereignis-Icon je Art, 1:1 aus SpielberichtControl.xaml (eigene Kopie, s. Kommentar oben). -->
-        <DataTemplate x:Key="MiniEreignisIconVorlage">
-            <Grid Width="13" Height="13">
-                <Viewbox Visibility="{Binding IstTor, Converter={StaticResource BoolToVisibility}}">
-                    <Canvas Width="24" Height="24">
-                        <Ellipse Width="24" Height="24" Stroke="{ThemeResource SystemFillColorSuccessBrush}" StrokeThickness="2" />
-                        <Path Data="M12 7l3 2.2-1.1 3.5H10.1L9 9.2z" Fill="{ThemeResource SystemFillColorSuccessBrush}" />
-                    </Canvas>
-                </Viewbox>
-                <Rectangle Width="9" Height="12" RadiusX="2" RadiusY="2" Fill="{ThemeResource SystemFillColorCautionBrush}"
-                           Visibility="{Binding IstGelbeKarte, Converter={StaticResource BoolToVisibility}}" />
-                <Rectangle Width="9" Height="12" RadiusX="2" RadiusY="2" Fill="{ThemeResource SystemFillColorCriticalBrush}"
-                           Visibility="{Binding IstRoteKarte, Converter={StaticResource BoolToVisibility}}" />
-                <Viewbox Visibility="{Binding IstElfmeterVerschossen, Converter={StaticResource BoolToVisibility}}">
-                    <Canvas Width="24" Height="24">
-                        <Ellipse Width="24" Height="24" Stroke="{ThemeResource SystemFillColorCriticalBrush}" StrokeThickness="2" />
-                        <Path Data="M9 9l6 6M15 9l-6 6" Stroke="{ThemeResource SystemFillColorCriticalBrush}" StrokeThickness="2" />
-                    </Canvas>
-                </Viewbox>
-                <Viewbox Visibility="{Binding IstGrosschance, Converter={StaticResource BoolToVisibility}}">
-                    <Canvas Width="24" Height="24">
-                        <Ellipse Width="24" Height="24" Stroke="{ThemeResource TextFillColorSecondaryBrush}" StrokeThickness="2" />
-                        <Path Data="M12 7l3 2.2-1.1 3.5H10.1L9 9.2z" Fill="{ThemeResource TextFillColorSecondaryBrush}" />
-                    </Canvas>
-                </Viewbox>
-            </Grid>
-        </DataTemplate>
-
-        <!-- Eine Zeile der Mini-Zeitleiste innerhalb einer Hinspiel-/Rückspiel-Karte — Mittelachse mit
-             Minuten-Pille, Ereignis auf der jeweiligen Team-Seite (kompaktere Kopie des ItemTemplates aus
-             SpielberichtControl.xaml, ohne Wappen-Bild — bei freier Simulation zweier beliebiger Teams
-             lohnt sich der Bild-Ladeaufwand hier nicht extra je Zeile). -->
-        <DataTemplate x:Key="MiniZeitleisteZeileVorlage" x:DataType="sim:EinzelspielEreignisZeile">
-            <Grid>
-                <Grid Margin="0,4" Visibility="{Binding IstTrenner, Converter={StaticResource InverseBoolToVisibility}}"
-                      ColumnDefinitions="*,40,*">
-                    <StackPanel Grid.Column="0" Orientation="Horizontal" HorizontalAlignment="Right"
-                                Visibility="{Binding IstHeimSeite, Converter={StaticResource BoolToVisibility}}">
-                        <StackPanel VerticalAlignment="Center">
-                            <TextBlock Text="{Binding Art}" FontSize="11" FontWeight="SemiBold" HorizontalAlignment="Right" />
-                            <TextBlock Text="{Binding Detail}" FontSize="10" Opacity="0.6" HorizontalAlignment="Right"
-                                       Visibility="{Binding Detail, Converter={StaticResource NullToCollapsed}}" />
-                        </StackPanel>
-                        <ContentPresenter Content="{Binding}" Margin="6,0,0,0"
-                                           ContentTemplate="{StaticResource MiniEreignisIconVorlage}" />
-                    </StackPanel>
-                    <Grid Grid.Column="1" HorizontalAlignment="Center">
-                        <Border CornerRadius="999" Padding="5,2" BorderThickness="1"
-                                Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
-                                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
-                                Visibility="{Binding IstTor, Converter={StaticResource InverseBoolToVisibility}}">
-                            <TextBlock Text="{Binding Minute}" FontSize="9" FontFamily="Consolas" Opacity="0.6" />
-                        </Border>
-                        <Border CornerRadius="999" Padding="5,2" BorderThickness="1"
-                                Background="{ThemeResource SystemFillColorSuccessBackgroundBrush}"
-                                BorderBrush="{ThemeResource SystemFillColorSuccessBrush}"
-                                Visibility="{Binding IstTor, Converter={StaticResource BoolToVisibility}}">
-                            <TextBlock Text="{Binding Minute}" FontSize="9" FontFamily="Consolas"
-                                       Foreground="{ThemeResource SystemFillColorSuccessBrush}" />
-                        </Border>
-                    </Grid>
-                    <StackPanel Grid.Column="2" Orientation="Horizontal" HorizontalAlignment="Left"
-                                Visibility="{Binding IstHeimSeite, Converter={StaticResource InverseBoolToVisibility}}">
-                        <ContentPresenter Content="{Binding}" Margin="0,0,6,0"
-                                           ContentTemplate="{StaticResource MiniEreignisIconVorlage}" />
-                        <StackPanel VerticalAlignment="Center">
-                            <TextBlock Text="{Binding Art}" FontSize="11" FontWeight="SemiBold" HorizontalAlignment="Left" />
-                            <TextBlock Text="{Binding Detail}" FontSize="10" Opacity="0.6" HorizontalAlignment="Left"
-                                       Visibility="{Binding Detail, Converter={StaticResource NullToCollapsed}}" />
-                        </StackPanel>
-                    </StackPanel>
-                </Grid>
-
-                <!-- Abschnittstrenner mit Linie (HALBZEIT etc.) -->
-                <Grid Margin="0,8" Visibility="{Binding ZeigtAlsAbschnittMitLinie, Converter={StaticResource BoolToVisibility}}">
-                    <Border VerticalAlignment="Center" Height="1" Background="{ThemeResource CardStrokeColorDefaultBrush}" />
-                    <Border HorizontalAlignment="Center" CornerRadius="999" Padding="8,2" BorderThickness="1"
-                            Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
-                            BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
-                            Visibility="{Binding IstElfmeterTrenner, Converter={StaticResource InverseBoolToVisibility}}">
-                        <TextBlock Text="{Binding TrennerText}" Opacity="0.6" Style="{StaticResource MiniTrennerPillText}" />
-                    </Border>
-                    <Border HorizontalAlignment="Center" CornerRadius="999" Padding="8,2" BorderThickness="1"
-                            Background="{ThemeResource SystemFillColorCautionBackgroundBrush}"
-                            BorderBrush="{ThemeResource SystemFillColorCautionBrush}"
-                            Visibility="{Binding IstElfmeterTrenner, Converter={StaticResource BoolToVisibility}}">
-                        <TextBlock Text="{Binding TrennerText}" Foreground="{ThemeResource SystemFillColorCautionBrush}"
-                                   Style="{StaticResource MiniTrennerPillText}" />
-                    </Border>
-                </Grid>
-
-                <!-- Eigenständige Marke ohne Linie (Anpfiff/Abpfiff) -->
-                <Grid Margin="0,4" Visibility="{Binding ZeigtAlsEigenstaendigeMarke, Converter={StaticResource BoolToVisibility}}">
-                    <Border HorizontalAlignment="Center" CornerRadius="999" Padding="8,2"
-                            Background="{ThemeResource TextFillColorSecondaryBrush}">
-                        <TextBlock Text="{Binding TrennerText}" Foreground="{ThemeResource TextOnAccentFillColorPrimaryBrush}"
-                                   Style="{StaticResource MiniTrennerPillText}" />
-                    </Border>
-                </Grid>
-            </Grid>
-        </DataTemplate>
-
-        <!-- Kopf einer Hinspiel-/Rückspiel-Karte (Expander.Header), Issue #341: derselbe Spielkopf wie in der
-             Spielbericht-Karte (kicker-Vorbild) plus kompakter Zeitstrahl — alles aus einem SpielBeinAnsicht-
-             Objekt, damit der Header über Header/HeaderTemplate gebunden bleibt (ein ContentPresenter mit
-             Content-Binding im UIElement-Header zeigte nach neuer Simulation veraltete bzw. leere Kopfzeilen). -->
-        <DataTemplate x:Key="BeinKopfVorlage" x:DataType="vm:SpielBeinAnsicht">
-            <StackPanel Padding="4,10,4,4">
-                <views:SpielKopfControl DataContext="{Binding Kopf}" />
-                <views:SpielZeitstrahlControl Margin="0,12,0,2"
-                                              Ereignisse="{Binding Ereignisse}"
-                                              HeimKuerzel="{Binding Kopf.HeimKuerzel}"
-                                              AuswaertsKuerzel="{Binding Kopf.AuswaertsKuerzel}"
-                                              IconVorlage="{StaticResource MiniEreignisIconVorlage}"
-                                              Visibility="{Binding HatEreignisse, Converter={StaticResource BoolToVisibility}}" />
             </StackPanel>
         </DataTemplate>
     </UserControl.Resources>
@@ -262,7 +135,7 @@
                 Visibility="{Binding EinzelspielMitRueckspiel, Converter={StaticResource InverseBoolToVisibility}}"
                 LeerZustandText="Zwei Mannschaften auswählen und auf Simulieren klicken." />
 
-            <!-- Mit Rückspiel (#248): zwei aufklappbare Karten statt einer kombinierten Zeitleiste. -->
+            <!-- Mit Rückspiel (#248, #247): Gesamtkopf oben, darunter eine Karte je Spiel mit eigener Uhr. -->
             <Grid Grid.Row="2" Visibility="{Binding EinzelspielMitRueckspiel, Converter={StaticResource BoolToVisibility}}">
 
                 <TextBlock Text="Hinspiel oben simulieren oder Score eintippen und übernehmen."
@@ -271,43 +144,13 @@
                            HorizontalAlignment="Center" VerticalAlignment="Center"
                            MaxWidth="340" TextAlignment="Center" />
 
-                <ScrollViewer VerticalScrollBarVisibility="Auto"
-                              Visibility="{Binding HatHinspielErgebnis, Converter={StaticResource BoolToVisibility}}">
-                    <StackPanel Margin="16,12,16,16" Spacing="10">
+                <Grid RowDefinitions="Auto,*" Margin="16,12,16,16" RowSpacing="12"
+                      Visibility="{Binding HatHinspielErgebnis, Converter={StaticResource BoolToVisibility}}">
 
-                        <Expander AutomationProperties.AutomationId="Einzelspiel.Hinspiel"
-                                  HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch"
-                                  IsExpanded="{Binding HinspielOffen, Mode=TwoWay}"
-                                  Header="{Binding HinspielAnsicht}" HeaderTemplate="{StaticResource BeinKopfVorlage}">
-                            <StackPanel Visibility="{Binding HatHinspielEreignisse, Converter={StaticResource BoolToVisibility}}"
-                                        Margin="8,4">
-                                <ItemsControl ItemsSource="{Binding HinspielEreignisse}"
-                                              ItemTemplate="{StaticResource MiniZeitleisteZeileVorlage}" />
-                            </StackPanel>
-                        </Expander>
-
-                        <Border Visibility="{Binding HatRueckspielErgebnis, Converter={StaticResource InverseBoolToVisibility}}"
-                                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1"
-                                CornerRadius="4" Padding="14,11">
-                            <TextBlock Text="Rückspiel steht noch aus — oben „Rückspiel simulieren“ klicken."
-                                       Opacity="0.5" FontSize="13" />
-                        </Border>
-
-                        <Expander AutomationProperties.AutomationId="Einzelspiel.Rueckspiel"
-                                  Visibility="{Binding HatRueckspielErgebnis, Converter={StaticResource BoolToVisibility}}"
-                                  HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch"
-                                  IsExpanded="{Binding RueckspielOffen, Mode=TwoWay}"
-                                  Header="{Binding RueckspielAnsicht}" HeaderTemplate="{StaticResource BeinKopfVorlage}">
-                            <StackPanel Visibility="{Binding HatRueckspielEreignisse, Converter={StaticResource BoolToVisibility}}"
-                                        Margin="8,4">
-                                <ItemsControl ItemsSource="{Binding RueckspielEreignisse}"
-                                              ItemTemplate="{StaticResource MiniZeitleisteZeileVorlage}" />
-                            </StackPanel>
-                        </Expander>
-
-                        <!-- Gesamtergebnis, Issue #341: derselbe Spielkopf wie in den Karten darüber (Kontext
-                             "Gesamt", Zusatz wie "Ergebnis nach Hinspiel"/"nach Elfmeterschießen (3:4)" unter dem
-                             Summenergebnis) — schon nach dem Hinspiel sichtbar. -->
+                    <!-- Gesamtergebnis, Issue #341: derselbe Spielkopf wie in den Karten darunter (Kontext
+                         "Gesamt", Zusatz wie "Ergebnis nach Hinspiel"/"nach Elfmeterschießen (3:4)" unter dem
+                         Summenergebnis) — schon nach dem Hinspiel sichtbar. -->
+                    <StackPanel Grid.Row="0" Spacing="10">
                         <Border Visibility="{Binding GesamtKopf, Converter={StaticResource NullToCollapsed}}"
                                 Background="{ThemeResource LayerFillColorDefaultBrush}"
                                 BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1"
@@ -324,9 +167,37 @@
                                 <Run Text="{Binding SiegerText}" />
                             </TextBlock>
                         </Border>
-
                     </StackPanel>
-                </ScrollViewer>
+
+                    <!-- Wrapper tragen die Visibility: am Element mit eigenem DataContext liefe die Bindung gegen die Ansicht. -->
+                    <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Disabled">
+                        <views:SpaltenPanel>
+                            <Grid>
+                                <views:SpielberichtKarte AutomationProperties.AutomationId="Einzelspiel.Hinspiel"
+                                                         DataContext="{Binding HinspielAnsicht}" />
+                            </Grid>
+
+                            <Grid Visibility="{Binding HatRueckspielErgebnis, Converter={StaticResource InverseBoolToVisibility}}">
+                                <Border BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1"
+                                        CornerRadius="6" Padding="14,11" VerticalAlignment="Top">
+                                    <TextBlock AutomationProperties.AutomationId="Einzelspiel.RueckspielAusstehend"
+                                               Text="Rückspiel steht noch aus — oben „Rückspiel simulieren“ klicken."
+                                               Opacity="0.5" FontSize="13" TextWrapping="Wrap" />
+                                </Border>
+                            </Grid>
+
+                            <Grid Visibility="{Binding HatRueckspielErgebnis, Converter={StaticResource BoolToVisibility}}">
+                                <views:SpielberichtKarte AutomationProperties.AutomationId="Einzelspiel.Rueckspiel"
+                                                         DataContext="{Binding RueckspielAnsicht}" />
+                            </Grid>
+
+                            <Grid Visibility="{Binding HatRueckspielWiederholung, Converter={StaticResource BoolToVisibility}}">
+                                <views:SpielberichtKarte AutomationProperties.AutomationId="Einzelspiel.Wiederholungsspiel"
+                                                         DataContext="{Binding RueckspielWiederholung}" />
+                            </Grid>
+                        </views:SpaltenPanel>
+                    </ScrollViewer>
+                </Grid>
 
             </Grid>
 

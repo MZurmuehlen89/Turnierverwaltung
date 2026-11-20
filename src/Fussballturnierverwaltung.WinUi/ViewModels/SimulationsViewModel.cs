@@ -100,7 +100,13 @@ public partial class SimulationsViewModel : ViewModelBase, IRibbonAware
     [NotifyPropertyChangedFor(nameof(ZeigeLeerZustand))]
     private SpielBeinAnsicht? _protokoll;
 
-    public bool HatProtokoll => Protokoll is not null;
+    // #247: das Wiederholungsspiel hat eine eigene Uhr und steht als zweite Karte neben dem Spiel
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HatProtokollWiederholung))]
+    private SpielBeinAnsicht? _protokollWiederholung;
+
+    public bool HatProtokoll             => Protokoll is not null;
+    public bool HatProtokollWiederholung => ProtokollWiederholung is not null;
 
     // ── Status ────────────────────────────────────────────────────────────────
 
@@ -522,6 +528,7 @@ public partial class SimulationsViewModel : ViewModelBase, IRibbonAware
         // Spielen (Breadcrumb-Combobox oder "Spielverlauf ansehen" aus dem Spielplan) hängten sich die
         // Einträge des neuen Spiels an die des vorherigen an, statt sie zu ersetzen.
         Protokoll = null;
+        ProtokollWiederholung = null;
 
         string heim     = spiel.HeimMannschaft?.Name ?? spiel.HeimPlatzhalterName ?? "?";
         string auswaerts = spiel.AuswaertsMannschaft?.Name ?? spiel.AuswaertsPlatzhalterName ?? "?";
@@ -549,8 +556,11 @@ public partial class SimulationsViewModel : ViewModelBase, IRibbonAware
             // #361: nach Id, damit Ereignisse derselben Minute in der Reihenfolge ihrer Entstehung bleiben.
             var ereignisse = spiel.Ereignisse.OrderBy(ev => ev.Id).Select(ev => new ZeitleistenEreignis(
                 ev.Minute, ev.Nachspielminute, ev.EreignisArt, ev.MannschaftId == spiel.HeimMannschaftId, ev.Beschreibung, ev.ImWiederholungsspiel));
-            var zeilen = Zeitleiste.Erstellen(
-                ergebnis, ereignisse, new SpielSeite(spiel.HeimMannschaft, heim), new SpielSeite(spiel.AuswaertsMannschaft, auswaerts)).ToList();
+            var heimSeite      = new SpielSeite(spiel.HeimMannschaft, heim);
+            var auswaertsSeite = new SpielSeite(spiel.AuswaertsMannschaft, auswaerts);
+            var zeilen = Zeitleiste.Erstellen(ergebnis, ereignisse, heimSeite, auswaertsSeite).ToList();
+            ProtokollWiederholung = SpielBeinAnsicht.Wiederholungsspiel(
+                ergebnis.Wiederholung, ereignisse, heimSeite, auswaertsSeite, spiel.TurnierRunde?.NeutralerSpielort == true, untertitel);
             Protokoll = new SpielBeinAnsicht(kopf, zeilen);
         }
     }
@@ -559,6 +569,7 @@ public partial class SimulationsViewModel : ViewModelBase, IRibbonAware
     {
         ProtokollSpielInfo = null;
         Protokoll = null;
+        ProtokollWiederholung = null;
     }
 
     // ── Hilfsmethoden ─────────────────────────────────────────────────────────

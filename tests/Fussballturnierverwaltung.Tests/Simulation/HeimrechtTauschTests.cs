@@ -23,8 +23,6 @@ public class HeimrechtTauschTests
     public void Anzeige_AusRundeAbgeleitet_TauschtGenauAusserAufNeutralemPlatz(bool neutral, bool erwartet)
     {
         // Die Anzeige kennt nur die Runde: außerhalb neutraler Runden hat das Heimteam immer den Ortsvorteil.
-        var vorteil = SimulationsEngine.SpielortvorteilErmitteln(neutral, 1, 2, []);
-
-        SimulationsEngine.HeimrechtTauscht(vorteil, neutral).Should().Be(erwartet);
+        SimulationsEngine.HeimrechtTauscht(neutral).Should().Be(erwartet);
     }
 }
