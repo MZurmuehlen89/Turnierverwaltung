@@ -1,7 +1,7 @@
 using FluentAssertions;
 using Fussballturnierverwaltung.Application.Simulation;
+using Fussballturnierverwaltung.Domain.Entitaeten.Stammdaten;
 using Fussballturnierverwaltung.Domain.Enums;
-using System.Collections.ObjectModel;
 
 namespace Fussballturnierverwaltung.Tests.Simulation;
 
@@ -16,7 +16,7 @@ public class ZeitleisteTests
         E(int minute, EreignisArt art, bool heim, string beschreibung = "", int? nachspiel = null, bool wiederholung = false)
         => (minute, nachspiel, art, heim, beschreibung, wiederholung);
 
-    private static ObservableCollection<EinzelspielEreignisZeile> Bauen(
+    private static List<EinzelspielEreignisZeile> Bauen(
         IEnumerable<(int Minute, int? Nachspielminute, EreignisArt Art, bool IstHeimSeite, string Beschreibung, bool ImWiederholungsspiel)> ereignisse,
         int heimRegulaer, int auswaertsRegulaer,
         EntscheidungArt art = EntscheidungArt.RegulaereSpielzeit,
@@ -25,15 +25,16 @@ public class ZeitleisteTests
         Wiederholungsergebnis? wiederholung = null,
         byte[]? heimWappen = null, byte[]? auswaertsWappen = null)
     {
-        var ziel = new ObservableCollection<EinzelspielEreignisZeile>();
-        Zeitleiste.ZeitleisteHinzufuegen(
-            ziel, ereignisse, HEIM, GAST, art,
+        var stand = new SimulationsErgebnis(
             heimRegulaer, auswaertsRegulaer,
             verlaengerung?.Heim, verlaengerung?.Auswaerts,
             elfmeter?.Heim, elfmeter?.Auswaerts,
-            heimWappen, auswaertsWappen,
-            wiederholung: wiederholung);
-        return ziel;
+            art, [], Wiederholung: wiederholung);
+        return Zeitleiste.Erstellen(
+            stand,
+            ereignisse.Select(e => new ZeitleistenEreignis(e.Minute, e.Nachspielminute, e.Art, e.IstHeimSeite, e.Beschreibung, e.ImWiederholungsspiel)),
+            new SpielSeite(new Mannschaft { Name = HEIM, Wappen = heimWappen }, HEIM),
+            new SpielSeite(new Mannschaft { Name = GAST, Wappen = auswaertsWappen }, GAST)).ToList();
     }
 
     private static string Text(EinzelspielEreignisZeile z)
@@ -41,21 +42,15 @@ public class ZeitleisteTests
             ? $"[{z.TrennerArt}] {z.TrennerText} @{z.MinuteWert}"
             : $"{z.Minute} {z.Seite} {z.Art}" + (z.Detail is null ? "" : $" | {z.Detail}");
 
-    private static List<string> Texte(ObservableCollection<EinzelspielEreignisZeile> zeilen)
+    private static List<string> Texte(List<EinzelspielEreignisZeile> zeilen)
         => zeilen.Select(Text).ToList();
 
     // ── Aufbau ───────────────────────────────────────────────────────────
 
     [Fact]
-    public void KeineEreignisse_LeereListe_UndRueckgabeFalse()
+    public void KeineEreignisse_LeereListe()
     {
-        var ziel = new ObservableCollection<EinzelspielEreignisZeile>();
-
-        bool hinzugefuegt = Zeitleiste.ZeitleisteHinzufuegen(
-            ziel, [], HEIM, GAST, EntscheidungArt.RegulaereSpielzeit, 0, 0, null, null, null, null);
-
-        hinzugefuegt.Should().BeFalse();
-        ziel.Should().BeEmpty();
+        Bauen([], 0, 0).Should().BeEmpty();
     }
 
     [Fact]

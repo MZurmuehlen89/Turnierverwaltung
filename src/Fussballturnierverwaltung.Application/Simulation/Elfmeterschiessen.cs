@@ -20,7 +20,7 @@ internal sealed class Elfmeterschiessen
 
     // Minute läuft ab 121 hoch — rein zur Sortierung/Anzeige, es gibt im Elfmeterschießen
     // keine echte Spielminute. Geht immer erst nach vollständiger Verlängerung los (siehe
-    // Kommentar in ZeitleisteHinzufuegen), daher keine Kollision mit Minuten aus der Verlängerung.
+    // Kommentar in Zeitleiste), daher keine Kollision mit Minuten aus der Verlängerung.
     private int _minute = 120;
 
     private Elfmeterschiessen(Mannschaft heim, Mannschaft auswaerts, Random rng, bool ausfuehrlich)

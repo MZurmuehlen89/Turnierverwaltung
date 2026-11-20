@@ -529,9 +529,6 @@ public partial class SimulationsViewModel : ViewModelBase, IRibbonAware
 
         if (spiel.Ergebnis is { } e)
         {
-            byte[]? heimWappen      = MannschaftsIcon.Fuer(spiel.HeimMannschaft);
-            byte[]? auswaertsWappen = MannschaftsIcon.Fuer(spiel.AuswaertsMannschaft);
-
             string kontext = KontextZeile(spiel);
             var ergebnis = new SimulationsErgebnis(
                 e.HeimToreRegulaer, e.AuswaertsToreRegulaer,
@@ -548,17 +545,12 @@ public partial class SimulationsViewModel : ViewModelBase, IRibbonAware
             ProtokollKopf = SimulationsProtokollHelfer.SpielKopfErstellen(
                 kontext, spiel.HeimMannschaft, heim, spiel.AuswaertsMannschaft, auswaerts, ergebnis, untertitel);
 
-            Zeitleiste.ZeitleisteHinzufuegen(
-                ProtokollEreignisse,
-                // #361: nach Id, damit Ereignisse derselben Minute in der Reihenfolge ihrer Entstehung bleiben.
-                spiel.Ereignisse.OrderBy(ev => ev.Id).Select(ev =>
-                    (ev.Minute, ev.Nachspielminute, ev.EreignisArt, ev.MannschaftId == spiel.HeimMannschaftId, ev.Beschreibung, ev.ImWiederholungsspiel)),
-                heim, auswaerts, e.EntscheidungArt,
-                e.HeimToreRegulaer, e.AuswaertsToreRegulaer,
-                e.HeimToreVerlaengerung, e.AuswaertsToreVerlaengerung,
-                e.HeimElfmetertore, e.AuswaertsElfmetertore,
-                heimWappen, auswaertsWappen,
-                wiederholung: Wiederholungsergebnis.Aus(e));
+            // #361: nach Id, damit Ereignisse derselben Minute in der Reihenfolge ihrer Entstehung bleiben.
+            var ereignisse = spiel.Ereignisse.OrderBy(ev => ev.Id).Select(ev => new ZeitleistenEreignis(
+                ev.Minute, ev.Nachspielminute, ev.EreignisArt, ev.MannschaftId == spiel.HeimMannschaftId, ev.Beschreibung, ev.ImWiederholungsspiel));
+            foreach (var zeile in Zeitleiste.Erstellen(
+                         ergebnis, ereignisse, new SpielSeite(spiel.HeimMannschaft, heim), new SpielSeite(spiel.AuswaertsMannschaft, auswaerts)))
+                ProtokollEreignisse.Add(zeile);
         }
 
         OnPropertyChanged(nameof(HatProtokoll));

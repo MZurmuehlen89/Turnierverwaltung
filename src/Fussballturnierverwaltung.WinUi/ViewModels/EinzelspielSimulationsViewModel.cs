@@ -328,21 +328,11 @@ public partial class EinzelspielSimulationsViewModel : ViewModelBase, IRibbonAwa
         try
         {
             var erg = _simulationsService.EinzelspielSimulieren(heim, auswaerts, verfahren, SimulationsModus.AusfuehrlicheSimulation);
-            byte[]? heimWappen      = MannschaftsIcon.Fuer(heim);
-            byte[]? auswaertsWappen = MannschaftsIcon.Fuer(auswaerts);
             ProtokollSpielInfo = $"{heim.Name} vs. {auswaerts.Name}";
             ProtokollKopf = SimulationsProtokollHelfer.SpielKopfErstellen(
                 null, heim, heim.Name, auswaerts, auswaerts.Name, erg, _untertitel);
 
-            Zeitleiste.ZeitleisteHinzufuegen(
-                ProtokollEreignisse,
-                erg.Ereignisse.Select(ev => (ev.Minute, ev.Nachspielminute, ev.Art, ev.IstHeim, ev.Beschreibung, ev.ImWiederholungsspiel)),
-                heim.Name, auswaerts.Name, erg.EntscheidungArt,
-                erg.HeimToreRegulaer, erg.AuswaertsToreRegulaer,
-                erg.HeimToreVerlaengerung, erg.AuswaertsToreVerlaengerung,
-                erg.HeimElfmetertore, erg.AuswaertsElfmetertore,
-                heimWappen, auswaertsWappen,
-                wiederholung: erg.Wiederholung);
+            ZeitleisteFuellen(ProtokollEreignisse, erg, SpielSeite.Von(heim), SpielSeite.Von(auswaerts));
         }
         catch (Exception ex)
         {
@@ -391,11 +381,18 @@ public partial class EinzelspielSimulationsViewModel : ViewModelBase, IRibbonAwa
         }
     }
 
+    private static void ZeitleisteFuellen(
+        ObservableCollection<EinzelspielEreignisZeile> ziel, SimulationsErgebnis erg, SpielSeite heim, SpielSeite auswaerts)
+    {
+        foreach (var zeile in Zeitleiste.Erstellen(erg, erg.Ereignisse.Select(ZeitleistenEreignis.Aus), heim, auswaerts))
+            ziel.Add(zeile);
+    }
+
     // Manuelle Eingabe — teilt sich die Übernahme-Logik mit dem Simulieren-Pfad: ein manuell
     // eingegebenes Ergebnis ist einfach ein SimulationsErgebnis ohne Ereignisse und ohne
     // Verlängerung/Elfmeterschießen (Hinspiel kennt beides ohnehin nicht, s.o.) — dadurch bleibt die
-    // Zeitleiste für diesen Fall leer, ganz ohne Sonderbehandlung (ZeitleisteHinzufuegen steigt bei
-    // Ereignisse.Count==0 früh aus).
+    // Zeitleiste für diesen Fall leer, ganz ohne Sonderbehandlung (Zeitleiste.Erstellen liefert bei
+    // Ereignisse.Count==0 nichts).
     private void HinspielUebernehmen()
     {
         var erg = new SimulationsErgebnis(
@@ -422,20 +419,11 @@ public partial class EinzelspielSimulationsViewModel : ViewModelBase, IRibbonAwa
         HinspielHeimToreEingabe      = erg.HeimToreRegulaer;
         HinspielAuswaertsToreEingabe = erg.AuswaertsToreRegulaer;
 
-        byte[]? heimWappen      = MannschaftsIcon.Fuer(heim);
-        byte[]? auswaertsWappen = MannschaftsIcon.Fuer(auswaerts);
         string score = $"{erg.HeimToreRegulaer}:{erg.AuswaertsToreRegulaer}"; // Hinspiel kennt keine Verlängerung
 
         ProtokollSpielInfo = $"{heim.Name} vs. {auswaerts.Name} (Hin & Rück)";
 
-        Zeitleiste.ZeitleisteHinzufuegen(
-            HinspielEreignisse,
-            erg.Ereignisse.Select(ev => (ev.Minute, ev.Nachspielminute, ev.Art, ev.IstHeim, ev.Beschreibung, ev.ImWiederholungsspiel)),
-            heim.Name, auswaerts.Name, erg.EntscheidungArt,
-            erg.HeimToreRegulaer, erg.AuswaertsToreRegulaer,
-            erg.HeimToreVerlaengerung, erg.AuswaertsToreVerlaengerung,
-            erg.HeimElfmetertore, erg.AuswaertsElfmetertore,
-            heimWappen, auswaertsWappen);
+        ZeitleisteFuellen(HinspielEreignisse, erg, SpielSeite.Von(heim), SpielSeite.Von(auswaerts));
 
         HinspielAnsicht = new SpielBeinAnsicht(
             SimulationsProtokollHelfer.SpielKopfErstellen(
@@ -535,22 +523,12 @@ public partial class EinzelspielSimulationsViewModel : ViewModelBase, IRibbonAwa
                 _                                 => "nach 180 Minuten"
             };
 
-            byte[]? heimWappen      = MannschaftsIcon.Fuer(heim);
-            byte[]? auswaertsWappen = MannschaftsIcon.Fuer(auswaerts);
             GesamtKopf = SimulationsProtokollHelfer.GesamtKopfErstellen(
                 heim, auswaerts, $"{heimGesamt}:{auswaertsGesamt}", gesamtZusatz, _untertitel);
             SiegerText = sieger is null ? "Unentschieden" : $"Sieger: {sieger}";
 
             RueckspielEreignisse.Clear();
-            Zeitleiste.ZeitleisteHinzufuegen(
-                RueckspielEreignisse,
-                erg2.Ereignisse.Select(ev => (ev.Minute, ev.Nachspielminute, ev.Art, ev.IstHeim, ev.Beschreibung, ev.ImWiederholungsspiel)),
-                auswaerts.Name, heim.Name, erg2.EntscheidungArt,
-                erg2.HeimToreRegulaer, erg2.AuswaertsToreRegulaer,
-                erg2.HeimToreVerlaengerung, erg2.AuswaertsToreVerlaengerung,
-                erg2.HeimElfmetertore, erg2.AuswaertsElfmetertore,
-                auswaertsWappen, heimWappen,
-                wiederholung: erg2.Wiederholung);
+            ZeitleisteFuellen(RueckspielEreignisse, erg2, SpielSeite.Von(auswaerts), SpielSeite.Von(heim));
 
             RueckspielAnsicht = new SpielBeinAnsicht(
                 SimulationsProtokollHelfer.SpielKopfErstellen(
