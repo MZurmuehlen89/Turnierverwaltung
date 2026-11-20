@@ -34,22 +34,40 @@ internal static class Realismusauswertung
     /// und zählt zum Stand dieser Minute – wie in den Länderspieldaten.</summary>
     public static (int Heim, int Gast) Stand(IEnumerable<SimuliertesEreignis> ereignisse, int minute)
     {
-        var tore = ereignisse.Where(e => e.Art == EreignisArt.Tor && e.Minute <= minute).ToList();
-        return (tore.Count(e => e.IstHeim), tore.Count(e => !e.IstHeim));
+        // Zählschleife statt LINQ-Listen: der Jackknife (#683) ruft das je Kennzahl hundertfach für alle Spiele auf.
+        int heim = 0, gast = 0;
+        foreach (var e in ereignisse)
+        {
+            if (e.Art != EreignisArt.Tor || e.Minute > minute) continue;
+            if (e.IstHeim) heim++; else gast++;
+        }
+        return (heim, gast);
     }
 
     /// <summary>Anteile der Tore der regulären Spielzeit je 15 Minuten (1–15 … 76–90, Nachspielzeit bei 45 bzw. 90).</summary>
     public static double[] TorminutenAnteile(IEnumerable<SimuliertesSpiel> spiele)
     {
-        var minuten = RegulaereTore(spiele).Select(e => e.Minute).ToList();
-        return Enumerable.Range(0, ANZAHL_ABSCHNITTE)
-            .Select(i => (double)minuten.Count(m => (m - 1) / 15 == i) / minuten.Count).ToArray();
+        // Zählschleife statt LINQ-Listen (Jackknife, #683).
+        var anzahl = new int[ANZAHL_ABSCHNITTE];
+        int tore = 0;
+        foreach (var e in RegulaereTore(spiele))
+        {
+            tore++;
+            int abschnitt = (e.Minute - 1) / 15;
+            if (abschnitt is >= 0 and < ANZAHL_ABSCHNITTE) anzahl[abschnitt]++;
+        }
+        return [.. anzahl.Select(a => (double)a / tore)];
     }
 
     public static double AnteilErsteHalbzeit(IEnumerable<SimuliertesSpiel> spiele)
     {
-        var minuten = RegulaereTore(spiele).Select(e => e.Minute).ToList();
-        return (double)minuten.Count(m => m <= 45) / minuten.Count;
+        int tore = 0, ersteHalbzeit = 0;
+        foreach (var e in RegulaereTore(spiele))
+        {
+            tore++;
+            if (e.Minute <= 45) ersteHalbzeit++;
+        }
+        return (double)ersteHalbzeit / tore;
     }
 
     public static double AnteilNachspielzeit(IEnumerable<SimuliertesSpiel> spiele)
@@ -126,15 +144,25 @@ internal static class Realismusauswertung
     /// (Altdaten) und Golden Goals zählen nicht.</summary>
     public static Chancenbilanz Chancen(IReadOnlyCollection<SimuliertesSpiel> spiele)
     {
-        var ereignisse = spiele.SelectMany(s => s.Ergebnis.Ereignisse)
-            .Where(e => e.Minute <= ENDE_REGULAER && e.Chancenart != null
-                        && e.Art is EreignisArt.Tor or EreignisArt.Grosschance)
-            .ToList();
-        var grosschancen = ereignisse.Where(e => e.Chancenart != Chancenart.Normal).ToList();
-        var elfmeter = grosschancen.Where(e => e.Chancenart == Chancenart.Elfmeter).ToList();
-        return new Chancenbilanz(
-            spiele.Count, grosschancen.Count, grosschancen.Count(e => e.Art == EreignisArt.Tor),
-            elfmeter.Count, elfmeter.Count(e => e.Art == EreignisArt.Tor), ereignisse.Count(e => e.Art == EreignisArt.Tor));
+        // Zählschleife statt LINQ-Listen (Jackknife, #683).
+        int grosschancen = 0, grosschancenTore = 0, elfmeter = 0, elfmeterTore = 0, tore = 0;
+        foreach (var spiel in spiele)
+        {
+            foreach (var e in spiel.Ergebnis.Ereignisse)
+            {
+                if (e.Minute > ENDE_REGULAER || e.Chancenart is not { } art || e.Art is not (EreignisArt.Tor or EreignisArt.Grosschance))
+                    continue;
+                bool tor = e.Art == EreignisArt.Tor;
+                if (tor) tore++;
+                if (art == Chancenart.Normal) continue;
+                grosschancen++;
+                if (tor) grosschancenTore++;
+                if (art != Chancenart.Elfmeter) continue;
+                elfmeter++;
+                if (tor) elfmeterTore++;
+            }
+        }
+        return new Chancenbilanz(spiele.Count, grosschancen, grosschancenTore, elfmeter, elfmeterTore, tore);
     }
 
     /// <summary>Stückweise lineare Interpolation über die nach x aufsteigenden Stützstellen; außerhalb gilt der Randwert.</summary>
@@ -150,6 +178,10 @@ internal static class Realismusauswertung
         return stuetzstellen[^1].Y;
     }
 
-    private static IEnumerable<SimuliertesEreignis> RegulaereTore(IEnumerable<SimuliertesSpiel> spiele) =>
-        spiele.SelectMany(s => s.Ergebnis.Ereignisse).Where(e => e.Art == EreignisArt.Tor && e.Minute <= ENDE_REGULAER);
+    private static IEnumerable<SimuliertesEreignis> RegulaereTore(IEnumerable<SimuliertesSpiel> spiele)
+    {
+        foreach (var spiel in spiele)
+            foreach (var e in spiel.Ergebnis.Ereignisse)
+                if (e.Art == EreignisArt.Tor && e.Minute <= ENDE_REGULAER) yield return e;
+    }
 }
