@@ -107,6 +107,17 @@ public class FreiePaarungGesamtTests
             .Zusatz.Should().Be("nach Auswärtstorregel");
     }
 
+    // K4 (#539): Hinspiel 1:1 → Rückspiel-Heim (= Hinspiel-Auswärts) traf dort 1 auswärts. Bei Rückspiel 0:0 hat
+    // es 1, das Rückspiel-Auswärts (= Hinspiel-Heim) 0 Auswärtstore → Hinspiel-Auswärts gewinnt.
+    [Theory]
+    [InlineData(0, 0, PaarungSieger.Auswaerts)]
+    [InlineData(2, 2, PaarungSieger.Heim)] // Gesamt 3:3; Rückspiel-Auswärts traf 2 auswärts, Rückspiel-Heim hat 1
+    public void Auswaertstorregel_MehrAuswaertstoreGewinnen(int rueckHeim, int rueckAuswaerts, PaarungSieger sieger)
+    {
+        FreiePaarungGesamt.Bewerten(Hin(1, 1), Rueck(rueckHeim, rueckAuswaerts, EntscheidungArt.Auswaertstorregel))
+            .Sieger.Should().Be(sieger);
+    }
+
     [Fact]
     public void GesamtstandHatVorrangVorDemVerfahren()
     {

@@ -66,6 +66,9 @@ public partial class EinzelspielSimulationsViewModel : ViewModelBase, IRibbonAwa
     [NotifyPropertyChangedFor(nameof(RibbonZusatzGruppen))]
     private bool _einzelspielMitRueckspiel;
 
+    // #539: nur mit Rückspiel sichtbar; entscheidet bei ausgeglichenem Gesamtstand vor dem Regelwerk (AD-001).
+    [ObservableProperty] private bool _einzelspielAuswaertstorRegel;
+
     // Verband-Filter + Suche je Seite — Heim und Auswaerts unabhaengig voneinander filterbar.
     // Nullable + On...Changed-Reset (Precedent: MannschaftenViewModel/TurnierkopfViewModel): eine
     // ComboBox setzt ihr SelectedItem transient auf null, sobald ihre ItemsSource neu zugewiesen wird
@@ -308,6 +311,13 @@ public partial class EinzelspielSimulationsViewModel : ViewModelBase, IRibbonAwa
         LeerHinRueckProtokoll();
     }
 
+    // #539: ein vorhandenes Rückspiel hing von der Regel ab – verwerfen wie bei einem neuen Hinspiel, das Hinspiel bleibt.
+    partial void OnEinzelspielAuswaertstorRegelChanged(bool value)
+    {
+        if (HinspielErgebnis is { } hinspiel)
+            HinspielUebernehmen(hinspiel);
+    }
+
     // ── Freie Simulation (ohne Rückspiel) ────────────────────────────────────
 
     private async Task EinzelspielFreiSimulierenAsync()
@@ -463,7 +473,7 @@ public partial class EinzelspielSimulationsViewModel : ViewModelBase, IRibbonAwa
         try
         {
 #pragma warning disable S2234 // Rückspiel: Heim und Auswärts bewusst getauscht
-            var erg2 = _simulationsService.RueckspielSimulieren(auswaerts, heim, erg1, verfahren, _zufallsquelle.Erzeugen());
+            var erg2 = _simulationsService.RueckspielSimulieren(auswaerts, heim, erg1, verfahren, _zufallsquelle.Erzeugen(), EinzelspielAuswaertstorRegel);
 #pragma warning restore S2234
             RueckspielErgebnis = erg2;
             RueckspielAnzeigen(SpielSeite.Von(heim), SpielSeite.Von(auswaerts), FreiePaarungGesamt.Bewerten(erg1, erg2), erg2);

@@ -38,6 +38,9 @@ public class SpielKopfAnzeigeTests
     [InlineData("1:0", "2:1", "nach Verlängerung", "90' 1:0 · n.V. 2:1", "2:2", HinUndRueckspiel.UNENTSCHIEDEN)]
     [InlineData("1:0", "3:5", ELFMETER, "90' 1:0 · n.V. 1:0", "1:1", "Sieger: A")]
     [InlineData("0:0", "4:2", ELFMETER, "90' 0:0", "0:0", "Sieger: B")]
+    // #539: Auswärtstorregel – A traf im Rückspiel auswärts, B im Hinspiel
+    [InlineData("1:1", "0:0", "nach Auswärtstorregel", "", "1:1", "Sieger: B")]
+    [InlineData("1:1", "2:2", "nach Auswärtstorregel", "", "3:3", "Sieger: A")]
     public void Erwartet_GesamtstandUndSieger(
         string hinScore, string rueckScore, string rueckEntscheidung, string rueckZwischenstaende,
         string gesamt, string siegerzeile)

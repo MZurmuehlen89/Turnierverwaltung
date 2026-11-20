@@ -21,6 +21,8 @@ public sealed partial record SpielKopfAnzeige(
 
     public (int Heim, int Auswaerts)? Elfmeter => ImElfmeterschiessen ? Spielstand.Tore(Score) : null;
 
+    public bool NachAuswaertstorregel => Entscheidung == "nach Auswärtstorregel";
+
     private (int, int)? ToreOhneElfmeter(string score) => ImElfmeterschiessen ? null : Spielstand.Tore(score);
 
     private (int, int)? Zwischenstand(string marke) =>
@@ -42,7 +44,8 @@ public static class HinUndRueckspiel
 
     /// <summary>Gesamtstand aus Sicht des Hinspiel-Heimteams: Hinspiel plus Rückspiel einschließlich Verlängerung (im
     /// Rückspiel hat das Hinspiel-Heimteam Auswärtsrecht). Sieger hat mehr Tore; bei Gleichstand entscheidet ein
-    /// Elfmeterschießen im Rückspiel, ohne eines bleibt es unentschieden.</summary>
+    /// Elfmeterschießen im Rückspiel, ohne eines bleibt es unentschieden. Mit aktiver Auswärtstorregel (zu erkennen am
+    /// Hinweis „nach Auswärtstorregel“ im Rückspiel) hat vorher das Team mit den meisten Auswärtstoren gewonnen.</summary>
     public static (string Score, string Siegerzeile) Erwartet(SpielKopfAnzeige hinspiel, SpielKopfAnzeige rueckspiel)
     {
         var (hinHeim, hinAuswaerts) = hinspiel.Tore ?? throw Unlesbar(hinspiel);
@@ -54,6 +57,10 @@ public static class HinUndRueckspiel
         {
             ( > 0, _) => hinspiel.Heim,
             ( < 0, _) => hinspiel.Auswaerts,
+            // #539: bei ausgeglichenem Gesamtstand zählen die Auswärtstore – das Hinspiel-Heimteam traf im Rückspiel
+            // auswärts, das Hinspiel-Auswärtsteam im Hinspiel.
+            (_, _) when rueckspiel.NachAuswaertstorregel =>
+                rueckAuswaerts > hinAuswaerts ? hinspiel.Heim : hinspiel.Auswaerts,
             (_, (int elfHeim, int elfAuswaerts)) when elfHeim != elfAuswaerts =>
                 elfHeim > elfAuswaerts ? rueckspiel.Heim : rueckspiel.Auswaerts,
             _ => null,

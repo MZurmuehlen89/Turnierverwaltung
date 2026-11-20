@@ -43,6 +43,17 @@ public sealed class EinzelspielSeite(Window fenster)
             $"'Mit Rückspiel' = {mitRueckspiel}");
     }
 
+    /// <summary>Schaltet die Auswärtstorregel (#539); die Checkbox ist nur mit „Mit Rückspiel“ sichtbar.</summary>
+    public void AuswaertstorregelSetzen(bool aktiv)
+    {
+        var toggle = fenster.FindById("Einzelspiel.Auswaertstorregel").Patterns.Toggle.Pattern;
+        bool Gesetzt() => toggle.ToggleState.Value == ToggleState.On;
+        if (Gesetzt() != aktiv) toggle.Toggle();
+        Wait.Until(() => Gesetzt() == aktiv, Wait.DefaultTimeout, $"'Auswärtstorregel' = {aktiv}");
+    }
+
+    public bool AuswaertstorregelSichtbar => fenster.TryFindById("Einzelspiel.Auswaertstorregel") is not null;
+
     /// <summary>Simuliert ein Einzelspiel und liefert den Spielkopf, sobald er die gewählten Mannschaften zeigt.</summary>
     public SpielKopfAnzeige EinzelspielSimulieren()
     {
@@ -87,6 +98,11 @@ public sealed class EinzelspielSeite(Window fenster)
             KopfAbwarten(GESAMT, _heim, _auswaerts),
             siegerzeile);
     }
+
+    /// <summary>Ob ein vorhandenes Rückspiel samt Siegerzeile verworfen ist (#539) – beide sind dann nicht mehr im
+    /// UIA-Baum, weil ihre Elemente eingeklappt sind.</summary>
+    public bool RueckspielVerworfen =>
+        fenster.TryFindById(RUECKSPIEL) is null && fenster.TryFindById(SIEGER) is null;
 
     public string Fehlermeldung => fenster.TryFindById("Einzelspiel.Fehlermeldung")?.NameOrEmpty() ?? string.Empty;
 

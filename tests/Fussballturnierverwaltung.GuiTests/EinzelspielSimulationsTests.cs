@@ -1,12 +1,14 @@
 using FluentAssertions;
 using Fussballturnierverwaltung.GuiTests.Seiten;
+using GuiTest.Framework;
 
 namespace Fussballturnierverwaltung.GuiTests;
 
 /// <summary>Freie Einzelspiel-Simulation (#536): ein Einzelspiel sowie Hin- und Rückspiel zweier Seed-Mannschaften.
 /// Die Simulation speichert nichts, der Seed bleibt also unverändert. Geprüft werden nur Invarianten – Gesamtstand
 /// ist die Summe beider Spiele, der Sieger folgt aus Gesamtstand bzw. Elfmeterschießen –, keine festen Ergebnisse.
-/// Eine Auswärtstorregel kennt die Seite nicht (weder Einstellung noch Entscheidungsverfahren des Regelwerks).</summary>
+/// Die Auswärtstorregel (#539) ist eine Checkbox, die nur mit „Mit Rückspiel“ erscheint; sie entscheidet bei
+/// ausgeglichenem Gesamtstand vor dem Regelwerk und zählt nur die Tore der regulären Spielzeit.</summary>
 public sealed class EinzelspielSimulationsTests(TurnierverwaltungApp app) : IClassFixture<TurnierverwaltungApp>, IDisposable
 {
     private const string HEIM = "Deutschland";
@@ -124,10 +126,53 @@ public sealed class EinzelspielSimulationsTests(TurnierverwaltungApp app) : ICla
         }
     }
 
+    /// <summary>#539: Mit aktiver Regel entscheiden bei Gleichstand nach 180 Minuten die Auswärtstore – das Regelwerk
+    /// (hier mit Verlängerung) kommt nicht mehr dran. Gesucht wird eine Paarung, bei der das eintritt; der Hinweis
+    /// „nach Auswärtstorregel“ im Rückspielkopf zeigt es an.</summary>
+    [Fact]
+    public void HinUndRueckspiel_MitAuswaertstorregel_EntscheidenDieAuswaertstoreVorDemRegelwerk()
+    {
+        _seite.MannschaftenWaehlen(HEIM, AUSWAERTS);
+        _seite.RegelwerkWaehlen(MIT_VERLAENGERUNG);
+        _seite.MitRueckspielSetzen(true);
+        _seite.AuswaertstorregelSetzen(true);
+        _seite.HinspielSimulieren();
+
+        var paarung = GleichstandHerbeifuehren(p => p.Rueckspiel.NachAuswaertstorregel);
+
+        paarung.Gesamt.Entscheidung.Should().Be("nach Auswärtstorregel");
+        paarung.Siegerzeile.Should().NotBe(HinUndRueckspiel.UNENTSCHIEDEN);
+        paarung.Rueckspiel.Zwischenstaende.Should().NotContain("n.V.", "die Regel greift vor der Verlängerung");
+        PruefeGesamtwertung(paarung);
+    }
+
+    /// <summary>#539: Die Checkbox gibt es nur mit „Mit Rückspiel“; ein Wechsel verwirft das Rückspiel (es hing von der
+    /// Regel ab), das Hinspiel bleibt und der Gesamtkopf zeigt wieder den Stand nach dem Hinspiel.</summary>
+    [Fact]
+    public void Auswaertstorregel_NurMitRueckspiel_UndEinWechselVerwirftDasRueckspiel()
+    {
+        _seite.MannschaftenWaehlen(HEIM, SCHWACHE_GEGNER[0]);
+        _seite.MitRueckspielSetzen(false);
+        _seite.AuswaertstorregelSichtbar.Should().BeFalse("ohne Rückspiel gibt es keine Auswärtstore");
+        _seite.MitRueckspielSetzen(true);
+        _seite.AuswaertstorregelSichtbar.Should().BeTrue();
+
+        _seite.AuswaertstorregelSetzen(true); // ohne Hinspiel und Rückspiel: folgenlos
+        _seite.HinspielEingeben(3, 1);
+        _seite.RueckspielSimulieren();
+        _seite.RueckspielVerworfen.Should().BeFalse();
+
+        _seite.AuswaertstorregelSetzen(false);
+
+        Wait.Until(() => _seite.RueckspielVerworfen, Wait.DefaultTimeout, "Rückspiel nach dem Wechsel verworfen");
+        _seite.GesamtNachHinspiel().Entscheidung.Should().Be("Ergebnis nach Hinspiel");
+    }
+
     public void Dispose() => app.BeiFehlschlagBelegeSichern();
 
-    private HinRueckAnzeige GleichstandHerbeifuehren()
+    private HinRueckAnzeige GleichstandHerbeifuehren(Func<HinRueckAnzeige, bool>? gesucht = null)
     {
+        gesucht ??= p => HinUndRueckspiel.GleichstandNach180(p.Hinspiel, p.Rueckspiel);
         var gelesen = new List<string>();
         foreach (string gegner in GESTAFFELTE_GEGNER)
         {
@@ -137,7 +182,7 @@ public sealed class EinzelspielSimulationsTests(TurnierverwaltungApp app) : ICla
                 int heim = Math.Max(differenz, 0), auswaerts = Math.Max(-differenz, 0);
                 _seite.HinspielEingeben(heim, auswaerts);
                 var paarung = _seite.RueckspielSimulieren();
-                if (HinUndRueckspiel.GleichstandNach180(paarung.Hinspiel, paarung.Rueckspiel))
+                if (gesucht(paarung))
                     return paarung;
                 gelesen.Add($"{gegner} {heim}:{auswaerts} → {paarung.Rueckspiel.Score}");
             }

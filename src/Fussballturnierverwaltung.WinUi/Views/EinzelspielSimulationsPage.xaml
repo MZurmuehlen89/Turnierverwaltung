@@ -207,6 +207,10 @@
 
                 <CheckBox Content="Mit Rückspiel" AutomationProperties.AutomationId="Einzelspiel.MitRueckspiel" IsChecked="{Binding EinzelspielMitRueckspiel, Mode=TwoWay}"
                           FontSize="13" Margin="0,14,0,0" />
+                <CheckBox Content="Auswärtstorregel" AutomationProperties.AutomationId="Einzelspiel.Auswaertstorregel"
+                          IsChecked="{Binding EinzelspielAuswaertstorRegel, Mode=TwoWay}"
+                          Visibility="{Binding EinzelspielMitRueckspiel, Converter={StaticResource BoolToVisibility}}"
+                          FontSize="13" Margin="0,2,0,0" />
 
                 <!-- #248: manuelle Hinspiel-Eingabe — dauerhaft sichtbar (nicht nur vor der ersten
                      Simulation!) und mit dem jeweils aktuellen Ergebnis vorausgefüllt, sonst gäbe es

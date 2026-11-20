@@ -1,3 +1,4 @@
+using Fussballturnierverwaltung.Application.Spiele;
 using Fussballturnierverwaltung.Domain.Enums;
 
 namespace Fussballturnierverwaltung.Application.Simulation;
@@ -21,13 +22,22 @@ public sealed record FreiePaarungGesamt(int HeimTore, int AuswaertsTore, Paarung
 
         var sieger = heimGesamt != auswaertsGesamt
             ? (heimGesamt > auswaertsGesamt ? PaarungSieger.Heim : PaarungSieger.Auswaerts)
-            : SiegerNachVerfahren(rueckspiel);
+            : SiegerNachVerfahren(hinspiel, rueckspiel);
         return new FreiePaarungGesamt(heimGesamt, auswaertsGesamt, sieger, Zusatztext(rueckspiel));
     }
 
     // Gesamtstand ausgeglichen: das Verfahren des Rückspiels entscheidet. Dessen „Heim“ ist das Hinspiel-Auswärtsteam.
-    private static PaarungSieger SiegerNachVerfahren(SimulationsErgebnis rueckspiel)
+    private static PaarungSieger SiegerNachVerfahren(SimulationsErgebnis hinspiel, SimulationsErgebnis rueckspiel)
     {
+        if (rueckspiel.EntscheidungArt == EntscheidungArt.Auswaertstorregel) // #539
+            return HinRueckspielWertung.Gesamtwertung(
+                hinspiel.HeimToreRegulaer, hinspiel.AuswaertsToreRegulaer,
+                rueckspiel.HeimToreRegulaer, rueckspiel.AuswaertsToreRegulaer, auswaertstorRegelAktiv: true) switch
+            {
+                > 0 => PaarungSieger.Auswaerts,
+                < 0 => PaarungSieger.Heim,
+                _   => PaarungSieger.Keiner
+            };
         if (rueckspiel.EntscheidungArt == EntscheidungArt.Wiederholungsspiel && rueckspiel.Wiederholung is { } wdh)
             return wdh.HeimGesamt > wdh.AuswaertsGesamt ? PaarungSieger.Auswaerts : PaarungSieger.Heim; // #547
         if (rueckspiel is { EntscheidungArt: EntscheidungArt.Elfmeterschiessen, HeimElfmetertore: { } heimE, AuswaertsElfmetertore: { } auswaertsE })

@@ -47,22 +47,28 @@ public class SimulationsService(
     /// <summary>Rückspiel der freien Hin-/Rückspiel-Simulation (#248), ausführlich; <paramref name="heim"/> ist das
     /// Rückspiel-Heimteam, also das Hinspiel-Auswärtsteam. Ist der Gesamtstand nach 180 Minuten ausgeglichen, läuft das
     /// Rückspiel gemäß <paramref name="verfahren"/> in die Verlängerung (und ggf. das Elfmeterschießen) – die im Stadion
-    /// des Rückspiels gespielt würde. Die Risikostufe richtet sich nach dem Gesamtstand (#671); die freie Simulation
-    /// kennt keine Auswärtstorregel.</summary>
+    /// des Rückspiels gespielt würde. Die Risikostufe richtet sich nach dem Gesamtstand (#671). Bei aktiver
+    /// <paramref name="auswaertstorRegelAktiv"/> entscheiden bei ausgeglichenem Gesamtstand nach 180 Minuten erst die
+    /// Auswärtstore der regulären Spielzeit (<see cref="EntscheidungArt.Auswaertstorregel"/>, wie AD-001 im Turnier);
+    /// nur bei auch gleich vielen läuft das Verfahren.</summary>
     public SimulationsErgebnis RueckspielSimulieren(
         Mannschaft heim, Mannschaft auswaerts, SimulationsErgebnis hinspiel,
-        IReadOnlyList<EntscheidungsVerfahren> verfahren, Random rng)
+        IReadOnlyList<EntscheidungsVerfahren> verfahren, Random rng, bool auswaertstorRegelAktiv = false)
     {
         var ergebnis = SimulationsEngine.Simulieren(heim, auswaerts, [], ausfuehrlich: true, rng,
-            hinspielstand: Hinspielstand.AusHinspiel(hinspiel.HeimToreRegulaer, hinspiel.AuswaertsToreRegulaer, auswaertstorRegelAktiv: false));
+            hinspielstand: Hinspielstand.AusHinspiel(hinspiel.HeimToreRegulaer, hinspiel.AuswaertsToreRegulaer, auswaertstorRegelAktiv));
         logger.LogDebug("Rückspiel: {Heim} {H}:{G} {Gast}",
             heim.Name, ergebnis.HeimToreRegulaer, ergebnis.AuswaertsToreRegulaer, auswaerts.Name);
 
-        // Das Rückspiel-Heimteam war im Hinspiel der Gast; die freie Simulation kennt keine Auswärtstorregel.
+        // Das Rückspiel-Heimteam war im Hinspiel der Gast.
+        bool gesamtstandGleich = hinspiel.HeimToreRegulaer + ergebnis.AuswaertsToreRegulaer
+                               == hinspiel.AuswaertsToreRegulaer + ergebnis.HeimToreRegulaer;
         bool noetig = HinRueckspielWertung.EntscheidungsverfahrenNoetig(
             hinspiel.HeimToreRegulaer, hinspiel.AuswaertsToreRegulaer,
             ergebnis.HeimToreRegulaer, ergebnis.AuswaertsToreRegulaer,
-            auswaertstorRegelAktiv: false);
+            auswaertstorRegelAktiv);
+        if (gesamtstandGleich && !noetig)
+            return ergebnis with { EntscheidungArt = EntscheidungArt.Auswaertstorregel };
         if (!noetig || verfahren.Count == 0)
             return ergebnis;
 
