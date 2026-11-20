@@ -132,6 +132,12 @@ public static class SimulationsEngine
         return (heimVerl, gastVerl, heimElf, gastElf, entscheidung, ereignisse, null, wiederholung);
     }
 
+    /// <summary>#547/#247: Im Wiederholungsspiel tauschen die Teams das Heimrecht – außer auf neutralem Platz und wenn
+    /// ein Gastgeber den Ortsvorteil hat; dort bleibt es wie im ersten Spiel. Eine reine Funktion, damit Engine und
+    /// Anzeige dieselbe Regel nutzen (der Tausch ist nicht gespeichert).</summary>
+    public static bool HeimrechtTauscht(Spielortvorteil spielortvorteil, bool neutralerSpielort) =>
+        spielortvorteil == Spielortvorteil.Heim && !neutralerSpielort;
+
     /// <summary>Issue #352: Ortsvorteil eines Spiels. Außerhalb neutraler Runden hat immer das Heimteam den
     /// Vorteil; auf neutralem Platz nur ein Gastgeber des Turniers — auch wenn er nominell als Gast angesetzt
     /// ist. Treffen zwei Gastgeber (oder zwei Nicht-Gastgeber) aufeinander, bleibt der Platz neutral.</summary>
@@ -203,7 +209,7 @@ public static class SimulationsEngine
     {
         /// <summary>#547: Im Wiederholungsspiel tauschen die Teams das Heimrecht – außer auf neutralem Platz und wenn
         /// ein Gastgeber den Ortsvorteil hat; dort bleibt es wie im ersten Spiel.</summary>
-        public bool HeimrechtTauscht => Spielortvorteil == Spielortvorteil.Heim && !NeutralerSpielort;
+        public bool HeimrechtTauscht => SimulationsEngine.HeimrechtTauscht(Spielortvorteil, NeutralerSpielort);
 
         public Paarung FuerWiederholungsspiel() =>
             HeimrechtTauscht ? this with { Heim = Auswaerts, Auswaerts = Heim } : this;
@@ -392,6 +398,14 @@ public record Wiederholungsergebnis(int HeimTore, int AuswaertsTore, int? HeimTo
             ? new Wiederholungsergebnis(heim, auswaerts,
                 ergebnis.HeimToreWiederholungVerlaengerung, ergebnis.AuswaertsToreWiederholungVerlaengerung)
             : null;
+
+    /// <summary>#247: das Wiederholungsspiel als eigenes Ergebnis (nur Tore, keine Verfahren) – bei getauschtem
+    /// Heimrecht aus Sicht von dessen Heimteam, also gespiegelt gegenüber der gespeicherten Sicht des ersten Heims.</summary>
+    public SimulationsErgebnis AlsErgebnis(bool getauscht) => getauscht
+        ? new SimulationsErgebnis(AuswaertsTore, HeimTore, AuswaertsToreVerlaengerung, HeimToreVerlaengerung,
+            null, null, EntscheidungArt.RegulaereSpielzeit, [])
+        : new SimulationsErgebnis(HeimTore, AuswaertsTore, HeimToreVerlaengerung, AuswaertsToreVerlaengerung,
+            null, null, EntscheidungArt.RegulaereSpielzeit, []);
 }
 
 /// <summary>Issue #352: wer im Spiel den Ortsvorteil hat — siehe

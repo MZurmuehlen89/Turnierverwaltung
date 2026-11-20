@@ -127,14 +127,15 @@ public class ZeitleisteTests
             "[Ende] ABPFIFF · 2:2 (4:3 i.E.) @0");
     }
 
+    // ── Wiederholungsspiel (#247 K9/K12/K14): eigene Zeitleiste, nicht Teil der des ersten Spiels ──
+
     [Fact]
-    public void Wiederholungsspiel_MitEigenenEreignissen_EigenerAbschnittMitNeuerUhr()
+    public void ErstesSpiel_MitWiederholungsspiel_EnthaeltKeineEreignisseUndKeinenAbschnittDesWiederholungsspiels()
     {
         var zeilen = Bauen(
             [E(20, EreignisArt.Tor, true, "Tor"),
              E(80, EreignisArt.Tor, false, "Tor"),
              E(10, EreignisArt.Tor, true, "Tor", wiederholung: true),
-             E(50, EreignisArt.Tor, true, "Tor", wiederholung: true),
              E(70, EreignisArt.Tor, false, "Tor", wiederholung: true)],
             1, 1, EntscheidungArt.Wiederholungsspiel, wiederholung: new Wiederholungsergebnis(2, 1, null, null));
 
@@ -143,45 +144,90 @@ public class ZeitleisteTests
             "20' Heimteam Tor",
             "[Abschnitt] HALBZEIT · 1:0 @45",
             "80' Gastteam Tor",
-            "[Wiederholung] WIEDERHOLUNGSSPIEL @0",
-            "10' Heimteam Tor",
+            "[Ende] ABPFIFF · 1:1 @0");
+    }
+
+    [Fact]
+    public void ErstesSpiel_NurEreignisseDesWiederholungsspiels_LeereListe()
+    {
+        Bauen([E(5, EreignisArt.Tor, false, "Tor", wiederholung: true)], 1, 0).Should().BeEmpty();
+    }
+
+    private static List<EinzelspielEreignisZeile> WiederholungBauen(
+        IEnumerable<(int Minute, int? Nachspielminute, EreignisArt Art, bool IstHeimSeite, string Beschreibung, bool ImWiederholungsspiel)> ereignisse,
+        Wiederholungsergebnis wiederholung, bool getauscht)
+        => Zeitleiste.ErstellenWiederholungsspiel(
+            wiederholung,
+            ereignisse.Select(e => new ZeitleistenEreignis(e.Minute, e.Nachspielminute, e.Art, e.IstHeimSeite, e.Beschreibung, e.ImWiederholungsspiel)),
+            new SpielSeite(new Mannschaft { Name = HEIM }, HEIM),
+            new SpielSeite(new Mannschaft { Name = GAST }, GAST),
+            getauscht).ToList();
+
+    [Fact]
+    public void Wiederholungsspiel_OhneTausch_EigeneUhrMitAnpfiffHalbzeitUndAbpfiff()
+    {
+        var zeilen = WiederholungBauen(
+            [E(20, EreignisArt.Tor, false, "Tor", wiederholung: true),
+             E(50, EreignisArt.Tor, true, "Tor", wiederholung: true),
+             E(70, EreignisArt.Tor, true, "Tor", wiederholung: true),
+             E(30, EreignisArt.Tor, true, "Tor")], // Ereignis des ersten Spiels: gehört nicht hierher
+            new Wiederholungsergebnis(2, 1, null, null), getauscht: false);
+
+        Texte(zeilen).Should().Equal(
+            "[Start] ANPFIFF @0",
+            "20' Gastteam Tor",
+            "[Abschnitt] HALBZEIT · 0:1 @45",
             "50' Heimteam Tor",
-            "70' Gastteam Tor",
-            "[Wiederholung] ENDE WIEDERHOLUNGSSPIEL · 2:1 @0",
-            "[Ende] ABPFIFF · 1:1 (Wdh. 2:1) @0");
+            "70' Heimteam Tor",
+            "[Ende] ABPFIFF · 2:1 @0");
     }
 
     [Fact]
-    public void Wiederholungsspiel_OhneEigeneEreignisse_AbschnittNurMitEndstand()
+    public void Wiederholungsspiel_MitTausch_SeitenUndEndstandAusSichtDesWiederholungsHeims()
     {
-        var zeilen = Bauen(
-            [E(20, EreignisArt.Tor, true, "Tor"), E(30, EreignisArt.Tor, false, "Tor")],
-            1, 1, EntscheidungArt.Wiederholungsspiel, wiederholung: new Wiederholungsergebnis(1, 0, null, null));
+        // gespeichert aus Sicht des Heimteams des ersten Spiels (Heimteam 2:1 vorn); im Wiederholungsspiel
+        // ist das Gastteam des ersten Spiels Heim – links steht es, seine Tore stehen links.
+        var zeilen = WiederholungBauen(
+            [E(20, EreignisArt.Tor, false, "Tor", wiederholung: true),
+             E(50, EreignisArt.Tor, true, "Tor", wiederholung: true),
+             E(70, EreignisArt.Tor, true, "Tor", wiederholung: true)],
+            new Wiederholungsergebnis(2, 1, null, null), getauscht: true);
 
+        zeilen.Where(z => !z.IstTrenner).Select(z => z.IstHeimSeite).Should().Equal(true, false, false);
         Texte(zeilen).Should().Equal(
             "[Start] ANPFIFF @0",
-            "20' Heimteam Tor",
-            "30' Gastteam Tor",
-            "[Abschnitt] HALBZEIT · 1:1 @45",
-            "[Wiederholung] WIEDERHOLUNGSSPIEL @0",
-            "[Wiederholung] ENDE WIEDERHOLUNGSSPIEL · 1:0 @0",
-            "[Ende] ABPFIFF · 1:1 (Wdh. 1:0) @0");
-    }
-
-    [Fact]
-    public void Wiederholungsspiel_NurEreignisseOhneErgebnis_KeineEndmarke()
-    {
-        var zeilen = Bauen(
-            [E(20, EreignisArt.Tor, true, "Tor"), E(5, EreignisArt.Tor, false, "Tor", wiederholung: true)],
-            1, 0);
-
-        Texte(zeilen).Should().Equal(
-            "[Start] ANPFIFF @0",
-            "20' Heimteam Tor",
+            "20' Gastteam Tor",
             "[Abschnitt] HALBZEIT · 1:0 @45",
-            "[Wiederholung] WIEDERHOLUNGSSPIEL @0",
-            "5' Gastteam Tor",
-            "[Ende] ABPFIFF · 1:0 @0");
+            "50' Heimteam Tor",
+            "70' Heimteam Tor",
+            "[Ende] ABPFIFF · 1:2 @0");
+    }
+
+    [Fact]
+    public void Wiederholungsspiel_MitVerlaengerung_TrennerWieImErstenSpiel()
+    {
+        var zeilen = WiederholungBauen(
+            [E(30, EreignisArt.Tor, true, "Tor", wiederholung: true),
+             E(60, EreignisArt.Tor, false, "Tor", wiederholung: true),
+             E(100, EreignisArt.Tor, true, "Tor", wiederholung: true)],
+            new Wiederholungsergebnis(1, 1, 1, 0), getauscht: false);
+
+        Texte(zeilen).Should().Equal(
+            "[Start] ANPFIFF @0",
+            "30' Heimteam Tor",
+            "[Abschnitt] HALBZEIT · 1:0 @45",
+            "60' Gastteam Tor",
+            "[Abschnitt] 90 MINUTEN · 1:1 @90",
+            "100' Heimteam Tor",
+            "[Abschnitt] HALBZEIT VERLÄNGERUNG @105",
+            "[Abschnitt] ENDE VERLÄNGERUNG · 2:1 @120",
+            "[Ende] ABPFIFF · 2:1 @0");
+    }
+
+    [Fact]
+    public void Wiederholungsspiel_OhneEreignisse_LeereListe()
+    {
+        WiederholungBauen([], new Wiederholungsergebnis(1, 0, null, null), getauscht: false).Should().BeEmpty();
     }
 
     // ── Zeilen ───────────────────────────────────────────────────────────

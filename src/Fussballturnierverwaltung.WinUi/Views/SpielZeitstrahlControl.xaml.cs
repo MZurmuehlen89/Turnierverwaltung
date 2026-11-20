@@ -126,9 +126,6 @@ public sealed partial class SpielZeitstrahlControl : UserControl
     private void Neuzeichnen()
     {
         var zeilen = (Ereignisse as IEnumerable<EinzelspielEreignisZeile>)?.ToList() ?? [];
-        // #547: das Wiederholungsspiel hat eine eigene Uhr – seine Ereignisse gehören nicht auf diesen Zeitstrahl.
-        int wiederholungAb = zeilen.FindIndex(z => z.IstTrenner && z.TrennerArt == TrennerArt.Wiederholung);
-        if (wiederholungAb >= 0) zeilen = zeilen[..wiederholungAb];
 
         HeimKuerzelText.Text      = HeimKuerzel ?? "";
         AuswaertsKuerzelText.Text = AuswaertsKuerzel ?? "";

@@ -172,4 +172,40 @@ public class SpielKopfTests
         kopf.AuswaertsKuerzel.Should().Be("BET");
         kopf.HeimWappen.Should().Equal(7);
     }
+
+    // ── Wiederholungsspiel (#247 K12) ────────────────────────────────────
+
+    [Fact]
+    public void Wiederholungsspiel_OhneTausch_HeimteamLinksUndHeimrechtWieImErstenSpiel()
+    {
+        var kopf = SpielKopf.Wiederholungsspiel(
+            SpielSeite.Von(_alpha), SpielSeite.Von(_beta), new Wiederholungsergebnis(2, 1, null, null), getauscht: false, _quellen);
+
+        kopf.Kontext.Should().Be("Wiederholungsspiel");
+        kopf.HeimName.Should().Be("Alpha");
+        kopf.Score.Should().Be("2:1");
+        kopf.Entscheidung.Should().Be("Heimrecht wie im ersten Spiel");
+    }
+
+    [Fact]
+    public void Wiederholungsspiel_MitTausch_GastteamDesErstenSpielsLinksUndScoreGespiegelt()
+    {
+        var kopf = SpielKopf.Wiederholungsspiel(
+            SpielSeite.Von(_alpha), SpielSeite.Von(_beta), new Wiederholungsergebnis(2, 1, null, null), getauscht: true, _quellen);
+
+        kopf.HeimName.Should().Be("Beta Berlin");
+        kopf.AuswaertsName.Should().Be("Alpha");
+        kopf.Score.Should().Be("1:2");
+        kopf.Entscheidung.Should().Be("Heimrecht getauscht");
+    }
+
+    [Fact]
+    public void Wiederholungsspiel_MitVerlaengerung_ScoreGesamtUndZwischenstand()
+    {
+        var kopf = SpielKopf.Wiederholungsspiel(
+            SpielSeite.Von(_alpha), SpielSeite.Von(_beta), new Wiederholungsergebnis(1, 1, 1, 0), getauscht: true, _quellen);
+
+        kopf.Score.Should().Be("1:2");
+        kopf.Zwischenstaende.Should().Be("90' 1:1 · n.V. 1:2");
+    }
 }

@@ -5,7 +5,7 @@ namespace Fussballturnierverwaltung.Application.Simulation;
 /// <summary>Issue #237: Trenner-Untertyp fürs Rendering der Zeitleisten-Grafik — Abschnitt/Elfmeter
 /// durchbrechen die Mittelachse mit einer Linie, Start/Ende/Beinabschnitt stehen als eigenständige
 /// Marke ohne Linie (Anpfiff/Abpfiff bzw. HINSPIEL/RÜCKSPIEL-Kopf bei Hin- und Rückspiel).</summary>
-public enum TrennerArt { Abschnitt, Elfmeter, Start, Ende, Beinabschnitt, Wiederholung }
+public enum TrennerArt { Abschnitt, Elfmeter, Start, Ende, Beinabschnitt }
 
 public record EinzelspielEreignisZeile(
     string Minute, string Seite, string Art, bool IstHeimSeite,
@@ -18,7 +18,7 @@ public record EinzelspielEreignisZeile(
     // Nur fuer IstTrenner==true aussagekräftig — die beiden Properties kombinieren beides, damit die
     // Zeitleisten-DataTemplate-Grids nicht zusätzlich auf IstTrenner prüfen müssen (sonst würde bei
     // TrennerArt-Default=Abschnitt jede normale Ereignis-Zeile fälschlich als Abschnittstrenner gelten).
-    public bool ZeigtAlsAbschnittMitLinie   => IstTrenner && TrennerArt is TrennerArt.Abschnitt or TrennerArt.Elfmeter or TrennerArt.Wiederholung;
+    public bool ZeigtAlsAbschnittMitLinie   => IstTrenner && TrennerArt is TrennerArt.Abschnitt or TrennerArt.Elfmeter;
     public bool ZeigtAlsEigenstaendigeMarke => IstTrenner && TrennerArt is TrennerArt.Start or TrennerArt.Ende or TrennerArt.Beinabschnitt;
 
     // WinUI3 kennt kein Style.Triggers/DataTrigger (anders als das WPF-Original) — die Abschnitt-Pille
@@ -42,24 +42,43 @@ public sealed record ZeitleistenEreignis(
 }
 
 /// <summary>Baut die Ereigniszeitleiste eines Spiels inkl. Abschnittstrenner (Halbzeit, 90 Minuten,
-/// Halbzeit/Ende Verlängerung, Wiederholungsspiel, Elfmeterschießen) und ANPFIFF/ABPFIFF-Marken (#237, #509).</summary>
+/// Halbzeit/Ende Verlängerung, Elfmeterschießen) und ANPFIFF/ABPFIFF-Marken (#237, #509).</summary>
 public static class Zeitleiste
 {
-    /// <summary>Die Zeilen der Zeitleiste in Anzeigereihenfolge; ohne Ereignisse leer (die Schnellsimulation
-    /// persistiert keine Einzelereignisse – sonst stünde dort ein vorgetäuschter HALBZEIT-Trenner). Die Spielstände
-    /// kommen aus <paramref name="stand"/>; dessen <c>Ereignisse</c> werden nicht gelesen.</summary>
+    /// <summary>Die Zeilen der Zeitleiste des (ersten) Spiels in Anzeigereihenfolge; ohne Ereignisse leer (die
+    /// Schnellsimulation persistiert keine Einzelereignisse – sonst stünde dort ein vorgetäuschter HALBZEIT-Trenner).
+    /// Die Spielstände kommen aus <paramref name="stand"/>; dessen <c>Ereignisse</c> werden nicht gelesen. Das
+    /// Wiederholungsspiel hat eine eigene Uhr und eine eigene Zeitleiste (<see cref="ErstellenWiederholungsspiel"/>,
+    /// #247) – seine Ereignisse gehören nicht hierher.</summary>
     public static IReadOnlyList<EinzelspielEreignisZeile> Erstellen(
-        SimulationsErgebnis stand, IEnumerable<ZeitleistenEreignis> ereignisse, SpielSeite heim, SpielSeite auswaerts)
-    {
-        var alle = ereignisse.ToList();
-        if (alle.Count == 0) return [];
+        SimulationsErgebnis stand, IEnumerable<ZeitleistenEreignis> ereignisse, SpielSeite heim, SpielSeite auswaerts) =>
+        Aufbauen(stand, ereignisse.Where(ev => !ev.ImWiederholungsspiel).ToList(), heim, auswaerts);
 
-        // #547: das Wiederholungsspiel hat einen eigenen Abschnitt mit eigener Uhr – seine Minuten zählen neu.
+    /// <summary>Die Zeitleiste des Wiederholungsspiels (#247) mit eigenem Anpfiff bei Minute 0 und eigenen Trennern.
+    /// <paramref name="heim"/>/<paramref name="auswaerts"/> sind die Seiten des ersten Spiels, die Ereignisse stehen –
+    /// wie <paramref name="wiederholung"/> – in dessen Sicht; bei <paramref name="getauscht"/> wird gespiegelt, damit das
+    /// tatsächliche Heimteam des Wiederholungsspiels links steht.</summary>
+    public static IReadOnlyList<EinzelspielEreignisZeile> ErstellenWiederholungsspiel(
+        Wiederholungsergebnis wiederholung, IEnumerable<ZeitleistenEreignis> ereignisse, SpielSeite heim, SpielSeite auswaerts, bool getauscht)
+    {
+        var eigene = ereignisse
+            .Where(ev => ev.ImWiederholungsspiel)
+            .Select(ev => getauscht ? ev with { IstHeimSeite = !ev.IstHeimSeite } : ev)
+            .ToList();
+        return getauscht
+            ? Aufbauen(wiederholung.AlsErgebnis(true), eigene, auswaerts, heim)
+            : Aufbauen(wiederholung.AlsErgebnis(false), eigene, heim, auswaerts);
+    }
+
+    private static IReadOnlyList<EinzelspielEreignisZeile> Aufbauen(
+        SimulationsErgebnis stand, List<ZeitleistenEreignis> ereignisse, SpielSeite heim, SpielSeite auswaerts)
+    {
+        if (ereignisse.Count == 0) return [];
+
         var aufbau = new Aufbau(stand, heim, auswaerts);
         aufbau.Anpfiff();
-        aufbau.Hauptspiel(alle.Where(ev => !ev.ImWiederholungsspiel));
+        aufbau.Hauptspiel(ereignisse);
         aufbau.SchwellenPruefen(int.MaxValue); // noch nicht erreichte Schwellen nachtragen
-        aufbau.Wiederholungsabschnitt(alle.Where(ev => ev.ImWiederholungsspiel));
         aufbau.Elfmetertrenner();
         aufbau.Abpfiff();
         return aufbau.Zeilen;
@@ -124,20 +143,6 @@ public static class Zeitleiste
             }
         }
 
-        public void Wiederholungsabschnitt(IEnumerable<ZeitleistenEreignis> ereignisse)
-        {
-            var eigene = ereignisse.ToList();
-            if (stand.Wiederholung is null && eigene.Count == 0) return;
-
-            Zeilen.Add(EinzelspielEreignisZeile.Trenner("WIEDERHOLUNGSSPIEL", TrennerArt.Wiederholung));
-            foreach (var ereignis in eigene.Chronologisch(ev => ev.Minute, ev => ev.Nachspielminute))
-                Zeilen.Add(Zeile(ereignis));
-
-            if (stand.Wiederholung is { } wdh)
-                Zeilen.Add(EinzelspielEreignisZeile.Trenner(
-                    $"ENDE WIEDERHOLUNGSSPIEL · {wdh.HeimGesamt}:{wdh.AuswaertsGesamt}", TrennerArt.Wiederholung));
-        }
-
         public void Elfmetertrenner()
         {
             if (_hatElfmeter)
@@ -148,8 +153,6 @@ public static class Zeitleiste
         public void Abpfiff()
         {
             string elfmeterZusatz = _hatElfmeter ? $" ({stand.HeimElfmetertore}:{stand.AuswaertsElfmetertore} i.E.)" : "";
-            if (stand.Wiederholung is { } wdh)
-                elfmeterZusatz += $" (Wdh. {wdh.HeimGesamt}:{wdh.AuswaertsGesamt})";
             Zeilen.Add(EinzelspielEreignisZeile.Trenner(
                 $"ABPFIFF · {Endstand(true)}:{Endstand(false)}{elfmeterZusatz}", TrennerArt.Ende));
         }

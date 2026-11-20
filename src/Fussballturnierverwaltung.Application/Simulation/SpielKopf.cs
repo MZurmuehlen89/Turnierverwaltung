@@ -37,6 +37,18 @@ public sealed record SpielKopf(
             auswaerts.Name, auswaerts.Wappen, SpielKopfUntertitel.Fuer(auswaerts.Mannschaft, heim.Mannschaft, untertitel), Kuerzel(auswaerts),
             score, zusatz, null);
 
+    /// <summary>#247: Kopf der Wiederholungsspiel-Karte – das tatsächliche Heimteam links. <paramref name="heim"/>/
+    /// <paramref name="auswaerts"/> sind die Seiten des ersten Spiels, <paramref name="wiederholung"/> steht in dessen
+    /// Sicht (so gespeichert); bei <paramref name="getauscht"/> werden Seiten und Tore gespiegelt.</summary>
+    public static SpielKopf Wiederholungsspiel(
+        SpielSeite heim, SpielSeite auswaerts, Wiederholungsergebnis wiederholung, bool getauscht, UntertitelQuellen untertitel)
+    {
+        var links  = getauscht ? auswaerts : heim;
+        var rechts = getauscht ? heim : auswaerts;
+        return Aus("Wiederholungsspiel", links, rechts, wiederholung.AlsErgebnis(getauscht), untertitel)
+            with { Entscheidung = getauscht ? "Heimrecht getauscht" : "Heimrecht wie im ersten Spiel" };
+    }
+
     // Wie bei kicker: nach Elfmeterschießen steht der Elfmeterstand groß in der Box, das Ergebnis
     // nach Verlängerung wandert in die Zwischenstände.
     private static string ScoreText(SimulationsErgebnis e)
