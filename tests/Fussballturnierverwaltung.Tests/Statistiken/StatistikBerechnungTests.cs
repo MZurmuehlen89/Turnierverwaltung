@@ -96,6 +96,53 @@ public class StatistikBerechnungTests
         sicht.Single(s => s.Mannschaft.Id == _a.Id).Tore.Should().Be(2);
     }
 
+    // ── Wiederholungsspiel (#547) ─────────────────────────────────────────
+
+    private static Spiel MitWiederholung(int heimWdh, int auswaertsWdh)
+    {
+        var spiel = Spiel(_a, _b, 1, 1);
+        spiel.Ergebnis!.EntscheidungArt = EntscheidungArt.Wiederholungsspiel;
+        spiel.Ergebnis.HeimToreWiederholung = heimWdh;
+        spiel.Ergebnis.AuswaertsToreWiederholung = auswaertsWdh;
+        return spiel;
+    }
+
+    [Fact]
+    public void AusMannschaftsSicht_Wiederholungsspiel_ZaehltAlsZusaetzlichesSpielMitSeinenToren()
+    {
+        var sicht = Sicht(MitWiederholung(0, 2));
+
+        sicht.Should().HaveCount(4);
+        var a = sicht.Where(s => s.Mannschaft.Id == _a.Id).ToList();
+        a.Select(s => (s.Tore, s.Gegentore, s.Ausgang)).Should().Equal(
+            (1, 1, SpielAusgang.Unentschieden), (0, 2, SpielAusgang.Niederlage));
+        a.Select(s => s.IstWiederholungsspiel).Should().Equal(false, true);
+        sicht.Where(s => s.Mannschaft.Id == _b.Id).Last().Ausgang.Should().Be(SpielAusgang.Sieg);
+    }
+
+    [Fact]
+    public void AusMannschaftsSicht_WiederholungsspielNachVerlaengerung_ZaehltDieVerlaengerungsToreMit()
+    {
+        var spiel = MitWiederholung(1, 1);
+        spiel.Ergebnis!.HeimToreWiederholungVerlaengerung = 1;
+        spiel.Ergebnis.AuswaertsToreWiederholungVerlaengerung = 0;
+
+        Sicht(spiel).Last(s => s.Mannschaft.Id == _a.Id).Tore.Should().Be(2);
+    }
+
+    [Fact]
+    public void AusMannschaftsSicht_SpielOhneWiederholungsspiel_BleibtBeiZweiSichten() =>
+        Sicht(Spiel(_a, _b, 1, 1)).Should().HaveCount(2);
+
+    [Fact]
+    public void Bilanz_Wiederholungsspiel_GehtInSpieleUndTorbilanzEin()
+    {
+        var bilanz = BilanzVon(StatistikBerechnung.BilanzRangliste(Sicht(MitWiederholung(0, 2))), _a);
+
+        (bilanz.Spiele, bilanz.Tore, bilanz.Gegentore, bilanz.Unentschieden, bilanz.Niederlagen)
+            .Should().Be((2, 1, 3, 1, 1));
+    }
+
     [Fact]
     public void AusMannschaftsSicht_KoRueckspiel_WertetDasSpielNichtDieGesamtwertung()
     {

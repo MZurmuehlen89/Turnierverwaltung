@@ -38,7 +38,8 @@ public static class TurnierStatistikBerechnung
     /// (Golden Goal, Auswärtstorregel, Los …) nur, wenn sie vorkamen.</summary>
     public static IReadOnlyList<EntscheidungsAnzahl> Entscheidungen(IEnumerable<MannschaftsSpiel> spiele)
     {
-        var anzahl = JeSpiel(spiele)
+        // Ein Wiederholungsspiel (#547) ist die Folge der Entscheidung, nicht noch eine Entscheidung für sich.
+        var anzahl = JeSpiel(spiele.Where(s => !s.IstWiederholungsspiel))
             .GroupBy(s => s.Spiel.Ergebnis!.EntscheidungArt)
             .ToDictionary(g => g.Key, g => g.Count());
 

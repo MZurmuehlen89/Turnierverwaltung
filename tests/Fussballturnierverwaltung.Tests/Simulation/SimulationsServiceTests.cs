@@ -380,4 +380,56 @@ public class SimulationsServiceTests
         }
         static List<SimuliertesEreignis> Verlaengerung(SimulationsErgebnis e) => [.. e.Ereignisse.Where(x => x.Minute > 90)];
     }
+
+    // Wiederholungsspiel (#547, K5): Tore, Ereignisse mit Markierung und Sieger landen in der Datenbank; der Sieger
+    // kommt aus dem Wiederholungsspiel, nicht aus dem torgleichen ersten Spiel.
+    [Fact]
+    public async Task SpielSimulierenAsync_Wiederholungsspiel_SpeichertFelderMarkierungUndSieger()
+    {
+        await using var ctx = SimulationsDienste.NeuerContext();
+        GrunddatenAnlegen(ctx, mannschaften: 2);
+        ctx.Entscheidungsverfahren.Local.Single().VerfahrenArt = VerfahrenArt.Wiederholungsspiel;
+        ctx.Entscheidungsverfahren.Add(new EntscheidungsVerfahren
+            { Id = 2, RegelwerkId = 1, Reihenfolge = 2, VerfahrenArt = VerfahrenArt.Losentscheid });
+        ctx.TurnierRunden.Add(new TurnierRunde
+        {
+            Id = 1, TurnierInstanzId = 1, Name = "Finale", Reihenfolge = 1, Rundenart = Rundenart.Finale, RegelwerkId = 1
+        });
+        ctx.Spiele.Add(new Spiel
+        {
+            Id = 1, TurnierInstanzId = 1, TurnierRundeId = 1, Spielnummer = 1,
+            HeimMannschaftId = 1, AuswaertsMannschaftId = 2, Status = SpielStatus.Geplant
+        });
+        ctx.SaveChanges();
+        var service = SimulationsDienste.Service(ctx, new Zufallsquelle());
+
+        int mitWiederholung = 0;
+        for (int seed = 1; seed <= 200; seed++)
+        {
+            var sim = await service.SpielSimulierenAsync(1, new Random(seed), ueberschreiben: true);
+            if (sim.Wiederholung is not { } wdh) continue;
+            mitWiederholung++;
+
+            var gespeichert = SpieleMitErgebnis(ctx).Single().Ergebnis!;
+            gespeichert.HeimToreRegulaer.Should().Be(gespeichert.AuswaertsToreRegulaer, "nur ein Remis führt zum Wiederholungsspiel");
+            (gespeichert.HeimToreWiederholung, gespeichert.AuswaertsToreWiederholung)
+                .Should().Be((wdh.HeimTore, wdh.AuswaertsTore));
+            if (wdh.HeimGesamt != wdh.AuswaertsGesamt)
+            {
+                gespeichert.EntscheidungArt.Should().Be(EntscheidungArt.Wiederholungsspiel);
+                gespeichert.SiegerMannschaftId.Should().Be(wdh.HeimGesamt > wdh.AuswaertsGesamt ? 1 : 2);
+            }
+            else
+            {
+                gespeichert.EntscheidungArt.Should().Be(EntscheidungArt.Losentscheid);
+            }
+
+            var ereignisse = SpieleMitErgebnis(ctx).Single().Ereignisse;
+            ereignisse.Count(e => e.ImWiederholungsspiel && e.EreignisArt == EreignisArt.Tor)
+                .Should().BeGreaterThanOrEqualTo(wdh.HeimTore + wdh.AuswaertsTore);
+            ereignisse.Count(e => !e.ImWiederholungsspiel && e.EreignisArt == EreignisArt.Tor)
+                .Should().Be(gespeichert.HeimToreRegulaer + gespeichert.AuswaertsToreRegulaer);
+        }
+        mitWiederholung.Should().BeGreaterThan(10);
+    }
 }

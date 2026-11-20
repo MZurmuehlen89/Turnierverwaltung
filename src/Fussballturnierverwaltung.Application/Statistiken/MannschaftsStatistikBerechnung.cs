@@ -51,11 +51,11 @@ public static class MannschaftsStatistikBerechnung
     // ── Hilfsmethoden ─────────────────────────────────────────────────────
 
     private static bool HatTorverlauf(MannschaftsSpiel spiel)
-        => spiel.Spiel.Ereignisse.Count > 0
-           && spiel.Spiel.Ereignisse.Count(IstTor) == spiel.Tore + spiel.Gegentore;
+        => spiel.Ereignisse.Any()
+           && spiel.Ereignisse.Count(IstTor) == spiel.Tore + spiel.Gegentore;
 
     private static IEnumerable<int> TorMinuten(MannschaftsSpiel spiel, bool eigene)
-        => spiel.Spiel.Ereignisse
+        => spiel.Ereignisse
             .Where(e => IstTor(e) && (e.MannschaftId == spiel.Mannschaft.Id) == eigene)
             .Select(e => e.Minute);
 

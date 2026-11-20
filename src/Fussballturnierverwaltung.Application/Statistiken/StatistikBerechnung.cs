@@ -18,11 +18,7 @@ public static class StatistikBerechnung
         => [.. spiele
             .Where(s => s.Status == SpielStatus.Abgeschlossen && s.Ergebnis is not null
                      && s.HeimMannschaft is not null && s.AuswaertsMannschaft is not null)
-            .SelectMany(s => new[]
-            {
-                SichtErstellen(s, istHeim: true,  punkteRegelJeRunde[s.TurnierRundeId]),
-                SichtErstellen(s, istHeim: false, punkteRegelJeRunde[s.TurnierRundeId])
-            })];
+            .SelectMany(s => Sichten(s, punkteRegelJeRunde[s.TurnierRundeId]))];
 
     /// <summary>Spiele auf neutralem Platz gehören weder zur Heim- noch zur Auswärtsbilanz.</summary>
     public static bool HatHeimUndAuswaertsSpiele(IEnumerable<MannschaftsSpiel> spiele)
@@ -119,7 +115,7 @@ public static class StatistikBerechnung
     private static GrosschancenEintrag GrosschancenAus(Mannschaft mannschaft, IReadOnlyList<MannschaftsSpiel> spiele)
     {
         var eigene = spiele
-            .SelectMany(s => s.Spiel.Ereignisse)
+            .SelectMany(s => s.Ereignisse)
             .Where(e => e.MannschaftId == mannschaft.Id && e.Chancenart is Chancenart.Grosschance or Chancenart.Elfmeter
                         && e.EreignisArt is EreignisArt.Tor or EreignisArt.GoldenGoal or EreignisArt.SilverGoal or EreignisArt.Grosschance)
             .ToList();
@@ -142,6 +138,37 @@ public static class StatistikBerechnung
 
     // ── Hilfsmethoden ─────────────────────────────────────────────────────
 
+    /// <summary>Beide Mannschaften des Spiels; ein Wiederholungsspiel (#547) folgt als eigenes, zusätzliches Spiel – mit
+    /// seinen Toren (nach Verlängerung), ohne Halbzeitstand und mit den Karten seiner Ereignisse.</summary>
+    private static IEnumerable<MannschaftsSpiel> Sichten(Spiel spiel, PunkteRegel punkteRegel)
+    {
+        yield return SichtErstellen(spiel, istHeim: true, punkteRegel);
+        yield return SichtErstellen(spiel, istHeim: false, punkteRegel);
+        if (spiel.Ergebnis!.HeimToreWiederholung is null) yield break;
+
+        yield return WiederholungsSichtErstellen(spiel, istHeim: true, punkteRegel);
+        yield return WiederholungsSichtErstellen(spiel, istHeim: false, punkteRegel);
+    }
+
+    private static MannschaftsSpiel WiederholungsSichtErstellen(Spiel spiel, bool istHeim, PunkteRegel punkteRegel)
+    {
+        var ergebnis = spiel.Ergebnis!;
+        var mannschaft = istHeim ? spiel.HeimMannschaft! : spiel.AuswaertsMannschaft!;
+        int heim = ergebnis.HeimToreWiederholung!.Value + (ergebnis.HeimToreWiederholungVerlaengerung ?? 0);
+        int auswaerts = (ergebnis.AuswaertsToreWiederholung ?? 0) + (ergebnis.AuswaertsToreWiederholungVerlaengerung ?? 0);
+        return new MannschaftsSpiel(
+            mannschaft, istHeim, spiel.TurnierRunde.NeutralerSpielort,
+            istHeim ? heim : auswaerts, istHeim ? auswaerts : heim,
+            null, null,
+            KartenZaehlen(spiel, mannschaft, EreignisArt.GelbeKarte, imWiederholungsspiel: true),
+            KartenZaehlen(spiel, mannschaft, EreignisArt.RoteKarte, imWiederholungsspiel: true),
+            punkteRegel, spiel, IstWiederholungsspiel: true);
+    }
+
+    private static int KartenZaehlen(Spiel spiel, Mannschaft mannschaft, EreignisArt art, bool imWiederholungsspiel)
+        => spiel.Ereignisse.Count(e => e.MannschaftId == mannschaft.Id && e.EreignisArt == art
+                                       && e.ImWiederholungsspiel == imWiederholungsspiel);
+
     private static MannschaftsSpiel SichtErstellen(Spiel spiel, bool istHeim, PunkteRegel punkteRegel)
     {
         var ergebnis   = spiel.Ergebnis!;
@@ -154,8 +181,8 @@ public static class StatistikBerechnung
             istHeim ? ergebnis.AuswaertsToreGesamt   : ergebnis.HeimToreGesamt,
             istHeim ? ergebnis.HalbzeitHeimTore      : ergebnis.HalbzeitAuswaertsTore,
             istHeim ? ergebnis.HalbzeitAuswaertsTore : ergebnis.HalbzeitHeimTore,
-            spiel.Ereignisse.Count(e => e.MannschaftId == mannschaft.Id && e.EreignisArt == EreignisArt.GelbeKarte),
-            spiel.Ereignisse.Count(e => e.MannschaftId == mannschaft.Id && e.EreignisArt == EreignisArt.RoteKarte),
+            KartenZaehlen(spiel, mannschaft, EreignisArt.GelbeKarte, imWiederholungsspiel: false),
+            KartenZaehlen(spiel, mannschaft, EreignisArt.RoteKarte, imWiederholungsspiel: false),
             punkteRegel,
             spiel);
     }

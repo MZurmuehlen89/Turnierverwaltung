@@ -190,7 +190,8 @@ public static class MannschaftsSeitenBuilder
     {
         var e = spiel.Spiel.Ergebnis!;
         bool heim = spiel.IstHeim;
-        string detail = SpielErgebnisFormatierer.DetailText(e, ausHeimSicht: heim);
+        // Das Wiederholungsspiel (#547) steht als eigene Zeile; sein Stand trägt keinen Zusatz.
+        string detail = spiel.IstWiederholungsspiel ? "" : SpielErgebnisFormatierer.DetailText(e, ausHeimSicht: heim);
 
         return new MannschaftsSpielZeile(
             RundenText(spiel),
@@ -208,6 +209,7 @@ public static class MannschaftsSeitenBuilder
         var s = spiel.Spiel;
         var teile = new List<string> { s.TurnierRunde.Name };
         if (s.GruppenNummer is int gruppe) teile.Add($"Gr.{gruppe}");
+        if (spiel.IstWiederholungsspiel) teile.Add("Wiederholungsspiel");
 
         if (HinRueckspielWertung.IstKoRunde(s.TurnierRunde))
         {

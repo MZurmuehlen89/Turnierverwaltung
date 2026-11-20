@@ -183,6 +183,7 @@ public class ImportExportService(
             "Heim", "Auswaerts",
             "HeimTore", "AuswaertsTore", "HeimToreNV", "AuswaertsToreNV",
             "HeimElf", "AuswaertsElf",
+            "HeimWdh", "AuswaertsWdh", "HeimWdhNV", "AuswaertsWdhNV",
             "Status", "Entscheidung"));
 
         int gesamt = 0;
@@ -204,6 +205,10 @@ public class ImportExportService(
                     e?.AuswaertsToreVerlaengerung?.ToString()   ?? "",
                     e?.HeimElfmetertore?.ToString()             ?? "",
                     e?.AuswaertsElfmetertore?.ToString()        ?? "",
+                    e?.HeimToreWiederholung?.ToString()                   ?? "",
+                    e?.AuswaertsToreWiederholung?.ToString()              ?? "",
+                    e?.HeimToreWiederholungVerlaengerung?.ToString()      ?? "",
+                    e?.AuswaertsToreWiederholungVerlaengerung?.ToString() ?? "",
                     s.Status.ToString(),
                     e?.EntscheidungArt.ToString() ?? ""));
                 gesamt++;
@@ -248,6 +253,10 @@ public class ImportExportService(
                     auswaertsToreNV = e?.AuswaertsToreVerlaengerung,
                     heimElf         = e?.HeimElfmetertore,
                     auswaertsElf    = e?.AuswaertsElfmetertore,
+                    heimToreWdh        = e?.HeimToreWiederholung,
+                    auswaertsToreWdh   = e?.AuswaertsToreWiederholung,
+                    heimToreWdhNV      = e?.HeimToreWiederholungVerlaengerung,
+                    auswaertsToreWdhNV = e?.AuswaertsToreWiederholungVerlaengerung,
                     status          = s.Status.ToString(),
                     entscheidung    = e?.EntscheidungArt.ToString(),
                     sieger          = e?.SiegerMannschaft?.Name

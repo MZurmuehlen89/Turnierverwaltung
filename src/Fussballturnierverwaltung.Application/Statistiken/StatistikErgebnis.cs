@@ -34,8 +34,14 @@ public record MannschaftsSpiel(
     int GelbeKarten,
     int RoteKarten,
     PunkteRegel PunkteRegel,
-    Spiel Spiel)
+    Spiel Spiel,
+    bool IstWiederholungsspiel = false)
 {
+    /// <summary>Die Ereignisse dieser Sicht: bei einem Wiederholungsspiel (#547) die des Wiederholungsspiels, sonst die des
+    /// ersten Spiels – beide hängen am selben <see cref="Spiel"/>.</summary>
+    public IEnumerable<SpielEreignis> Ereignisse =>
+        Spiel.Ereignisse.Where(e => e.ImWiederholungsspiel == IstWiederholungsspiel);
+
     public Mannschaft Gegner => IstHeim ? Spiel.AuswaertsMannschaft! : Spiel.HeimMannschaft!;
 
     public SpielAusgang Ausgang => AusgangAus(Tore, Gegentore);
