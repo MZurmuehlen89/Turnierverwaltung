@@ -283,7 +283,7 @@
                                TextWrapping="Wrap" TextAlignment="Center" Margin="16,0"
                                Visibility="{Binding FormAktiv, Converter={StaticResource InverseBoolToVisibility}}" />
 
-                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="24" Padding="16,10"
+                    <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="24" Padding="16,10"
                           Visibility="{Binding FormAktiv, Converter={StaticResource BoolToVisibility}}">
 
                         <!-- Links: Angaben zum Spiel und Paarung, ausgeschrieben über die ganze übrige Breite -->
@@ -303,6 +303,33 @@
                             <TextBlock Text="Die Paarung steht noch nicht fest." AutomationProperties.AutomationId="Ergebnis.Platzhalter"
                                        FontSize="12" Opacity="0.7"
                                        Visibility="{Binding Formular.IstPlatzhalterSpiel, Converter={StaticResource BoolToVisibility}}" />
+                        </StackPanel>
+
+                        <!-- Wiederholungsspiel (#547): eigene Spalte neben den Ständen des ersten Spiels, damit die feste Höhe
+                             der Leiste reicht; Los und Fehler bleiben in der mittleren Spalte -->
+                        <StackPanel Grid.Column="2" Spacing="6"
+                                    Visibility="{Binding Formular.WiederholungAktiv, Converter={StaticResource BoolToVisibility}}">
+                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                <TextBlock Text="WIEDERHOLUNGSSPIEL" Style="{StaticResource ErgebnisZeilenTextStyle}" />
+                                <TextBox AutomationProperties.AutomationId="Ergebnis.HeimToreWiederholung"
+                                         Text="{Binding Formular.HeimToreWiederholung, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                         Style="{StaticResource ErgebnisToreTextBoxStyle}" />
+                                <TextBlock Text=":" Style="{StaticResource ErgebnisDoppelpunktStyle}" />
+                                <TextBox AutomationProperties.AutomationId="Ergebnis.AuswaertsToreWiederholung"
+                                         Text="{Binding Formular.AuswaertsToreWiederholung, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                         Style="{StaticResource ErgebnisToreTextBoxStyle}" />
+                            </StackPanel>
+                            <StackPanel Orientation="Horizontal" Spacing="6"
+                                        Visibility="{Binding Formular.WiederholungVerlaengerungAktiv, Converter={StaticResource BoolToVisibility}}">
+                                <TextBlock Text="WDH. N. VERLÄNGERUNG" Style="{StaticResource ErgebnisZeilenTextStyle}" />
+                                <TextBox AutomationProperties.AutomationId="Ergebnis.HeimToreWiederholungVerlaengerung"
+                                         Text="{Binding Formular.HeimToreWiederholungVerlaengerung, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                         Style="{StaticResource ErgebnisToreTextBoxStyle}" />
+                                <TextBlock Text=":" Style="{StaticResource ErgebnisDoppelpunktStyle}" />
+                                <TextBox AutomationProperties.AutomationId="Ergebnis.AuswaertsToreWiederholungVerlaengerung"
+                                         Text="{Binding Formular.AuswaertsToreWiederholungVerlaengerung, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                         Style="{StaticResource ErgebnisToreTextBoxStyle}" />
+                            </StackPanel>
                         </StackPanel>
 
                         <!-- Rechts: Spielstände in der Reihenfolge des Spielverlaufs, darunter Silver-Goal-Haken bzw.

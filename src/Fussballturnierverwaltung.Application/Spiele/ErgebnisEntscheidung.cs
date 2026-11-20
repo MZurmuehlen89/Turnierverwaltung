@@ -71,19 +71,20 @@ public static class ErgebnisEntscheidung
         && tore.HeimWiederholung is { } heim && tore.AuswaertsWiederholung == heim;
 
     /// <summary>#547: Das eingegebene Wiederholungsspiel als Ergebnis (Verlängerungstore = Stand nach Verlängerung minus
-    /// Stand nach 90 Minuten), oder <c>null</c>, solange es nicht fällig oder nicht eingegeben ist.</summary>
+    /// Stand nach 90 Minuten), oder <c>null</c>, solange es nicht fällig oder nicht vollständig eingegeben ist.</summary>
     public static Wiederholungsergebnis? Wiederholung(ErgebnisRahmen rahmen, TorEingabe tore)
     {
         if (!WiederholungAktiv(rahmen, tore)
             || tore.HeimWiederholung is not { } heim || tore.AuswaertsWiederholung is not { } auswaerts)
             return null;
 
-        if (WiederholungVerlaengerungAktiv(rahmen, tore)
-            && tore.HeimWiederholungNachVerlaengerung is { } heimNach
-            && tore.AuswaertsWiederholungNachVerlaengerung is { } auswaertsNach)
-            return new Wiederholungsergebnis(heim, auswaerts, heimNach - heim, auswaertsNach - auswaerts);
+        if (!WiederholungVerlaengerungAktiv(rahmen, tore))
+            return new Wiederholungsergebnis(heim, auswaerts, null, null);
 
-        return new Wiederholungsergebnis(heim, auswaerts, null, null);
+        return tore.HeimWiederholungNachVerlaengerung is { } heimNach
+            && tore.AuswaertsWiederholungNachVerlaengerung is { } auswaertsNach
+            ? new Wiederholungsergebnis(heim, auswaerts, heimNach - heim, auswaertsNach - auswaerts)
+            : null;
     }
 
     /// <summary>Silver Goal: ob gefragt wird, ob die Verlängerung schon nach ihrer ersten Hälfte entschieden war

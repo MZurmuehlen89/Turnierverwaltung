@@ -206,4 +206,46 @@ public class SpielErgebnisFormatiererTests
     public void PaarungsEntscheidung_Los() =>
         SpielErgebnisFormatierer.PaarungsEntscheidung(Ergebnis(1, 1, EntscheidungArt.Losentscheid, 0, 0))
             .Should().Be("n.V., Los");
+
+    // ── Wiederholungsspiel (#547) ─────────────────────────────────────────
+
+    private static SpielErgebnis MitWdh(EntscheidungArt art, int? heimVerl, int? auswVerl, int heimWdh, int auswWdh,
+        int? heimWdhVerl = null, int? auswWdhVerl = null)
+    {
+        var e = Ergebnis(1, 1, art, heimVerl, auswVerl);
+        e.HeimToreWiederholung = heimWdh;
+        e.AuswaertsToreWiederholung = auswWdh;
+        e.HeimToreWiederholungVerlaengerung = heimWdhVerl;
+        e.AuswaertsToreWiederholungVerlaengerung = auswWdhVerl;
+        return e;
+    }
+
+    [Fact]
+    public void DetailText_WiederholungsspielOhneVerlaengerung_NennetNurDasWiederholungsspiel() =>
+        SpielErgebnisFormatierer.DetailText(MitWdh(EntscheidungArt.Wiederholungsspiel, null, null, 2, 0))
+            .Should().Be("Wdh. 2:0");
+
+    [Fact]
+    public void DetailText_WiederholungsspielNachVerlaengerung_NennetBeides() =>
+        SpielErgebnisFormatierer.DetailText(MitWdh(EntscheidungArt.Wiederholungsspiel, 0, 0, 2, 0))
+            .Should().Be("n.V. · Wdh. 2:0");
+
+    [Fact]
+    public void DetailText_WiederholungsspielMitEigenerVerlaengerung_ZeigtStandNachVerlaengerung() =>
+        SpielErgebnisFormatierer.DetailText(MitWdh(EntscheidungArt.Wiederholungsspiel, 0, 0, 1, 1, 1, 0))
+            .Should().Be("n.V. · Wdh. 2:1 n.V.");
+
+    [Fact]
+    public void DetailText_LosNachWiederholungsspiel_NennetDasLosDahinter() =>
+        SpielErgebnisFormatierer.DetailText(MitWdh(EntscheidungArt.Losentscheid, 0, 0, 1, 1, 0, 0))
+            .Should().Be("n.V. · Wdh. 1:1 n.V., Los");
+
+    [Fact]
+    public void DetailText_Wiederholungsspiel_AusAuswaertsSichtGedreht() =>
+        SpielErgebnisFormatierer.DetailText(MitWdh(EntscheidungArt.Wiederholungsspiel, null, null, 2, 0), ausHeimSicht: false)
+            .Should().Be("Wdh. 0:2");
+
+    [Fact]
+    public void EntscheidungKuerzel_Wiederholungsspiel() =>
+        SpielErgebnisFormatierer.EntscheidungKuerzel(EntscheidungArt.Wiederholungsspiel).Should().Be("Wdh.");
 }

@@ -1,4 +1,5 @@
 using CommunityToolkit.Mvvm.ComponentModel;
+using Fussballturnierverwaltung.Application.Simulation;
 using Fussballturnierverwaltung.Application.Spiele;
 using Fussballturnierverwaltung.Application.Spiele.Eingaben;
 using Fussballturnierverwaltung.Domain.Entitaeten.Spiele;
@@ -20,6 +21,8 @@ public partial class ErgebnisFormularViewModel : ObservableObject
         nameof(HeimToreRegulaer), nameof(AuswaertsToreRegulaer),
         nameof(HeimToreVerlaengerung), nameof(AuswaertsToreVerlaengerung),
         nameof(SilverGoalNachErsterHaelfte), nameof(LosGewinnerHeim),
+        nameof(HeimToreWiederholung), nameof(AuswaertsToreWiederholung),
+        nameof(HeimToreWiederholungVerlaengerung), nameof(AuswaertsToreWiederholungVerlaengerung),
     ];
 
     private static readonly HashSet<string> _formFelder =
@@ -59,11 +62,18 @@ public partial class ErgebnisFormularViewModel : ObservableObject
     [ObservableProperty] private string _auswaertsToreVerlaengerung = "";
     [ObservableProperty] private string _heimElfmetertore = "";
     [ObservableProperty] private string _auswaertsElfmetertore = "";
+    // #547: das Wiederholungsspiel, aus Sicht des Heimteams des Spiels; "nach Verlängerung" wie oben inklusive der 90 Minuten.
+    [ObservableProperty] private string _heimToreWiederholung = "";
+    [ObservableProperty] private string _auswaertsToreWiederholung = "";
+    [ObservableProperty] private string _heimToreWiederholungVerlaengerung = "";
+    [ObservableProperty] private string _auswaertsToreWiederholungVerlaengerung = "";
     [ObservableProperty] private bool _silverGoalNachErsterHaelfte;
     [ObservableProperty] private bool? _losGewinnerHeim;
 
     public bool VerlaengerungAktiv => ErgebnisEntscheidung.VerlaengerungAktiv(_rahmen, Tore);
     public bool ElfmeterAktiv => ErgebnisEntscheidung.ElfmeterAktiv(_rahmen, Tore);
+    public bool WiederholungAktiv => ErgebnisEntscheidung.WiederholungAktiv(_rahmen, Tore);
+    public bool WiederholungVerlaengerungAktiv => ErgebnisEntscheidung.WiederholungVerlaengerungAktiv(_rahmen, Tore);
     public bool SilverGoalWaehlbar => ErgebnisEntscheidung.SilverGoalWaehlbar(_rahmen, Tore);
     public bool LosAktiv => ErgebnisEntscheidung.LosArt(_rahmen, Tore) is not null;
 
@@ -74,9 +84,12 @@ public partial class ErgebnisFormularViewModel : ObservableObject
     /// <summary>Was an der eingegebenen Verlängerung nicht stimmen kann (#391), sonst <c>null</c>.</summary>
     public string? EingabeFehler => ErgebnisEntscheidung.VerlaengerungFehler(_rahmen, Tore);
 
-    /// <summary>Speichern geht nur mit stimmiger Eingabe und — falls fällig — gewähltem Losgewinner.</summary>
+    /// <summary>Speichern geht nur mit stimmiger Eingabe, vollständigem Wiederholungsspiel (falls fällig) und
+    /// — falls fällig — gewähltem Losgewinner.</summary>
     public bool KannSpeichern =>
-        !IstPlatzhalterSpiel && EingabeFehler is null && (!LosAktiv || LosGewinnerHeim is not null);
+        !IstPlatzhalterSpiel && EingabeFehler is null
+        && (!WiederholungAktiv || ErgebnisEntscheidung.Wiederholung(_rahmen, Tore) is not null)
+        && (!LosAktiv || LosGewinnerHeim is not null);
 
     public bool ZeigtEingabe => !IstPlatzhalterSpiel;
     public bool ZeigtErgebnisHinweis => HatErgebnis && !IsDirty;
@@ -96,7 +109,9 @@ public partial class ErgebnisFormularViewModel : ObservableObject
 
     private TorEingabe Tore => new(
         ParseIntNullable(HeimToreRegulaer), ParseIntNullable(AuswaertsToreRegulaer),
-        ParseIntNullable(HeimToreVerlaengerung), ParseIntNullable(AuswaertsToreVerlaengerung));
+        ParseIntNullable(HeimToreVerlaengerung), ParseIntNullable(AuswaertsToreVerlaengerung),
+        ParseIntNullable(HeimToreWiederholung), ParseIntNullable(AuswaertsToreWiederholung),
+        ParseIntNullable(HeimToreWiederholungVerlaengerung), ParseIntNullable(AuswaertsToreWiederholungVerlaengerung));
 
     /// <summary>Entscheidungsverfahren des Regelwerks der Runde, in dessen Reihenfolge.</summary>
     public void ErlaubteVerfahrenSetzen(IEnumerable<VerfahrenArt> verfahren)
@@ -165,7 +180,8 @@ public partial class ErgebnisFormularViewModel : ObservableObject
             elfmeter ? ParseIntNullable(AuswaertsElfmetertore) : null,
             halbzeitHeim,
             halbzeitAuswaerts,
-            LosAktiv ? LosGewinnerHeim : null);
+            LosAktiv ? LosGewinnerHeim : null,
+            Wiederholung: ErgebnisEntscheidung.Wiederholung(_rahmen, Tore));
     }
 
     protected override void OnPropertyChanged(PropertyChangedEventArgs e)
@@ -194,6 +210,11 @@ public partial class ErgebnisFormularViewModel : ObservableObject
         AuswaertsToreVerlaengerung = (e?.AuswaertsToreRegulaer + e?.AuswaertsToreVerlaengerung)?.ToString() ?? "";
         HeimElfmetertore = e?.HeimElfmetertore?.ToString() ?? "";
         AuswaertsElfmetertore = e?.AuswaertsElfmetertore?.ToString() ?? "";
+        HeimToreWiederholung = e?.HeimToreWiederholung?.ToString() ?? "";
+        AuswaertsToreWiederholung = e?.AuswaertsToreWiederholung?.ToString() ?? "";
+        HeimToreWiederholungVerlaengerung = (e?.HeimToreWiederholung + e?.HeimToreWiederholungVerlaengerung)?.ToString() ?? "";
+        AuswaertsToreWiederholungVerlaengerung =
+            (e?.AuswaertsToreWiederholung + e?.AuswaertsToreWiederholungVerlaengerung)?.ToString() ?? "";
         SilverGoalNachErsterHaelfte = e?.EntscheidungArt == EntscheidungArt.SilverGoal;
         LosGewinnerHeim = e?.EntscheidungArt is EntscheidungArt.Losentscheid or EntscheidungArt.Muenzwurf
             ? e.SiegerMannschaftId is { } sieger ? sieger == heimId : null
@@ -205,6 +226,8 @@ public partial class ErgebnisFormularViewModel : ObservableObject
         OnPropertyChanged(nameof(VerlaengerungAktiv));
         OnPropertyChanged(nameof(ElfmeterAktiv));
         OnPropertyChanged(nameof(SilverGoalWaehlbar));
+        OnPropertyChanged(nameof(WiederholungAktiv));
+        OnPropertyChanged(nameof(WiederholungVerlaengerungAktiv));
         OnPropertyChanged(nameof(LosAktiv));
         OnPropertyChanged(nameof(LosUeberschrift));
         OnPropertyChanged(nameof(LosFuerHeim));

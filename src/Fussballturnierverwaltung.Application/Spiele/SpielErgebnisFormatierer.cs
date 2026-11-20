@@ -19,8 +19,9 @@ public static class SpielErgebnisFormatierer
         bool istVerlaengerungsFall = art is
             EntscheidungArt.Verlaengerung or EntscheidungArt.GoldenGoal or
             EntscheidungArt.SilverGoal or EntscheidungArt.Elfmeterschiessen or
-            EntscheidungArt.Losentscheid or EntscheidungArt.Muenzwurf;
+            EntscheidungArt.Losentscheid or EntscheidungArt.Muenzwurf or EntscheidungArt.Wiederholungsspiel;
         if (!istVerlaengerungsFall) return "";
+        if (ergebnis.HeimToreWiederholung is not null) return MitWiederholungsspiel(ergebnis, ausHeimSicht);
 
         // Die Regulärzeit-Klammer nur, wenn der Endstand durch Verlängerungstore von ihr abweicht.
         bool verlaengerungstoreGefallen =
@@ -33,6 +34,33 @@ public static class SpielErgebnisFormatierer
             : "";
 
         return $"{regulaerKlammer}{LosMitVerlaengerung(ergebnis)}{elfmeterStand}";
+    }
+
+    /// <summary>#547: „n.V. · Wdh. 2:0“ – das erste Spiel (mit Verlängerung, falls gespielt), dann das Wiederholungsspiel
+    /// mit seinem Stand (nach Verlängerung, falls gespielt) und bei torgleichem Ausgang das Los dahinter.
+    /// Der Stand des ersten Spiels steht in der Ergebnisanzeige davor.</summary>
+    private static string MitWiederholungsspiel(SpielErgebnis ergebnis, bool ausHeimSicht)
+    {
+        bool ersteVerlaengerung = ergebnis.HeimToreVerlaengerung is not null;
+        bool toreInVerlaengerung =
+            (ergebnis.HeimToreVerlaengerung ?? 0) != 0 || (ergebnis.AuswaertsToreVerlaengerung ?? 0) != 0;
+        string erstesSpiel = !ersteVerlaengerung
+            ? ""
+            : (toreInVerlaengerung
+                ? $"({Stand(ergebnis.HeimToreRegulaer, ergebnis.AuswaertsToreRegulaer, ausHeimSicht)}) "
+                : "") + EntscheidungKuerzel(EntscheidungArt.Verlaengerung);
+
+        bool zweiteVerlaengerung = ergebnis.HeimToreWiederholungVerlaengerung is not null;
+        string stand = Stand(
+            ergebnis.HeimToreWiederholung + (ergebnis.HeimToreWiederholungVerlaengerung ?? 0),
+            ergebnis.AuswaertsToreWiederholung + (ergebnis.AuswaertsToreWiederholungVerlaengerung ?? 0), ausHeimSicht);
+        string wiederholung = $"{EntscheidungKuerzel(EntscheidungArt.Wiederholungsspiel)} {stand}"
+            + (zweiteVerlaengerung ? " " + EntscheidungKuerzel(EntscheidungArt.Verlaengerung) : "")
+            + (ergebnis.EntscheidungArt is EntscheidungArt.Losentscheid or EntscheidungArt.Muenzwurf
+                ? ", " + EntscheidungKuerzel(ergebnis.EntscheidungArt)
+                : "");
+
+        return erstesSpiel.Length == 0 ? wiederholung : $"{erstesSpiel} · {wiederholung}";
     }
 
     /// <summary>#391: Beim Los nach einer Verlängerung nennt das Kürzel beides („n.V., Los“), sonst nur das
@@ -57,6 +85,7 @@ public static class SpielErgebnisFormatierer
         EntscheidungArt.SilverGoal        => "S.G.",
         EntscheidungArt.Losentscheid      => "Los",
         EntscheidungArt.Muenzwurf         => "Münzwurf",
+        EntscheidungArt.Wiederholungsspiel => "Wdh.",
         _                                 => ""
     };
 
@@ -72,7 +101,10 @@ public static class SpielErgebnisFormatierer
         EntscheidungArt.Verlaengerung     => "n.V.",
         EntscheidungArt.GoldenGoal        => "G.G.",
         EntscheidungArt.SilverGoal        => "S.G.",
-        EntscheidungArt.Losentscheid or EntscheidungArt.Muenzwurf => LosMitVerlaengerung(rueckspiel),
+        EntscheidungArt.Losentscheid or EntscheidungArt.Muenzwurf when rueckspiel.HeimToreWiederholung is null
+            => LosMitVerlaengerung(rueckspiel),
+        EntscheidungArt.Losentscheid or EntscheidungArt.Muenzwurf or
+        EntscheidungArt.Wiederholungsspiel => MitWiederholungsspiel(rueckspiel, ausHeimSicht: true),
         _                                 => ""
     };
 
