@@ -82,6 +82,8 @@ is computed (#310).
 
 **A grouped `ListView` needs its `CollectionViewSource` wired in code-behind** — resources do not inherit the DataContext, so `Source="{Binding …}"` on a `CollectionViewSource` in `UserControl.Resources` stays empty. Set `Source` and the list's `ItemsSource = cvs.View` on `DataContextChanged`; the groups are `ObservableCollection`s with a header property that raises `PropertyChanged` (see `TeilnehmerpoolAnsicht`, `TeilnehmerpoolGruppe`, #576).
 
+**Mehrere Spielbericht-Karten nebeneinander = `SpaltenPanel`** (#247, `Views/SpaltenPanel.cs`): ordnet die sichtbaren Kinder als gleich breite Spalten in voller Höhe an (eigener Bildlauf je Karte) und stellt sie bei weniger als 380 px je Spalte untereinander. Es misst seine Breite selbst (ein `AdaptiveTrigger` kennt nur die Fensterbreite) und schaltet dafür den **umgebenden `ScrollViewer`** um – nebeneinander `Disabled`, damit die Karten die Fensterhöhe bekommen, untereinander `Auto`. Immer in einen `ScrollViewer` stellen. Jede Karte steckt in einem Wrapper-`Grid`, der die `Visibility` trägt: am Element mit eigenem `DataContext` (`SpielBeinAnsicht`) liefe die Bindung gegen die Ansicht statt gegen das ViewModel.
+
 ## AutomationIds für GUI-Tests (#494, #521)
 
 Elements a GUI test needs get an **explicit** `AutomationProperties.AutomationId` in the schema `View.Element`

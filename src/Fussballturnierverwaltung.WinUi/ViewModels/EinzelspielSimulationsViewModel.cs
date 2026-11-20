@@ -30,6 +30,9 @@ namespace Fussballturnierverwaltung.WinUi.ViewModels;
 /// Korrekturmöglichkeit mehr). Jede Änderung des Hinspiel-Ergebnisses (erneutes Simulieren ODER
 /// manuelles Übernehmen) verwirft ein bereits vorhandenes Rückspiel-Ergebnis, da dessen
 /// Entscheidungsverfahren vom alten Hinspiel-Aggregat abhing.
+///
+/// #247: Jedes Spiel mit eigener Uhr (Spiel bzw. Hinspiel, Rückspiel, Wiederholungsspiel) ist eine
+/// <see cref="SpielBeinAnsicht"/>, die die View als eigene Karte nebeneinander zeigt.
 /// </summary>
 public partial class EinzelspielSimulationsViewModel : ViewModelBase, IRibbonAware
 {
