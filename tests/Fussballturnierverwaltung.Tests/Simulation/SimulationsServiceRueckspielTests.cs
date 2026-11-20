@@ -34,10 +34,11 @@ public class SimulationsServiceRueckspielTests
             SimulationsEngineTestdaten.GastTeam(), SimulationsEngineTestdaten.HeimTeam(),
             _hinspielEinsZuEins, _verlaengerungDannElfmeter, new Random(seed), auswaertstorRegelAktiv: true);
 
-    /// <summary>K1–K3 (#539): bei Hinspiel 1:1 (Rückspiel-Heim traf dort auswärts einmal) und aktiver Regel entscheidet
-    /// nach ausgeglichenem Gesamtstand allein der Auswärtstore-Vergleich der regulären Spielzeit – Rückspiel-Heim
-    /// gewinnt bei 0 eigenen Rückspiel-Auswärtstoren des Gasts … und umgekehrt; bei Gleichstand läuft das Verfahren.
-    /// Über mehrere Seeds, jede der drei Lagen muss vorkommen (sonst prüfte der Test nichts).</summary>
+    /// <summary>K1–K3 (#539) bei aktiver Regel und Hinspiel 1:1, über mehrere Seeds; jede der drei Lagen muss vorkommen
+    /// (sonst prüfte der Test nichts): (1) der Gesamtstand entscheidet – regulärer Ausgang, (2) Gesamtstand gleich und
+    /// ungleiche Auswärtstore – Art „Auswärtstorregel“ ohne Verfahren, (3) auch die Auswärtstore gleich – das Verfahren
+    /// läuft. Das Rückspiel-Heim traf im Hinspiel einmal auswärts, das Rückspiel-Auswärts im Rückspiel
+    /// <c>AuswaertsToreRegulaer</c> mal; gleich viele heißt also genau 1.</summary>
     [Fact]
     public void AuswaertstorRegelAktiv_EntscheidetNachAusgeglichenemGesamtstandVorDemVerfahren()
     {

@@ -51,9 +51,11 @@ public class SimulationsService(
     /// <paramref name="auswaertstorRegelAktiv"/> entscheiden bei ausgeglichenem Gesamtstand nach 180 Minuten erst die
     /// Auswärtstore der regulären Spielzeit (<see cref="EntscheidungArt.Auswaertstorregel"/>, wie AD-001 im Turnier);
     /// nur bei auch gleich vielen läuft das Verfahren.</summary>
+#pragma warning disable S107 // Mannschaften, Hinspiel, Verfahren, Zufall, Regel – ein Parameterobjekt wäre nur Bulk (KISS)
     public SimulationsErgebnis RueckspielSimulieren(
         Mannschaft heim, Mannschaft auswaerts, SimulationsErgebnis hinspiel,
         IReadOnlyList<EntscheidungsVerfahren> verfahren, Random rng, bool auswaertstorRegelAktiv = false)
+#pragma warning restore S107
     {
         var ergebnis = SimulationsEngine.Simulieren(heim, auswaerts, [], ausfuehrlich: true, rng,
             hinspielstand: Hinspielstand.AusHinspiel(hinspiel.HeimToreRegulaer, hinspiel.AuswaertsToreRegulaer, auswaertstorRegelAktiv));
@@ -61,8 +63,10 @@ public class SimulationsService(
             heim.Name, ergebnis.HeimToreRegulaer, ergebnis.AuswaertsToreRegulaer, auswaerts.Name);
 
         // Das Rückspiel-Heimteam war im Hinspiel der Gast.
-        bool gesamtstandGleich = hinspiel.HeimToreRegulaer + ergebnis.AuswaertsToreRegulaer
-                               == hinspiel.AuswaertsToreRegulaer + ergebnis.HeimToreRegulaer;
+        bool gesamtstandGleich = HinRueckspielWertung.EntscheidungsverfahrenNoetig(
+            hinspiel.HeimToreRegulaer, hinspiel.AuswaertsToreRegulaer,
+            ergebnis.HeimToreRegulaer, ergebnis.AuswaertsToreRegulaer,
+            auswaertstorRegelAktiv: false);
         bool noetig = HinRueckspielWertung.EntscheidungsverfahrenNoetig(
             hinspiel.HeimToreRegulaer, hinspiel.AuswaertsToreRegulaer,
             ergebnis.HeimToreRegulaer, ergebnis.AuswaertsToreRegulaer,

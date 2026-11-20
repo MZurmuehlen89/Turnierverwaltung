@@ -314,8 +314,8 @@ public partial class EinzelspielSimulationsViewModel : ViewModelBase, IRibbonAwa
     // #539: ein vorhandenes Rückspiel hing von der Regel ab – verwerfen wie bei einem neuen Hinspiel, das Hinspiel bleibt.
     partial void OnEinzelspielAuswaertstorRegelChanged(bool value)
     {
-        if (HinspielErgebnis is { } hinspiel)
-            HinspielUebernehmen(hinspiel);
+        if (HinspielErgebnis is { } hinspiel && EinzelspielHeim is { } heim && EinzelspielAuswaerts is { } auswaerts)
+            RueckspielVerwerfen(heim, auswaerts, hinspiel);
     }
 
     // ── Freie Simulation (ohne Rückspiel) ────────────────────────────────────
@@ -420,16 +420,11 @@ public partial class EinzelspielSimulationsViewModel : ViewModelBase, IRibbonAwa
         var auswaerts = EinzelspielAuswaerts;
 
         HinspielErgebnis = erg;
-        RueckspielErgebnis = null; // ein verändertes Hinspiel macht ein bestehendes Rückspiel ungültig
-        RueckspielAnsicht = null;
-        SiegerText = null;
-        RueckspielEreignisse.Clear();
+        RueckspielDatenLeeren(); // ein verändertes Hinspiel macht ein bestehendes Rückspiel ungültig
         HinspielEreignisse.Clear();
 
         HinspielHeimToreEingabe      = erg.HeimToreRegulaer;
         HinspielAuswaertsToreEingabe = erg.AuswaertsToreRegulaer;
-
-        string score = $"{erg.HeimToreRegulaer}:{erg.AuswaertsToreRegulaer}"; // Hinspiel kennt keine Verlängerung
 
         ProtokollSpielInfo = $"{heim.Name} vs. {auswaerts.Name} (Hin & Rück)";
 
@@ -439,8 +434,7 @@ public partial class EinzelspielSimulationsViewModel : ViewModelBase, IRibbonAwa
             SpielKopf.Aus(
                 "Hinspiel", SpielSeite.Von(heim), SpielSeite.Von(auswaerts), erg, _untertitel),
             HinspielEreignisse);
-        GesamtKopf = SpielKopf.Gesamt(
-            SpielSeite.Von(heim), SpielSeite.Von(auswaerts), score, "Ergebnis nach Hinspiel", _untertitel);
+        GesamtKopf = GesamtNachHinspiel(heim, auswaerts, erg);
 
         // Hinspiel steht fest → aufgeklappt; ein vorheriges Rückspiel ist jetzt ungültig → eingeklappt.
         HinspielOffen   = true;
@@ -450,6 +444,29 @@ public partial class EinzelspielSimulationsViewModel : ViewModelBase, IRibbonAwa
         OnPropertyChanged(nameof(HatRueckspielEreignisse));
         OnPropertyChanged(nameof(ZeigeHinRueckLeerZustand));
         AktualisiereBefehle();
+    }
+
+    // Hinspiel kennt keine Verlängerung – der Gesamtstand nach dem Hinspiel ist dessen reguläres Ergebnis.
+    private SpielKopf GesamtNachHinspiel(Mannschaft heim, Mannschaft auswaerts, SimulationsErgebnis hinspiel) =>
+        SpielKopf.Gesamt(SpielSeite.Von(heim), SpielSeite.Von(auswaerts),
+            $"{hinspiel.HeimToreRegulaer}:{hinspiel.AuswaertsToreRegulaer}", "Ergebnis nach Hinspiel", _untertitel);
+
+    private void RueckspielDatenLeeren()
+    {
+        RueckspielErgebnis = null;
+        RueckspielAnsicht = null;
+        SiegerText = null;
+        RueckspielEreignisse.Clear();
+    }
+
+    // #539: nur das Rückspiel verwerfen – das Hinspiel und die Hinspiel-Eingabefelder bleiben unberührt.
+    private void RueckspielVerwerfen(Mannschaft heim, Mannschaft auswaerts, SimulationsErgebnis hinspiel)
+    {
+        RueckspielDatenLeeren();
+        GesamtKopf      = GesamtNachHinspiel(heim, auswaerts, hinspiel);
+        RueckspielOffen = false;
+        HinspielOffen   = true;
+        OnPropertyChanged(nameof(HatRueckspielEreignisse));
     }
 
     public bool HatHinspielEreignisse   => HinspielEreignisse.Count > 0;
