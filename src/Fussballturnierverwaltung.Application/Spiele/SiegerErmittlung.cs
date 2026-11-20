@@ -73,6 +73,9 @@ public static class SiegerErmittlung
             EntscheidungArt.Elfmeterschiessen
                 when e.HeimElfmetertore is { } heimE && e.AuswaertsElfmetertore is { } auswaertsE
                 => heimE > auswaertsE ? heimId : auswaertsId,
+            // #547: das Wiederholungsspiel entscheidet allein – auch im Rückspiel, ohne Hinspielstand.
+            EntscheidungArt.Wiederholungsspiel when e.Wiederholung is { } w
+                => Vorne(w.HeimGesamt, w.AuswaertsGesamt, heimId, auswaertsId),
             EntscheidungArt.Losentscheid or EntscheidungArt.Muenzwurf
                 => LosSieger(heimId, auswaertsId, e),
             _ => null

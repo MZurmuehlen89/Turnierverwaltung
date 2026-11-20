@@ -1,3 +1,4 @@
+using Fussballturnierverwaltung.Application.Simulation;
 using Fussballturnierverwaltung.Domain.Enums;
 
 namespace Fussballturnierverwaltung.Application.Spiele.Eingaben;
@@ -16,4 +17,5 @@ public record SpielErgebnisEingabe(
     int? HalbzeitHeimTore = null,
     int? HalbzeitAuswaertsTore = null,
     bool IstGesamtwertung = false,
-    bool IstKoHinspiel = false);
+    bool IstKoHinspiel = false,
+    Wiederholungsergebnis? Wiederholung = null);

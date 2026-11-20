@@ -98,7 +98,8 @@ public class SpielErgebnisService(
             entscheidungArt, sieger,
             eingabe.HalbzeitHeimTore, eingabe.HalbzeitAuswaertsTore,
             IstGesamtwertung: istKoRueckspiel,
-            IstKoHinspiel: istKoHinspiel)));
+            IstKoHinspiel: istKoHinspiel,
+            Wiederholung: eingabe.Wiederholung)));
 
         return NeuesErgebnis(eingabe, sieger, entscheidungArt);
     }
@@ -112,6 +113,10 @@ public class SpielErgebnisService(
         AuswaertsToreVerlaengerung = eingabe.AuswaertsToreVerlaengerung,
         HeimElfmetertore           = eingabe.HeimElfmetertore,
         AuswaertsElfmetertore      = eingabe.AuswaertsElfmetertore,
+        HeimToreWiederholung       = eingabe.Wiederholung?.HeimTore,
+        AuswaertsToreWiederholung  = eingabe.Wiederholung?.AuswaertsTore,
+        HeimToreWiederholungVerlaengerung      = eingabe.Wiederholung?.HeimToreVerlaengerung,
+        AuswaertsToreWiederholungVerlaengerung = eingabe.Wiederholung?.AuswaertsToreVerlaengerung,
         HalbzeitHeimTore           = eingabe.HalbzeitHeimTore,
         HalbzeitAuswaertsTore      = eingabe.HalbzeitAuswaertsTore,
         SiegerMannschaftId         = sieger,

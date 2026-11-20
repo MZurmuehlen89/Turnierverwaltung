@@ -1,4 +1,5 @@
 using FluentAssertions;
+using Fussballturnierverwaltung.Application.Simulation;
 using Fussballturnierverwaltung.Application.Spiele.Eingaben;
 using Fussballturnierverwaltung.Application.Validierung;
 using Fussballturnierverwaltung.Domain.Enums;
@@ -240,4 +241,50 @@ public class SpielErgebnisValidatorTests
     [Fact]
     public void LosMitLosgewinner_IstGueltig() =>
         _validator.Validieren(Entscheidung(EntscheidungArt.Losentscheid, 0, 0, 2)).IstGueltig.Should().BeTrue();
+
+    // ── Wiederholungsspiel (#547) ─────────────────────────────────────────
+
+    private static SpielErgebnisEingabe MitWiederholung(
+        EntscheidungArt art, Wiederholungsergebnis? wiederholung, int? sieger) =>
+        new(1, 2, 1, 1, null, null, null, null, art, sieger, Wiederholung: wiederholung);
+
+    [Fact]
+    public void Wiederholungsspiel_MitSieger_IstGueltig() =>
+        _validator.Validieren(MitWiederholung(EntscheidungArt.Wiederholungsspiel, new(2, 0, null, null), 1))
+            .IstGueltig.Should().BeTrue();
+
+    [Fact]
+    public void Wiederholungsspiel_OhneTore_IstUngueltig() =>
+        _validator.Validieren(MitWiederholung(EntscheidungArt.Wiederholungsspiel, null, 1))
+            .Fehler.Should().ContainMatch("*Tore des Wiederholungsspiels*");
+
+    [Fact]
+    public void Wiederholungsspiel_Torgleich_AlsEntscheidung_IstUngueltig() =>
+        _validator.Validieren(MitWiederholung(EntscheidungArt.Wiederholungsspiel, new(1, 1, 0, 0), 1))
+            .Fehler.Should().ContainMatch("*torgleich*");
+
+    [Fact]
+    public void Wiederholungsspiel_NegativeTore_IstUngueltig() =>
+        _validator.Validieren(MitWiederholung(EntscheidungArt.Wiederholungsspiel, new(-1, 2, null, null), 2))
+            .Fehler.Should().ContainMatch("*negativ*");
+
+    [Fact]
+    public void Wiederholungsspiel_VerlaengerungNurEinseitig_IstUngueltig() =>
+        _validator.Validieren(MitWiederholung(EntscheidungArt.Wiederholungsspiel, new(1, 1, 1, null), 1))
+            .Fehler.Should().ContainMatch("*beide Mannschaften zusammen*");
+
+    [Fact]
+    public void LosNachTorgleichemWiederholungsspiel_IstGueltig() =>
+        _validator.Validieren(MitWiederholung(EntscheidungArt.Losentscheid, new(0, 0, null, null), 1))
+            .IstGueltig.Should().BeTrue();
+
+    [Fact]
+    public void LosNachWiederholungsspielMitSieger_IstUngueltig() =>
+        _validator.Validieren(MitWiederholung(EntscheidungArt.Losentscheid, new(1, 0, null, null), 1))
+            .Fehler.Should().ContainMatch("*Sieger*");
+
+    [Fact]
+    public void WiederholungsToreBeiRegulaererSpielzeit_IstUngueltig() =>
+        _validator.Validieren(MitWiederholung(EntscheidungArt.RegulaereSpielzeit, new(1, 0, null, null), 1))
+            .IstUngueltig.Should().BeTrue();
 }

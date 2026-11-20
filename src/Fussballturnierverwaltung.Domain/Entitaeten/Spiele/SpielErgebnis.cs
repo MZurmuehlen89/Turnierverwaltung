@@ -14,6 +14,13 @@ public class SpielErgebnis : BasisEntitaet
     public int? AuswaertsToreVerlaengerung { get; set; }
     public int? HeimElfmetertore { get; set; }
     public int? AuswaertsElfmetertore { get; set; }
+    /// <summary>#547: Wiederholungsspiel als Teil des Ergebnisses – Tore nach 90 Minuten und ggf. in der Verlängerung des
+    /// Wiederholungsspiels, aus Sicht des Heimteams dieses Spiels (auch bei getauschtem Heimrecht). null = kein
+    /// Wiederholungsspiel (alle Bestandsdaten). <see cref="HeimToreGesamt"/> bleibt der Stand des ersten Spiels.</summary>
+    public int? HeimToreWiederholung { get; set; }
+    public int? AuswaertsToreWiederholung { get; set; }
+    public int? HeimToreWiederholungVerlaengerung { get; set; }
+    public int? AuswaertsToreWiederholungVerlaengerung { get; set; }
     public int? HalbzeitHeimTore { get; set; }
     public int? HalbzeitAuswaertsTore { get; set; }
 

@@ -15,6 +15,7 @@ public class SpielErgebnisValidator
             .. VerlaengerungPruefen(eingabe),
             .. ElfmeterschiessenPruefen(eingabe),
             .. LosPruefen(eingabe),
+            .. WiederholungsspielPruefen(eingabe),
             .. SiegerBeteiligtPruefen(eingabe),
             .. KoHinspielPruefen(eingabe),
             .. SiegerZumTorverhaeltnisPruefen(eingabe),
@@ -64,6 +65,37 @@ public class SpielErgebnisValidator
             yield return "Die Verlängerung endete torgleich – das Spiel braucht noch eine Entscheidung (Elfmeterschießen oder Los).";
         else if (eingabe.EntscheidungArt == EntscheidungArt.GoldenGoal && heim + auswaerts > 1)
             yield return "Beim Golden Goal endet die Verlängerung mit dem ersten Tor – in ihr fällt genau ein Tor.";
+    }
+
+    /// <summary>#547: Das Wiederholungsspiel gibt es nur vor einem Wiederholungsspiel-Ausgang oder vor Los/Münze (dann
+    /// torgleich); bei „Wiederholungsspiel“ als Entscheidung braucht es einen Sieger durch die Tore.</summary>
+    private static IEnumerable<string> WiederholungsspielPruefen(SpielErgebnisEingabe eingabe)
+    {
+        var art = eingabe.EntscheidungArt;
+        var w = eingabe.Wiederholung;
+        if (w is null)
+        {
+            if (art == EntscheidungArt.Wiederholungsspiel)
+                yield return "Beim Wiederholungsspiel müssen die Tore des Wiederholungsspiels angegeben werden.";
+            yield break;
+        }
+
+        if (art is not (EntscheidungArt.Wiederholungsspiel or EntscheidungArt.Losentscheid or EntscheidungArt.Muenzwurf))
+        {
+            yield return "Tore eines Wiederholungsspiels gibt es nur, wenn es die Entscheidung bringt oder danach gelost wird.";
+            yield break;
+        }
+
+        if (w.HeimTore < 0 || w.AuswaertsTore < 0 || w.HeimToreVerlaengerung < 0 || w.AuswaertsToreVerlaengerung < 0)
+            yield return "Tore des Wiederholungsspiels dürfen nicht negativ sein.";
+        if (w.HeimToreVerlaengerung.HasValue != w.AuswaertsToreVerlaengerung.HasValue)
+            yield return "Die Verlängerung des Wiederholungsspiels muss für beide Mannschaften zusammen angegeben werden.";
+
+        bool torgleich = w.HeimGesamt == w.AuswaertsGesamt;
+        if (art == EntscheidungArt.Wiederholungsspiel && torgleich)
+            yield return "Das Wiederholungsspiel endete torgleich – das Spiel braucht noch eine Entscheidung (z. B. Los).";
+        else if (art != EntscheidungArt.Wiederholungsspiel && !torgleich)
+            yield return "Das Wiederholungsspiel hat einen Sieger – ein Los ist dann nicht nötig.";
     }
 
     /// <summary>#391: Bei Los oder Münze geben die Tore den Sieger nicht her – er muss angegeben sein.</summary>

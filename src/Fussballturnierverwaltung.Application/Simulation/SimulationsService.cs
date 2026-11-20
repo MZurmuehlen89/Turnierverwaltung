@@ -111,7 +111,7 @@ public class SimulationsService(
         var ergebnis = SimulationsEngine.Simulieren(
             spiel.HeimMannschaft!, spiel.AuswaertsMannschaft!,
             istKoHinspiel || istKoRueckspiel ? [] : verfahren, ausfuehrlich: true, rng, spielortvorteil,
-            runde.Ueberraschungsfaktor, hinspielstand, runde.Spielbedeutung);
+            runde.Ueberraschungsfaktor, hinspielstand, runde.Spielbedeutung, runde.NeutralerSpielort);
 
         if (istKoRueckspiel && verfahren.Count > 0)
             ergebnis = RueckspielEntscheiden(ergebnis, spiel, verfahren, rng, spielortvorteil);
@@ -180,7 +180,8 @@ public class SimulationsService(
         // #361: die Verlängerung setzt das Rückspiel fort – mit dessen Platzverweisen, nicht denen des Hinspiels.
         var (hv, gv, he, ge, art, extras, losGewinnerHeim, wiederholung) = SimulationsEngine.EntscheidungsverfahrenAnwenden(
             spiel.HeimMannschaft!, spiel.AuswaertsMannschaft!, verfahren, ausfuehrlich: true, rng, spielortvorteil,
-            runde.Ueberraschungsfaktor, Platzverweise.AusEreignissen(ergebnis.Ereignisse), runde.Spielbedeutung);
+            runde.Ueberraschungsfaktor, Platzverweise.AusEreignissen(ergebnis.Ereignisse), runde.Spielbedeutung,
+            runde.NeutralerSpielort);
         return ergebnis with
         {
             HeimToreVerlaengerung      = hv,
@@ -480,7 +481,8 @@ public class SimulationsService(
             sim.HalbzeitHeimTore,
             sim.HalbzeitAuswaertsTore,
             sim.LosGewinnerHeim,
-            MitChancendaten: true);
+            MitChancendaten: true,
+            Wiederholung: sim.Wiederholung);
 
         await ergebnisService.ErgebnisErfassenAsync(spiel.Id, eingabe, ct, platzhalterAufloesen: false);
 
@@ -494,7 +496,8 @@ public class SimulationsService(
                 EreignisArt  = e.Art,
                 MannschaftId = e.IstHeim ? spiel.HeimMannschaftId : spiel.AuswaertsMannschaftId,
                 Beschreibung = e.Beschreibung,
-                Chancenart   = e.Chancenart
+                Chancenart   = e.Chancenart,
+                ImWiederholungsspiel = e.ImWiederholungsspiel
             });
             await spielRepository.EreignisseHinzufuegenAsync(spiel.Id, dbEreignisse, ct);
         }

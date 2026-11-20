@@ -617,6 +617,9 @@ namespace Fussballturnierverwaltung.Infrastructure.Persistenz.Migrationen
                     b.Property<int>("EreignisArt")
                         .HasColumnType("integer");
 
+                    b.Property<bool>("ImWiederholungsspiel")
+                        .HasColumnType("boolean");
+
                     b.Property<int?>("MannschaftId")
                         .HasColumnType("integer");
 
@@ -655,6 +658,12 @@ namespace Fussballturnierverwaltung.Infrastructure.Persistenz.Migrationen
                     b.Property<int?>("AuswaertsToreVerlaengerung")
                         .HasColumnType("integer");
 
+                    b.Property<int?>("AuswaertsToreWiederholung")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("AuswaertsToreWiederholungVerlaengerung")
+                        .HasColumnType("integer");
+
                     b.Property<int>("EntscheidungArt")
                         .HasColumnType("integer");
 
@@ -671,6 +680,12 @@ namespace Fussballturnierverwaltung.Infrastructure.Persistenz.Migrationen
                         .HasColumnType("integer");
 
                     b.Property<int?>("HeimToreVerlaengerung")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("HeimToreWiederholung")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("HeimToreWiederholungVerlaengerung")
                         .HasColumnType("integer");
 
                     b.Property<bool>("MitChancendaten")

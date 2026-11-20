@@ -1,4 +1,5 @@
 using FluentAssertions;
+using Fussballturnierverwaltung.Application.Simulation;
 using Fussballturnierverwaltung.Application.Spiele;
 using Fussballturnierverwaltung.Application.Spiele.Eingaben;
 using Fussballturnierverwaltung.Domain.Entitaeten.Spiele;
@@ -139,4 +140,27 @@ public class SiegerErmittlungTests
         Einzelspiel(new(0, 0, EntscheidungArt.Losentscheid, HeimToreVerlaengerung: 0, AuswaertsToreVerlaengerung: 0,
                 LosGewinnerHeim: true))
             .Should().Be(Erwartet(HEIM, EntscheidungArt.Losentscheid));
+
+    // ── Wiederholungsspiel (#547) ─────────────────────────────────────────
+
+    [Fact]
+    public void Einzelspiel_Wiederholungsspiel_SiegerAusDenToreDesWiederholungsspiels() =>
+        Einzelspiel(new(1, 1, EntscheidungArt.Wiederholungsspiel, Wiederholung: new Wiederholungsergebnis(0, 2, null, null)))
+            .Should().Be(Erwartet(AUSWAERTS, EntscheidungArt.Wiederholungsspiel));
+
+    [Fact]
+    public void Einzelspiel_Wiederholungsspiel_VerlaengerungDesWiederholungsspielsZaehlt() =>
+        Einzelspiel(new(1, 1, EntscheidungArt.Wiederholungsspiel, Wiederholung: new Wiederholungsergebnis(1, 1, 1, 0)))
+            .Should().Be(Erwartet(HEIM, EntscheidungArt.Wiederholungsspiel));
+
+    [Fact]
+    public void Rueckspiel_Wiederholungsspiel_EntscheidetOhneHinspielstand() =>
+        Rueckspiel(1, 0, new(1, 0, EntscheidungArt.Wiederholungsspiel, Wiederholung: new Wiederholungsergebnis(0, 1, null, null)))
+            .Should().Be(Erwartet(AUSWAERTS, EntscheidungArt.Wiederholungsspiel));
+
+    [Fact]
+    public void Einzelspiel_LosNachWiederholungsspiel_LosGewinnerWirdSieger() =>
+        Einzelspiel(new(1, 1, EntscheidungArt.Losentscheid, LosGewinnerHeim: false,
+                Wiederholung: new Wiederholungsergebnis(0, 0, null, null)))
+            .Should().Be(Erwartet(AUSWAERTS, EntscheidungArt.Losentscheid));
 }
