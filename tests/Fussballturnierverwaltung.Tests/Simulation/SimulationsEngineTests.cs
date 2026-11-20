@@ -239,7 +239,7 @@ public class SimulationsEngineTests
 
         for (int seed = 0; seed < 200; seed++)
         {
-            var (_, _, he, ge, art, _, _) =
+            var (_, _, he, ge, art, _, _, _) =
                 SimulationsEngine.EntscheidungsverfahrenAnwenden(Team(1), Team(2), verfahren, false, new Random(seed));
 
             art.Should().Be(EntscheidungArt.Elfmeterschiessen);
@@ -252,7 +252,7 @@ public class SimulationsEngineTests
     [Fact]
     public void EntscheidungsverfahrenAnwenden_OhneVerfahrenBleibtRegulaereSpielzeitOhneTore()
     {
-        var (hv, gv, he, ge, art, ereignisse, losGewinnerHeim) =
+        var (hv, gv, he, ge, art, ereignisse, losGewinnerHeim, _) =
             SimulationsEngine.EntscheidungsverfahrenAnwenden(Team(1), Team(2), [], false, new Random(1));
 
         art.Should().Be(EntscheidungArt.RegulaereSpielzeit);

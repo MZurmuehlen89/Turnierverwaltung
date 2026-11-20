@@ -488,7 +488,7 @@ public partial class EinzelspielSimulationsViewModel : ViewModelBase, IRibbonAwa
             // entsprechen erg2s eigener Heim/Auswärts-Zuordnung (auswaerts spielt zu Hause).
             if (heimGesamtRegulaer == auswaertsGesamtRegulaer && verfahren.Count > 0)
             {
-                var (hv, gv, he, ge, art, extras, losGewinnerHeim) =
+                var (hv, gv, he, ge, art, extras, losGewinnerHeim, wiederholung) =
                     SimulationsEngine.EntscheidungsverfahrenAnwenden(auswaerts, heim, verfahren, ausfuehrlich: true, rng,
                         platzverweise: Platzverweise.AusEreignissen(erg2.Ereignisse));
                 erg2 = erg2 with
@@ -498,6 +498,7 @@ public partial class EinzelspielSimulationsViewModel : ViewModelBase, IRibbonAwa
                     EntscheidungArt = art,
                     Ereignisse = [.. erg2.Ereignisse, .. extras],
                     LosGewinnerHeim = losGewinnerHeim,
+                    Wiederholung = wiederholung,
                 };
             }
 

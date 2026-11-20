@@ -19,12 +19,14 @@ public class SimulationsEngineEntscheidungTests
     private const double VERSCHIESST = 0.99;
 
     private static (int? HeimVerl, int? GastVerl, int? HeimElf, int? GastElf, EntscheidungArt Art,
-                    IReadOnlyList<SimuliertesEreignis> Ereignisse, bool? LosGewinnerHeim)
+                    IReadOnlyList<SimuliertesEreignis> Ereignisse, bool? LosGewinnerHeim,
+                    Wiederholungsergebnis? Wiederholung)
         Anwenden(VorgegebenerZufall zufall, bool ausfuehrlich, params VerfahrenArt[] arten) =>
         Anwenden(zufall, ausfuehrlich, HeimTeam(), GastTeam(), arten);
 
     private static (int? HeimVerl, int? GastVerl, int? HeimElf, int? GastElf, EntscheidungArt Art,
-                    IReadOnlyList<SimuliertesEreignis> Ereignisse, bool? LosGewinnerHeim)
+                    IReadOnlyList<SimuliertesEreignis> Ereignisse, bool? LosGewinnerHeim,
+                    Wiederholungsergebnis? Wiederholung)
         Anwenden(VorgegebenerZufall zufall, bool ausfuehrlich, Mannschaft heim, Mannschaft gast, params VerfahrenArt[] arten) =>
         SimulationsEngine.EntscheidungsverfahrenAnwenden(
             heim, gast, VerfahrenKette(arten), ausfuehrlich, zufall);
@@ -231,6 +233,67 @@ public class SimulationsEngineEntscheidungTests
         e.Art.Should().Be(EntscheidungArt.Elfmeterschiessen);
         (e.HeimVerl, e.GastVerl).Should().Be(Stand(1, 1));
         (e.HeimElf, e.GastElf).Should().Be(Stand(5, 6));
+    }
+
+    // ── Wiederholungsspiel (#547) ─────────────────────────────────────────
+    // Schnellsimulation über 90 Minuten: Heim λ = 1,95 → e^-λ = 0,142; Gast λ = 0,975 → e^-λ = 0,377.
+
+    [Fact]
+    public void Wiederholungsspiel_HeimGewinnt_LosFolgtNicht()
+    {
+        // Wiederholungsspiel 1:0 (Heim 0,5 · 0,0; Gast 0,0) – bis #547 übersprang die Kette das Verfahren und
+        // der erste Wert ging an das Los.
+        var zufall = new VorgegebenerZufall([0.5, 0.0, /* Gast */ 0.0]);
+
+        var e = Anwenden(zufall, false, VerfahrenArt.Wiederholungsspiel, VerfahrenArt.Losentscheid);
+
+        e.Art.Should().Be(EntscheidungArt.Wiederholungsspiel);
+        e.LosGewinnerHeim.Should().BeNull();
+        e.Wiederholung.Should().NotBeNull();
+    }
+
+    [Fact]
+    public void Wiederholungsspiel_TorgleichNachVerlaengerungImWiederholungsspiel_LosEntscheidet()
+    {
+        // Kette Verlängerung, Wiederholungsspiel, Los: 0:0 n.V. im ersten Spiel, 0:0 im Wiederholungsspiel,
+        // 0:0 n.V. im Wiederholungsspiel – erst dann das Los; alle Stände bleiben gesetzt (K2).
+        var zufall = new VorgegebenerZufall([0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]);
+
+        var e = Anwenden(zufall, false,
+            VerfahrenArt.VerlaengerungKlassisch, VerfahrenArt.Wiederholungsspiel, VerfahrenArt.Losentscheid);
+
+        e.Art.Should().Be(EntscheidungArt.Losentscheid);
+        e.HeimVerl.Should().Be(0);
+        e.Wiederholung.Should().Be(new Wiederholungsergebnis(0, 0, 0, 0));
+        e.LosGewinnerHeim.Should().BeTrue();
+    }
+
+    [Fact]
+    public void Wiederholungsspiel_ErsteSpielOhneVerlaengerungVorDemWiederholungsspiel_KeineVerlaengerungDort()
+    {
+        var zufall = new VorgegebenerZufall([0.0, 0.0, 0.0]);
+
+        var e = Anwenden(zufall, false, VerfahrenArt.Wiederholungsspiel, VerfahrenArt.Losentscheid);
+
+        e.Wiederholung.Should().Be(new Wiederholungsergebnis(0, 0, null, null));
+        e.Art.Should().Be(EntscheidungArt.Losentscheid);
+    }
+
+    [Theory]
+    [InlineData(Spielortvorteil.Heim, false, 0, 1)]      // Heimrecht getauscht: erster Wurf gehört dem Gast des ersten Spiels
+    [InlineData(Spielortvorteil.Neutral, true, 1, 0)]    // neutraler Platz: wie im ersten Spiel
+    [InlineData(Spielortvorteil.Heim, true, 1, 0)]       // Gastgeber als Heimteam auf neutralem Platz bleibt Gastgeber
+    public void Wiederholungsspiel_Heimrecht_ToreAusSichtDesHeimteamsDesErstenSpiels(
+        Spielortvorteil vorteil, bool neutral, int heimTore, int gastTore)
+    {
+        // Erste Ziehung 1 Tor (0,5 · 0,0), zweite keins.
+        var zufall = new VorgegebenerZufall([0.5, 0.0, 0.0]);
+
+        var e = SimulationsEngine.EntscheidungsverfahrenAnwenden(
+            HeimTeam(), GastTeam(), VerfahrenKette(VerfahrenArt.Wiederholungsspiel, VerfahrenArt.Losentscheid),
+            false, zufall, vorteil, neutralerSpielort: neutral);
+
+        e.Wiederholung.Should().Be(new Wiederholungsergebnis(heimTore, gastTore, null, null));
     }
 
     // ── Elfmeterschießen ──────────────────────────────────────────────────

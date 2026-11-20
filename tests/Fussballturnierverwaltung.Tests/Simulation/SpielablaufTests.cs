@@ -20,7 +20,8 @@ public class SpielablaufTests
         SimulationsEngine.Simulieren(HeimTeam(), GastTeam(), VerfahrenKette(verfahren), ausfuehrlich: true, zufall);
 
     private static (int? HeimVerl, int? GastVerl, int? HeimElf, int? GastElf, EntscheidungArt Art,
-                    IReadOnlyList<SimuliertesEreignis> Ereignisse, bool? LosGewinnerHeim)
+                    IReadOnlyList<SimuliertesEreignis> Ereignisse, bool? LosGewinnerHeim,
+                    Wiederholungsergebnis? Wiederholung)
         Anwenden(VorgegebenerZufall zufall, params VerfahrenArt[] verfahren) =>
         SimulationsEngine.EntscheidungsverfahrenAnwenden(
             HeimTeam(), GastTeam(), VerfahrenKette(verfahren), ausfuehrlich: true, zufall);

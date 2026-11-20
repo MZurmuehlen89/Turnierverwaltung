@@ -178,7 +178,7 @@ public class SimulationsService(
             return ergebnis;
 
         // #361: die Verlängerung setzt das Rückspiel fort – mit dessen Platzverweisen, nicht denen des Hinspiels.
-        var (hv, gv, he, ge, art, extras, losGewinnerHeim) = SimulationsEngine.EntscheidungsverfahrenAnwenden(
+        var (hv, gv, he, ge, art, extras, losGewinnerHeim, wiederholung) = SimulationsEngine.EntscheidungsverfahrenAnwenden(
             spiel.HeimMannschaft!, spiel.AuswaertsMannschaft!, verfahren, ausfuehrlich: true, rng, spielortvorteil,
             runde.Ueberraschungsfaktor, Platzverweise.AusEreignissen(ergebnis.Ereignisse), runde.Spielbedeutung);
         return ergebnis with
@@ -190,6 +190,7 @@ public class SimulationsService(
             EntscheidungArt            = art,
             Ereignisse                 = [.. ergebnis.Ereignisse, .. extras],
             LosGewinnerHeim            = losGewinnerHeim,
+            Wiederholung               = wiederholung,
         };
     }
 
