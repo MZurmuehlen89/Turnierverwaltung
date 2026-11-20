@@ -24,22 +24,47 @@ internal static class DixonColes
         _ => 1.0
     };
 
-    /// <summary>Maximum-Likelihood-Schätzung von ρ bei festen λ und μ je Spiel (Gitter −0,300 … +0,100, Schritt 0,001).</summary>
+    /// <summary>Maximum-Likelihood-Schätzung von ρ bei festen λ und μ je Spiel, gesucht in −0,3 … +0,1.</summary>
+    /// <remarks>#683: Die Log-Likelihood ist in ρ konkav (Summe von Logarithmen linearer Funktionen), ihre Ableitung also
+    /// fallend – Bisektion auf der Ableitung findet das Maximum stetig. Das frühere Gitter (Schritt 0,001) war für den
+    /// Jackknife zu grob: ohne eine von 100 Saisons verschiebt sich ρ um weniger als einen Gitterschritt, der SE wäre
+    /// gerundet. Liegt das Maximum außerhalb des Suchbereichs, gilt wie beim Gitter der nächste Rand.</remarks>
     public static double RhoSchaetzen(IReadOnlyList<(double Lambda, double Mu, int Heim, int Gast)> spiele)
     {
-        // Nur 0:0, 1:0, 0:1 und 1:1 haben τ ≠ 1 und tragen damit zur Log-Likelihood bei (log 1 = 0) – #683: das Gitter
-        // läuft über rund ein Drittel der Spiele statt über alle.
+        // Nur 0:0, 1:0, 0:1 und 1:1 haben τ ≠ 1 und tragen damit zur Log-Likelihood bei (log 1 = 0).
         var betroffene = spiele.Where(s => s.Heim <= 1 && s.Gast <= 1).ToList();
-        double bestesRho = 0, besteLogLikelihood = double.NegativeInfinity;
-        for (int i = -300; i <= 100; i++)
+        double unten = RHO_MIN, oben = RHO_MAX;
+        if (Ableitung(betroffene, unten) <= 0) return unten;
+        if (Ableitung(betroffene, oben) >= 0) return oben;
+        for (int i = 0; i < BISEKTIONSSCHRITTE; i++)
         {
-            double rho = i / 1000.0;
-            double logLikelihood = 0;
-            foreach (var s in betroffene)
-                logLikelihood += Math.Log(Math.Max(MIN_TAU, Tau(s.Heim, s.Gast, s.Lambda, s.Mu, rho)));
-            if (logLikelihood > besteLogLikelihood) { besteLogLikelihood = logLikelihood; bestesRho = rho; }
+            double mitte = (unten + oben) / 2;
+            if (Ableitung(betroffene, mitte) > 0) unten = mitte; else oben = mitte;
         }
-        return bestesRho;
+        return (unten + oben) / 2;
+    }
+
+    private const double RHO_MIN = -0.3, RHO_MAX = 0.1;
+    private const int BISEKTIONSSCHRITTE = 40;
+
+    /// <summary>Ableitung der Log-Likelihood nach ρ. Wo ein τ ≤ 0 würde, ist ρ unzulässig klein (τ von 1:0/0:1 fällt
+    /// mit sinkendem ρ) oder zu groß (0:0, 1:1) – die Ableitung zeigt dann in den zulässigen Bereich.</summary>
+    private static double Ableitung(List<(double Lambda, double Mu, int Heim, int Gast)> spiele, double rho)
+    {
+        double summe = 0;
+        foreach (var s in spiele)
+        {
+            double tau = Tau(s.Heim, s.Gast, s.Lambda, s.Mu, rho);
+            if (tau < MIN_TAU) return (s.Heim, s.Gast) is (0, 0) or (1, 1) ? double.NegativeInfinity : double.PositiveInfinity;
+            summe += (s.Heim, s.Gast) switch
+            {
+                (0, 0) => -s.Lambda * s.Mu,
+                (0, 1) => s.Lambda,
+                (1, 0) => s.Mu,
+                _ => -1.0
+            } / tau;
+        }
+        return summe;
     }
 
     /// <summary>Beobachtete Anzahl des Ergebnisses x:y geteilt durch die Anzahl, die unabhängige Poisson-Ziehungen erwarten ließen.</summary>

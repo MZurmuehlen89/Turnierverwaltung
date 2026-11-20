@@ -17,7 +17,7 @@ namespace Fussballturnierverwaltung.Tests.Simulation;
 /// Niederlage 3,2. Die übrigen Bänder wurden in #678/#431 nach demselben Muster (zwei Standardfehler plus Spielraum bzw.
 /// Zielwert ± Toleranz) gewählt und nicht einzeln neu hergeleitet; wo ein Band an der Grenze lag, entscheidet der Rauschzuschlag.</para>
 /// <para><b>Rauschzuschlag</b> (#683): jede Kennzahl schätzt ihr Monte-Carlo-Rauschen aus der eigenen Stichprobe
-/// (Jackknife über 10 Blöcke zu je 10 Saisons, <see cref="Rauschschaetzung"/>) und wird erst rot, wenn sie ihre
+/// (Jackknife ohne je eine der 100 Saisons, <see cref="Rauschschaetzung"/>) und wird erst rot, wenn sie ihre
 /// Bandgrenze um mehr als 2 SE überschreitet (<see cref="Bandpruefung"/>). Grund: das Rauschen ist klein (SD über Seeds
 /// ≈ 0,2 Punkte), rot wurde ein Test, weil sein Mittel <i>auf</i> der Grenze liegt; mehr Spiele oder ein Mittel über
 /// Seeds machten das nur deterministisch. Die echten Abweichungen vom Realbild zeigt die Messreihe
@@ -38,16 +38,16 @@ public class SimulationsRealismusTests(RealismusStichprobe stichprobe) : IClassF
     private Realismuskennzahlen? _katalog;
     private Realismuskennzahlen Katalog => _katalog ??= new(Spiele);
 
-    /// <summary>Misst jede Kennzahl samt Jackknife-Rauschen, schreibt alle Berichtszeilen und schlägt erst danach für
-    /// alle roten Kennzahlen zusammen fehl (Band mit Rauschzuschlag, <see cref="Bandpruefung"/>).</summary>
+    /// <summary>Misst jede Kennzahl, schätzt ihr Jackknife-Rauschen, wenn sie außerhalb ihres Bandes liegt, schreibt alle
+    /// Berichtszeilen und schlägt erst danach für alle roten Kennzahlen zusammen fehl (Band mit Rauschzuschlag,
+    /// <see cref="Bandpruefung"/>).</summary>
     private void Pruefen(params Realismuskennzahl[] kennzahlen)
     {
         var rot = new List<string>();
         foreach (var kennzahl in kennzahlen)
         {
             double wert = kennzahl.Messen(Spiele);
-            double se = Rauschschaetzung.JackknifeStandardfehler(Spiele, kennzahl.Messen);
-            var ergebnis = Bandpruefung.Pruefen(kennzahl, wert, se);
+            var ergebnis = Bandpruefung.Pruefen(kennzahl, wert, () => Rauschschaetzung.Standardfehler(kennzahl, Spiele));
             Bericht(ergebnis.Zeile);
             if (!ergebnis.Gruen) rot.Add(ergebnis.Zeile);
         }

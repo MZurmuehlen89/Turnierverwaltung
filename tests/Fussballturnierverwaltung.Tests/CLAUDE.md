@@ -61,11 +61,15 @@ lead, draw rate per favourite class, red cards). One shared Monte-Carlo sample p
 seasons, seed 678, ~3 s); targets and their sources are in the class comment and in `tools/Realismus-Zielwerte/`. They
 are not meant to kill mutants. **Noise margin (#683):** every band lives once in the catalog `Realismus/Realismuskennzahlen`
 (name, band, target text, measurement); a test estimates the Monte-Carlo noise of each metric from its own sample
-(`Rauschschaetzung`, jackknife over 10 blocks of 10 seasons) and turns red only when the metric exceeds the band by more
-than 2 standard errors (`Bandpruefung`). Bands, target texts and skip rules are unchanged; the report line shows value ± SE.
+(`Rauschschaetzung`, jackknife leaving out one of the 100 seasons at a time — with 10 blocks the SE estimate itself
+scattered ±24 % and turned a seed red) and turns red only when the metric exceeds the band by more than 2 standard
+errors (`Bandpruefung`). Exception: the draw rate per favourite class is a maximum over classes, which the jackknife
+cannot estimate (it overstated the noise by 1.7×); it is checked against its band without margin (`MitRauschzuschlag: false`).
+The jackknife runs only for a metric outside its band (inside it is green anyway; for all metrics it would add ~8 s).
+Bands, target texts and skip rules are unchanged; the report line shows value ± SE where one was estimated.
 Reason: the noise is small (SD over seeds ≈ 0.2 points), a test went red because its mean sat *on* the band edge — more
 games or a mean over seeds would only make that deterministic. **Measurement series** `Realismus/RealismusMessreihe`
-(`Explicit`, not in the normal run or CI, ~8 s per seed): `$env:REALISMUS_SEEDS='678,1,2,3'; $env:REALISMUS_AUSGABE='<csv>'`,
+(`Explicit`, not in the normal run or CI, ~13 s per seed): `$env:REALISMUS_SEEDS='678,1,2,3'; $env:REALISMUS_AUSGABE='<csv>'`,
 then `dotnet test --project tests/Fussballturnierverwaltung.Tests -- --filter-class "*RealismusMessreihe" --explicit only`
 (default: seeds 678, 1–29). It writes value and jackknife SE per metric and seed as CSV and, next to it, a summary
 (mean, SD over seeds, mean SE, red seeds with/without margin). Run it after every change to the simulation instead of

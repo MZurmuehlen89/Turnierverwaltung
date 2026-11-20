@@ -3,9 +3,12 @@ namespace Fussballturnierverwaltung.Tests.Simulation.Realismus;
 /// <summary>
 /// Eine Kennzahl der Realismus-Prüfung (#683): Name, Band (<paramref name="Von"/> … <paramref name="Bis"/>, einseitige
 /// Bänder mit ±∞), Zieltext und die Messung auf einer Spieleliste (voll oder ohne einen Jackknife-Block).
+/// <paramref name="MitRauschzuschlag"/> = false: die Kennzahl wird ohne Rauschzuschlag gegen ihr Band geprüft, weil der
+/// Jackknife ihr Rauschen nicht schätzen kann (Maximum über Klassen).
 /// </summary>
 internal sealed record Realismuskennzahl(
-    string Name, double Von, double Bis, string Ziel, string Format, Func<IReadOnlyList<SimuliertesSpiel>, double> Messen);
+    string Name, double Von, double Bis, string Ziel, string Format, Func<IReadOnlyList<SimuliertesSpiel>, double> Messen,
+    bool MitRauschzuschlag = true);
 
 /// <summary>
 /// #683: der Katalog aller Bänder der Realismus-Tests – jedes Band genau einmal definiert, damit die Tests
@@ -36,7 +39,7 @@ internal sealed class Realismuskennzahlen
             ? []
             : [.. _favoritenklassen.Where(k => Klasse(HaelfteB(voll), k).Count >= MINDESTSPIELE_KLASSE)];
         Remisklassen = new("Remisquote je Favoritenklasse: größte Abweichung vom Ziel", 0, 0.030,
-            "Ziel je Klasse: quotenimplizierte Remisquote", "P1", RemisklassenAbweichung);
+            "Ziel je Klasse: quotenimplizierte Remisquote", "P1", RemisklassenAbweichung, MitRauschzuschlag: false);
         Alle =
         [
             Remis, NullNull, ZuNull, FuenfTore, SiebenTore, Tordifferenz3, EinsNull, EinsEins,
@@ -139,7 +142,10 @@ internal sealed class Realismuskennzahlen
 
     /// <summary>Größte Abweichung der Remisquote vom Quotenbild über die geprüften Favoritenklassen: Klassen aus Hälfte A,
     /// Siegquote des Favoriten und Remisquote beide in Hälfte B – die A-Schätzung selbst taugt nicht als Siegchance der
-    /// Klasse (Regression zur Mitte, in #678 nachgerechnet).</summary>
+    /// Klasse (Regression zur Mitte, in #678 nachgerechnet).
+    /// <para>Ohne Rauschzuschlag (#683): für ein Maximum ist der Jackknife ungeeignet (nicht glatt) – er überschätzte das
+    /// Rauschen über 30 Seeds um den Faktor 1,76, auch mit festgehaltener Klasse noch 1,72. Die Kennzahl liegt im Mittel
+    /// (2,1 Punkte) mehr als 2 SD innerhalb ihres Bandes und war ohne Zuschlag in keinem Seed rot.</para></summary>
     public Realismuskennzahl Remisklassen { get; }
 
     private double RemisklassenAbweichung(IReadOnlyList<SimuliertesSpiel> spiele)
@@ -182,19 +188,19 @@ internal sealed class Realismuskennzahlen
     // Zielwerte und Herleitung der Bänder: Kommentar „Schritt 1“ zu #431.
 
     public Realismuskennzahl Grosschancen { get; } = new("Großchancen inkl. Elfmeter je Team und Spiel", 1.6, 2.6, "Ziel 2,0", "F2",
-        s => Realismusauswertung.Chancen([.. s]).GrosschancenJeTeam);
+        s => Realismusauswertung.Chancen(s).GrosschancenJeTeam);
 
     public Realismuskennzahl Verwertung { get; } = new("Verwertung der Großchancen", 0.35, 0.45, "Ziel 40 %", "P1",
-        s => Realismusauswertung.Chancen([.. s]).Verwertung);
+        s => Realismusauswertung.Chancen(s).Verwertung);
 
     public Realismuskennzahl ElfmeterJeSpiel { get; } = new("Elfmeter je Spiel", 0.26, 0.38, "Ziel 0,32", "F2",
-        s => Realismusauswertung.Chancen([.. s]).ElfmeterJeSpiel);
+        s => Realismusauswertung.Chancen(s).ElfmeterJeSpiel);
 
     public Realismuskennzahl ElfmeterQuote { get; } = new("Elfmeterquote", 0.72, 0.84, "Ziel 78,5 %", "P1",
-        s => Realismusauswertung.Chancen([.. s]).ElfmeterQuote);
+        s => Realismusauswertung.Chancen(s).ElfmeterQuote);
 
     public Realismuskennzahl ElfmeterAnteil { get; } = new("Anteil der Elfmetertore an allen Toren", 0.065, 0.100, "Ziel 8 %", "P1",
-        s => Realismusauswertung.Chancen([.. s]).AnteilElfmeterTore);
+        s => Realismusauswertung.Chancen(s).AnteilElfmeterTore);
 
     // ── K6 Platzverweise ──────────────────────────────────────────────────
 

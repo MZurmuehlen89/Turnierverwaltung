@@ -8,7 +8,7 @@ namespace Fussballturnierverwaltung.Tests.Simulation.Realismus;
 /// weder im normalen Testlauf noch in CI). Es nutzt denselben Katalog wie <c>SimulationsRealismusTests</c> (<see cref="Realismuskennzahlen"/>)
 /// und schreibt je Seed Wert und Jackknife-Standardfehler je Kennzahl in eine CSV sowie am Ende eine Zusammenfassung
 /// (Mittel, Streuung über die Seeds, mittlerer Jackknife-SE, Zahl roter Seeds ohne und mit Rauschzuschlag).
-/// Aufruf (PowerShell, ~6 s je Seed):
+/// Aufruf (PowerShell, ~13 s je Seed):
 /// <c>$env:REALISMUS_SEEDS='678,1,2,3'; dotnet test --project tests/Fussballturnierverwaltung.Tests -- --filter-class "*RealismusMessreihe" --explicit only</c>
 /// – <c>REALISMUS_SEEDS</c> (Standard 678 und 1–29), <c>REALISMUS_AUSGABE</c> (CSV, Standard <c>realismus-messreihe.csv</c>
 /// im Temp-Ordner; die Zusammenfassung liegt daneben als <c>.zusammenfassung.txt</c>).
@@ -33,7 +33,7 @@ public class RealismusMessreihe
             var spiele = RealismusStichprobe.Erzeugen(seed);
             var katalog = new Realismuskennzahlen(spiele);
             var zeile = katalog.Alle
-                .Select(k => (Wert: k.Messen(spiele), Se: Rauschschaetzung.JackknifeStandardfehler(spiele, k.Messen)))
+                .Select(k => (Wert: k.Messen(spiele), Se: Rauschschaetzung.Standardfehler(k, spiele)))
                 .ToArray();
             werte.Add(zeile);
             csv.Append(seed + ";" + string.Join(";", zeile.Select(z => Zahl(z.Wert) + ";" + Zahl(z.Se))) + "\n");

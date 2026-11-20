@@ -42,6 +42,31 @@ public class BandpruefungTests
         Gruen(0.5999, 0, 0.40, 0.60).Should().BeTrue();
     }
 
+    [Theory]
+    [InlineData(0.50, false)] // im Band: grün ohne Schätzung
+    [InlineData(0.61, true)]  // außerhalb: der Zuschlag braucht den Standardfehler
+    public void KennzahlImBand_SchaetztKeinRauschen(double wert, bool geschaetzt)
+    {
+        var kennzahl = new Realismuskennzahl("Test", 0.40, 0.60, "Ziel", "P1", _ => 0);
+        bool aufgerufen = false;
+
+        var ergebnis = Bandpruefung.Pruefen(kennzahl, wert, () => { aufgerufen = true; return 0.01; });
+
+        aufgerufen.Should().Be(geschaetzt);
+        ergebnis.Gruen.Should().BeTrue();
+    }
+
+    [Fact]
+    public void KennzahlOhneRauschzuschlag_RotSchonKnappAusserhalbDesBandes()
+    {
+        var kennzahl = new Realismuskennzahl("Maximum", 0, 0.030, "Ziel", "P1", _ => 0, MitRauschzuschlag: false);
+
+        var ergebnis = Bandpruefung.Pruefen(kennzahl, 0.031, 0.01);
+
+        ergebnis.Gruen.Should().BeFalse("ohne Rauschzuschlag zählt nur das Band, nicht der Standardfehler");
+        ergebnis.Zeile.Should().Contain("ohne Rauschzuschlag");
+    }
+
     [Fact]
     public void Berichtszeile_NenntNameWertRauschenUndBand()
     {
