@@ -385,6 +385,13 @@ public record Wiederholungsergebnis(int HeimTore, int AuswaertsTore, int? HeimTo
 {
     public int HeimGesamt => HeimTore + (HeimToreVerlaengerung ?? 0);
     public int AuswaertsGesamt => AuswaertsTore + (AuswaertsToreVerlaengerung ?? 0);
+
+    /// <summary>Das gespeicherte Wiederholungsspiel eines Ergebnisses, oder <c>null</c> ohne eines (Bestandsdaten).</summary>
+    public static Wiederholungsergebnis? Aus(Domain.Entitaeten.Spiele.SpielErgebnis ergebnis) =>
+        ergebnis is { HeimToreWiederholung: { } heim, AuswaertsToreWiederholung: { } auswaerts }
+            ? new Wiederholungsergebnis(heim, auswaerts,
+                ergebnis.HeimToreWiederholungVerlaengerung, ergebnis.AuswaertsToreWiederholungVerlaengerung)
+            : null;
 }
 
 /// <summary>Issue #352: wer im Spiel den Ortsvorteil hat — siehe

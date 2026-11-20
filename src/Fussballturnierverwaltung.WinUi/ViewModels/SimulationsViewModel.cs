@@ -541,7 +541,8 @@ public partial class SimulationsViewModel : ViewModelBase, IRibbonAware
                 e.HalbzeitHeimTore, e.HalbzeitAuswaertsTore,
                 (e.EntscheidungArt is EntscheidungArt.Losentscheid or EntscheidungArt.Muenzwurf) && e.SiegerMannschaftId is int siegerId
                     ? siegerId == spiel.HeimMannschaftId
-                    : null);
+                    : null,
+                Wiederholungsergebnis.Aus(e));
             var untertitel = new UntertitelQuellen(
                 m => m.Land?.Verband?.Kurzname, await _ranglisteService.LigazugehoerigkeitAbrufenAsync());
             ProtokollKopf = SimulationsProtokollHelfer.SpielKopfErstellen(
@@ -551,12 +552,13 @@ public partial class SimulationsViewModel : ViewModelBase, IRibbonAware
                 ProtokollEreignisse,
                 // #361: nach Id, damit Ereignisse derselben Minute in der Reihenfolge ihrer Entstehung bleiben.
                 spiel.Ereignisse.OrderBy(ev => ev.Id).Select(ev =>
-                    (ev.Minute, ev.Nachspielminute, ev.EreignisArt, ev.MannschaftId == spiel.HeimMannschaftId, ev.Beschreibung)),
+                    (ev.Minute, ev.Nachspielminute, ev.EreignisArt, ev.MannschaftId == spiel.HeimMannschaftId, ev.Beschreibung, ev.ImWiederholungsspiel)),
                 heim, auswaerts, e.EntscheidungArt,
                 e.HeimToreRegulaer, e.AuswaertsToreRegulaer,
                 e.HeimToreVerlaengerung, e.AuswaertsToreVerlaengerung,
                 e.HeimElfmetertore, e.AuswaertsElfmetertore,
-                heimWappen, auswaertsWappen);
+                heimWappen, auswaertsWappen,
+                wiederholung: Wiederholungsergebnis.Aus(e));
         }
 
         OnPropertyChanged(nameof(HatProtokoll));

@@ -336,12 +336,13 @@ public partial class EinzelspielSimulationsViewModel : ViewModelBase, IRibbonAwa
 
             SimulationsProtokollHelfer.ZeitleisteHinzufuegen(
                 ProtokollEreignisse,
-                erg.Ereignisse.Select(ev => (ev.Minute, ev.Nachspielminute, ev.Art, ev.IstHeim, ev.Beschreibung)),
+                erg.Ereignisse.Select(ev => (ev.Minute, ev.Nachspielminute, ev.Art, ev.IstHeim, ev.Beschreibung, ev.ImWiederholungsspiel)),
                 heim.Name, auswaerts.Name, erg.EntscheidungArt,
                 erg.HeimToreRegulaer, erg.AuswaertsToreRegulaer,
                 erg.HeimToreVerlaengerung, erg.AuswaertsToreVerlaengerung,
                 erg.HeimElfmetertore, erg.AuswaertsElfmetertore,
-                heimWappen, auswaertsWappen);
+                heimWappen, auswaertsWappen,
+                wiederholung: erg.Wiederholung);
         }
         catch (Exception ex)
         {
@@ -429,7 +430,7 @@ public partial class EinzelspielSimulationsViewModel : ViewModelBase, IRibbonAwa
 
         SimulationsProtokollHelfer.ZeitleisteHinzufuegen(
             HinspielEreignisse,
-            erg.Ereignisse.Select(ev => (ev.Minute, ev.Nachspielminute, ev.Art, ev.IstHeim, ev.Beschreibung)),
+            erg.Ereignisse.Select(ev => (ev.Minute, ev.Nachspielminute, ev.Art, ev.IstHeim, ev.Beschreibung, ev.ImWiederholungsspiel)),
             heim.Name, auswaerts.Name, erg.EntscheidungArt,
             erg.HeimToreRegulaer, erg.AuswaertsToreRegulaer,
             erg.HeimToreVerlaengerung, erg.AuswaertsToreVerlaengerung,
@@ -510,6 +511,8 @@ public partial class EinzelspielSimulationsViewModel : ViewModelBase, IRibbonAwa
             string? sieger;
             if (heimGesamt != auswaertsGesamt)
                 sieger = heimGesamt > auswaertsGesamt ? heim.Name : auswaerts.Name;
+            else if (erg2.EntscheidungArt == EntscheidungArt.Wiederholungsspiel && erg2.Wiederholung is { } wdh)
+                sieger = wdh.HeimGesamt > wdh.AuswaertsGesamt ? auswaerts.Name : heim.Name; // erg2 "Heim" = auswaerts (#547)
             else if (erg2 is { EntscheidungArt: EntscheidungArt.Elfmeterschiessen, HeimElfmetertore: not null, AuswaertsElfmetertore: not null })
                 sieger = erg2.HeimElfmetertore > erg2.AuswaertsElfmetertore ? auswaerts.Name : heim.Name; // erg2 "Heim" = auswaerts
             else if (erg2.LosGewinnerHeim is bool losFuerRueckspielHeim) // Losentscheid/Münzwurf (#383)
@@ -526,6 +529,7 @@ public partial class EinzelspielSimulationsViewModel : ViewModelBase, IRibbonAwa
                     or EntscheidungArt.GoldenGoal
                     or EntscheidungArt.SilverGoal => "nach Verlängerung",
                 EntscheidungArt.Auswaertstorregel => "nach Auswärtstorregel",
+                EntscheidungArt.Wiederholungsspiel => "nach Wiederholungsspiel",
                 EntscheidungArt.Losentscheid      => "nach Losentscheid",
                 EntscheidungArt.Muenzwurf         => "nach Münzwurf",
                 _                                 => "nach 180 Minuten"
@@ -540,12 +544,13 @@ public partial class EinzelspielSimulationsViewModel : ViewModelBase, IRibbonAwa
             RueckspielEreignisse.Clear();
             SimulationsProtokollHelfer.ZeitleisteHinzufuegen(
                 RueckspielEreignisse,
-                erg2.Ereignisse.Select(ev => (ev.Minute, ev.Nachspielminute, ev.Art, ev.IstHeim, ev.Beschreibung)),
+                erg2.Ereignisse.Select(ev => (ev.Minute, ev.Nachspielminute, ev.Art, ev.IstHeim, ev.Beschreibung, ev.ImWiederholungsspiel)),
                 auswaerts.Name, heim.Name, erg2.EntscheidungArt,
                 erg2.HeimToreRegulaer, erg2.AuswaertsToreRegulaer,
                 erg2.HeimToreVerlaengerung, erg2.AuswaertsToreVerlaengerung,
                 erg2.HeimElfmetertore, erg2.AuswaertsElfmetertore,
-                auswaertsWappen, heimWappen);
+                auswaertsWappen, heimWappen,
+                wiederholung: erg2.Wiederholung);
 
             RueckspielAnsicht = new SpielBeinAnsicht(
                 SimulationsProtokollHelfer.SpielKopfErstellen(
