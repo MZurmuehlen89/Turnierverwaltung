@@ -36,7 +36,8 @@ public sealed class EinzelspielWiederholungsspielTests(TurnierverwaltungApp app)
         _seite.SiegerzeileSichtbar.Should().BeFalse("solange das Wiederholungsspiel aussteht, gibt es keinen Sieger");
         _seite.WiederholungsspielKnopfAktiv.Should().BeTrue();
         _seite.Spielspalten.Should().Be(3, "Hinspiel, Rückspiel und der Platzhalter des Wiederholungsspiels");
-        _seite.WiederholungAusstehendLage.Left.Should().BeGreaterThanOrEqualTo(_seite.RueckspielLage.Right - 2);
+        // Die Lage der dritten Spalte wird nicht geprüft: Bei der schmalen Fensterbreite der CI stellt das SpaltenPanel drei
+        // Karten bewusst untereinander (unter 380 px je Spalte, siehe SpaltenUmbruchTests).
         var rueckspiel = _seite.RueckspielKopf();
         rueckspiel.Entscheidung.Should().NotContain("Wiederholungsspiel", "die Karte zeigt nur den Stand ihres Spiels (K10)");
         rueckspiel.Zwischenstaende.Should().NotContain("Wdh.");
