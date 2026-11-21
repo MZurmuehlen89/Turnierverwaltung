@@ -14,6 +14,8 @@ internal sealed class Elfmeterschiessen
     private readonly bool _ausfuehrlich;
     private readonly double _trefferHeim;
     private readonly double _trefferGast;
+    private readonly Nervenstaerke _nervenHeim;
+    private readonly Nervenstaerke _nervenGast;
     private readonly List<SimuliertesEreignis> _ereignisse = [];
     private int _heim;
     private int _gast;
@@ -29,6 +31,8 @@ internal sealed class Elfmeterschiessen
         _ausfuehrlich = ausfuehrlich;
         _trefferHeim  = Trefferwahrscheinlichkeit(heim);
         _trefferGast  = Trefferwahrscheinlichkeit(auswaerts);
+        _nervenHeim   = heim.Nervenstaerke;
+        _nervenGast   = auswaerts.Nervenstaerke;
     }
 
     public static (int Heim, int Gast, IReadOnlyList<SimuliertesEreignis> Ereignisse) Simulieren(
@@ -48,11 +52,11 @@ internal sealed class Elfmeterschiessen
     {
         for (int i = 0; i < REGULAERE_SCHUESSE; i++)
         {
-            Schuss(istHeim: true);
+            Schuss(istHeim: true, Nervenwirkung.UnterDruck(_gast - _heim, REGULAERE_SCHUESSE - (i + 1)));
             if (Entschieden(i + 1, i))
                 return;
 
-            Schuss(istHeim: false);
+            Schuss(istHeim: false, Nervenwirkung.UnterDruck(_heim - _gast, REGULAERE_SCHUESSE - (i + 1)));
             if (Entschieden(i + 1, i + 1))
                 return;
         }
@@ -62,15 +66,18 @@ internal sealed class Elfmeterschiessen
     {
         while (_heim == _gast)
         {
-            Schuss(istHeim: true);
-            Schuss(istHeim: false);
+            Schuss(istHeim: true, unterDruck: true);
+            Schuss(istHeim: false, unterDruck: true);
         }
     }
 
-    private void Schuss(bool istHeim)
+    private void Schuss(bool istHeim, bool unterDruck)
     {
         _minute++;
-        bool tor = _rng.NextDouble() < (istHeim ? _trefferHeim : _trefferGast);
+        double quote = istHeim
+            ? Nervenwirkung.Trefferquote(_trefferHeim, _nervenHeim, unterDruck)
+            : Nervenwirkung.Trefferquote(_trefferGast, _nervenGast, unterDruck);
+        bool tor = _rng.NextDouble() < quote;
         if (tor)
         {
             if (istHeim) _heim++;
