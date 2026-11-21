@@ -25,11 +25,12 @@ public static class SimulationsEngine
         int ueberraschungsfaktor = 0,
         Hinspielstand hinspielstand = default,
         Spielbedeutung spielbedeutung = Spielbedeutung.Normal,
-        bool neutralerSpielort = false)
+        bool neutralerSpielort = false,
+        Turnierform? turnierform = null)
     {
         var schritt = SimulierenBisWiederholung(
             heim, auswaerts, verfahren, ausfuehrlich, rng, spielortvorteil, ueberraschungsfaktor, hinspielstand,
-            spielbedeutung, neutralerSpielort);
+            spielbedeutung, neutralerSpielort, turnierform);
         return schritt.Ausstehend?.Austragen() ?? schritt.Ergebnis;
     }
 
@@ -46,10 +47,12 @@ public static class SimulationsEngine
         int ueberraschungsfaktor = 0,
         Hinspielstand hinspielstand = default,
         Spielbedeutung spielbedeutung = Spielbedeutung.Normal,
-        bool neutralerSpielort = false)
+        bool neutralerSpielort = false,
+        Turnierform? turnierform = null)
 #pragma warning restore S107
     {
-        var paarung = new Paarung(heim, auswaerts, spielortvorteil, ueberraschungsfaktor, spielbedeutung, neutralerSpielort);
+        var paarung = new Paarung(
+            heim, auswaerts, spielortvorteil, ueberraschungsfaktor, spielbedeutung, neutralerSpielort, turnierform);
 
         // #361: ausführlich Minute für Minute mit Spielzustand, sonst reines Endergebnis per Poisson. Der
         // Hinspielstand (#671) und die Spielbedeutung (#668) wirken nur auf die Risikostufe und damit nur ausführlich.
@@ -95,9 +98,10 @@ public static class SimulationsEngine
             IReadOnlyList<EntscheidungsVerfahren> verfahren, bool ausfuehrlich, Random rng,
             Spielortvorteil spielortvorteil = Spielortvorteil.Heim, int ueberraschungsfaktor = 0,
             Platzverweise platzverweise = default, Spielbedeutung spielbedeutung = Spielbedeutung.Normal,
-            bool neutralerSpielort = false)
+            bool neutralerSpielort = false, Turnierform? turnierform = null)
     {
-        var paarung = new Paarung(heim, auswaerts, spielortvorteil, ueberraschungsfaktor, spielbedeutung, neutralerSpielort);
+        var paarung = new Paarung(
+            heim, auswaerts, spielortvorteil, ueberraschungsfaktor, spielbedeutung, neutralerSpielort, turnierform);
         var ablauf = ausfuehrlich ? paarung.Anpfiff(rng, platzverweise, gespielteMinuten: 90) : null;
         return VerfahrenKetteAnwenden(paarung, verfahren, ablauf, rng, vorWiederholungAnhalten: false).Ausgang;
     }
@@ -110,10 +114,11 @@ public static class SimulationsEngine
             IReadOnlyList<EntscheidungsVerfahren> verfahren, Random rng,
             Spielortvorteil spielortvorteil = Spielortvorteil.Heim, int ueberraschungsfaktor = 0,
             Platzverweise platzverweise = default, Spielbedeutung spielbedeutung = Spielbedeutung.Normal,
-            bool neutralerSpielort = false)
+            bool neutralerSpielort = false, Turnierform? turnierform = null)
 #pragma warning restore S107
     {
-        var paarung = new Paarung(heim, auswaerts, spielortvorteil, ueberraschungsfaktor, spielbedeutung, neutralerSpielort);
+        var paarung = new Paarung(
+            heim, auswaerts, spielortvorteil, ueberraschungsfaktor, spielbedeutung, neutralerSpielort, turnierform);
         var ablauf = paarung.Anpfiff(rng, platzverweise, gespielteMinuten: 90);
         var (ausgang, weiter) = VerfahrenKetteAnwenden(paarung, verfahren, ablauf, rng, vorWiederholungAnhalten: true);
         return SimulationsSchritt.Aus(regulaer.MitEntscheidung(ausgang), weiter);
@@ -218,7 +223,7 @@ public static class SimulationsEngine
 
     private static double BerechneErwartetesTore(
         Mannschaft angreifer, Mannschaft verteidiger, bool istHeim, Spielortvorteil spielortvorteil,
-        int ueberraschungsfaktor)
+        int ueberraschungsfaktor, double turnierfaktor = 1.0)
     {
         double angriff  = (angreifer.OffensivRating  * 0.6 + angreifer.MittelfeldRating  * 0.4) / 100.0;
         double verteid  = (verteidiger.DefensivRating * 0.6 + verteidiger.MittelfeldRating * 0.4) / 100.0;
@@ -238,6 +243,8 @@ public static class SimulationsEngine
         double lambda = TOR_GRUNDERWARTUNG
                         * Math.Pow(angriff / Math.Max(0.3, verteid), spreizung)
                         * ortFaktor;
+        // #679: die verborgene Turnierstärke beider Teams; ohne Turnier (1,0) bleibt λ bitgleich.
+        if (turnierfaktor != 1.0) lambda *= turnierfaktor;
         return Math.Clamp(lambda, MIN_TORERWARTUNG, MAX_TORERWARTUNG);
     }
 
@@ -264,20 +271,24 @@ public static class SimulationsEngine
     /// <summary>Die beiden Mannschaften samt Rahmen des Spiels — jedes Verfahren braucht alle Angaben.</summary>
     private readonly record struct Paarung(
         Mannschaft Heim, Mannschaft Auswaerts, Spielortvorteil Spielortvorteil, int Ueberraschungsfaktor,
-        Spielbedeutung Spielbedeutung, bool NeutralerSpielort = false)
+        Spielbedeutung Spielbedeutung, bool NeutralerSpielort = false, Turnierform? Turnierform = null)
     {
         /// <summary>#547: Im Wiederholungsspiel tauschen die Teams das Heimrecht – außer auf neutralem Platz und wenn
-        /// ein Gastgeber den Ortsvorteil hat; dort bleibt es wie im ersten Spiel.</summary>
+        /// ein Gastgeber den Ortsvorteil hat; dort bleibt es wie im ersten Spiel. Die Turnierform wandert mit dem Team (#679).</summary>
         public bool HeimrechtTauscht => SimulationsEngine.HeimrechtTauscht(Spielortvorteil, NeutralerSpielort);
 
         public Paarung FuerWiederholungsspiel() =>
-            HeimrechtTauscht ? this with { Heim = Auswaerts, Auswaerts = Heim } : this;
+            HeimrechtTauscht
+                ? this with { Heim = Auswaerts, Auswaerts = Heim, Turnierform = Turnierform?.Tauschen() }
+                : this;
 
         public double HeimTorerwartung =>
-            BerechneErwartetesTore(Heim, Auswaerts, istHeim: true, Spielortvorteil, Ueberraschungsfaktor);
+            BerechneErwartetesTore(Heim, Auswaerts, istHeim: true, Spielortvorteil, Ueberraschungsfaktor,
+                Turnierform?.HeimFaktor ?? 1.0);
 
         public double GastTorerwartung =>
-            BerechneErwartetesTore(Auswaerts, Heim, istHeim: false, Spielortvorteil, Ueberraschungsfaktor);
+            BerechneErwartetesTore(Auswaerts, Heim, istHeim: false, Spielortvorteil, Ueberraschungsfaktor,
+                Turnierform?.GastFaktor ?? 1.0);
 
         public Spielablauf Anpfiff(
             Random rng, Platzverweise platzverweise = default, int gespielteMinuten = 0,
