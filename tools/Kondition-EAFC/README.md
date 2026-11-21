@@ -31,5 +31,5 @@ python -I tools/Kondition-EAFC/auswerten.py <datenordner> . nervenstaerke    # N
 - Nach einem neuen Lauf: Migration nur nötig, wenn Bestandsdatenbanken die neue Liste bekommen sollen – die bestehende
   Migration `MannschaftKonditionVorbelegen` wendet die Liste zum Zeitpunkt ihrer Ausführung an.
 - Nervenstärke (#669, Lauf vom 21.11.2026, 17.873 Spieler): dieselbe Zuordnung (392 Vereine, 93 Nationalteams), Ergebnis 121 stark,
-  121 schwach (196 Vereine, 46 Nationalteams); Bestand per Migration `MannschaftNervenstaerkeVorbelegen`. Die Zeilen im Ordner
-  `__pycache__` und die Rohdaten sind nicht im Repo.
+  121 schwach (196 Vereine, 46 Nationalteams); Bestand per Migration `MannschaftNervenstaerkeVorbelegen`. Die Rohdaten liegen
+  nicht im Repo.
