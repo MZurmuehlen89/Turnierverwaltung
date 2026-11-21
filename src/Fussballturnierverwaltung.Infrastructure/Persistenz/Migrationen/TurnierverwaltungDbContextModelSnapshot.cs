@@ -1058,6 +1058,9 @@ namespace Fussballturnierverwaltung.Infrastructure.Persistenz.Migrationen
                         .HasColumnType("character varying(20)")
                         .UseCollation("deutsch");
 
+                    b.Property<int?>("StaerkeSeed")
+                        .HasColumnType("integer");
+
                     b.Property<int?>("StandardRegelwerkId")
                         .HasColumnType("integer");
 

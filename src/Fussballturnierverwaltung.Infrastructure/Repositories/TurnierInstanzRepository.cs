@@ -53,6 +53,19 @@ public class TurnierInstanzRepository(TurnierverwaltungDbContext context)
             .Select(g => g.MannschaftId)
             .ToListAsync(ct);
 
+    // Kein ExecuteUpdate: die Tests laufen auf EF InMemory.
+    public async Task<int> StaerkeSeedSichernAsync(int instanzId, int kandidat, CancellationToken ct = default)
+    {
+        var instanz = await Context.TurnierInstanzen.FirstAsync(ti => ti.Id == instanzId, ct);
+        bool hatErgebnis = await Context.SpielErgebnisse.AnyAsync(e => e.Spiel.TurnierInstanzId == instanzId, ct);
+        if (instanz.StaerkeSeed is int vorhanden && hatErgebnis)
+            return vorhanden;
+
+        instanz.StaerkeSeed = kandidat;
+        await Context.SaveChangesAsync(ct);
+        return kandidat;
+    }
+
     /// <summary>Issue #352: gleicht die Gastgeber per Schlüssel-Diff ab (nur Hinzufügen/Entfernen, kein
     /// Löschen und Neuanlegen unveränderter Einträge).</summary>
     public async Task GastgeberErsetzenAsync(int instanzId, IReadOnlyCollection<int> mannschaftIds, CancellationToken ct = default)

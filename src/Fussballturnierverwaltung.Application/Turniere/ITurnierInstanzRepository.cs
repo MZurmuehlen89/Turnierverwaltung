@@ -12,6 +12,9 @@ public interface ITurnierInstanzRepository : IRepository<TurnierInstanz>
     Task<IReadOnlyList<TurnierRunde>> RundenErsetzenAsync(int instanzId, IReadOnlyList<TurnierRunde> neueRunden, CancellationToken ct = default);
     Task<IReadOnlyList<int>> GastgeberIdsAsync(int instanzId, CancellationToken ct = default);
     Task GastgeberErsetzenAsync(int instanzId, IReadOnlyCollection<int> mannschaftIds, CancellationToken ct = default);
+    /// <summary>#679: der gültige <c>StaerkeSeed</c> des Turniers. Ist keiner gesetzt oder hat das Turnier kein Ergebnis
+    /// (neuer Durchlauf), wird <paramref name="kandidat"/> gespeichert und zurückgegeben; sonst bleibt der Seed.</summary>
+    Task<int> StaerkeSeedSichernAsync(int instanzId, int kandidat, CancellationToken ct = default);
     Task LoeschenMitSpielen(int id, CancellationToken ct = default);
 
     /// <summary>Issue #294: vollständiger Objektgraph für <see cref="TurnierKlonService"/> — Runden inkl.

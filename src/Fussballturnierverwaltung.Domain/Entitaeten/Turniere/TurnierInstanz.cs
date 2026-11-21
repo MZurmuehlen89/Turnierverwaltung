@@ -21,6 +21,11 @@ public class TurnierInstanz : BasisEntitaet
     public DateOnly? Enddatum { get; set; }
     public TurnierStatus Status { get; set; }
 
+    /// <summary>#679: Seed der verborgenen Turnierstärke je Team (<c>Turnierstaerke.Wert</c>). null = noch nicht gezogen;
+    /// die erste Simulation setzt ihn, ein neuer Durchlauf (alle Ergebnisse gelöscht) zieht einen neuen. Wird nie angezeigt
+    /// und nicht in Klone kopiert.</summary>
+    public int? StaerkeSeed { get; set; }
+
     public int? StandardRegelwerkId { get; set; }
     public Regelwerk? StandardRegelwerk { get; set; }
 
