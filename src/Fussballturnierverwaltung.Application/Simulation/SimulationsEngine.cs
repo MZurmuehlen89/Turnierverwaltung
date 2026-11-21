@@ -271,7 +271,7 @@ public static class SimulationsEngine
     /// <summary>Die beiden Mannschaften samt Rahmen des Spiels — jedes Verfahren braucht alle Angaben.</summary>
     private readonly record struct Paarung(
         Mannschaft Heim, Mannschaft Auswaerts, Spielortvorteil Spielortvorteil, int Ueberraschungsfaktor,
-        Spielbedeutung Spielbedeutung, bool NeutralerSpielort = false, Turnierform? Turnierform = null)
+        Spielbedeutung Spielbedeutung, bool NeutralerSpielort = false, Turnierform? Form = null)
     {
         /// <summary>#547: Im Wiederholungsspiel tauschen die Teams das Heimrecht – außer auf neutralem Platz und wenn
         /// ein Gastgeber den Ortsvorteil hat; dort bleibt es wie im ersten Spiel. Die Turnierform wandert mit dem Team (#679).</summary>
@@ -279,16 +279,16 @@ public static class SimulationsEngine
 
         public Paarung FuerWiederholungsspiel() =>
             HeimrechtTauscht
-                ? this with { Heim = Auswaerts, Auswaerts = Heim, Turnierform = Turnierform?.Tauschen() }
+                ? this with { Heim = Auswaerts, Auswaerts = Heim, Form = Form?.Tauschen() }
                 : this;
 
         public double HeimTorerwartung =>
             BerechneErwartetesTore(Heim, Auswaerts, istHeim: true, Spielortvorteil, Ueberraschungsfaktor,
-                Turnierform?.HeimFaktor ?? 1.0);
+                Form?.HeimFaktor ?? 1.0);
 
         public double GastTorerwartung =>
             BerechneErwartetesTore(Auswaerts, Heim, istHeim: false, Spielortvorteil, Ueberraschungsfaktor,
-                Turnierform?.GastFaktor ?? 1.0);
+                Form?.GastFaktor ?? 1.0);
 
         public Spielablauf Anpfiff(
             Random rng, Platzverweise platzverweise = default, int gespielteMinuten = 0,
