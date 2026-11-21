@@ -804,6 +804,9 @@ namespace Fussballturnierverwaltung.Infrastructure.Persistenz.Migrationen
                         .HasColumnType("character varying(200)")
                         .UseCollation("deutsch");
 
+                    b.Property<int>("Nervenstaerke")
+                        .HasColumnType("integer");
+
                     b.Property<int>("OffensivRating")
                         .HasColumnType("integer");
 

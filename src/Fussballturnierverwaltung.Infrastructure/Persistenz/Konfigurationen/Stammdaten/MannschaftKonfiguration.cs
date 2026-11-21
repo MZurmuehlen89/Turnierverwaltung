@@ -21,6 +21,7 @@ public class MannschaftKonfiguration : IEntityTypeConfiguration<Mannschaft>
         builder.Property(m => m.Grundausrichtung).IsRequired();
         builder.Property(m => m.Flexibilitaet).IsRequired();
         builder.Property(m => m.Kondition).IsRequired();
+        builder.Property(m => m.Nervenstaerke).IsRequired();
 
         // Berechnete Eigenschaft, wird nicht in der Datenbank gespeichert
         builder.Ignore(m => m.GesamtRating);

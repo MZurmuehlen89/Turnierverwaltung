@@ -20,6 +20,7 @@ public class Mannschaft : BasisEntitaet
     public Grundausrichtung Grundausrichtung { get; set; }
     public Flexibilitaet Flexibilitaet { get; set; }
     public Kondition Kondition { get; set; }
+    public Nervenstaerke Nervenstaerke { get; set; }
 
     public byte[]? Wappen { get; set; }
 
