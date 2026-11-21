@@ -12,8 +12,6 @@ namespace Fussballturnierverwaltung.WinUi.Views;
 /// weil ein <c>AdaptiveTrigger</c> nur die Fensterbreite kennt.</summary>
 public sealed class SpaltenPanel : Panel
 {
-    private const double ABSTAND = 12;
-
     private bool? _untereinander;
 
     /// <summary>Unterhalb dieser Breite je Spalte rutschen die Spalten untereinander.</summary>
@@ -25,7 +23,7 @@ public sealed class SpaltenPanel : Panel
         if (sichtbar.Count == 0) return new Size(0, 0);
 
         double breite = double.IsInfinity(verfuegbar.Width) ? MinSpaltenbreite * sichtbar.Count : verfuegbar.Width;
-        bool untereinander = sichtbar.Count > 1 && SpaltenBreite(breite, sichtbar.Count) < MinSpaltenbreite;
+        bool untereinander = SpaltenUmbruch.Untereinander(breite, sichtbar.Count, MinSpaltenbreite, _untereinander == true);
         ModusSetzen(untereinander);
 
         if (untereinander)
@@ -36,10 +34,10 @@ public sealed class SpaltenPanel : Panel
                 kind.Measure(new Size(breite, double.PositiveInfinity));
                 summe += kind.DesiredSize.Height;
             }
-            return new Size(breite, summe + ABSTAND * (sichtbar.Count - 1));
+            return new Size(breite, summe + SpaltenUmbruch.ABSTAND * (sichtbar.Count - 1));
         }
 
-        double spalte = SpaltenBreite(breite, sichtbar.Count);
+        double spalte = SpaltenUmbruch.Spaltenbreite(breite, sichtbar.Count);
         double hoehe = 0;
         foreach (var kind in sichtbar)
         {
@@ -62,18 +60,16 @@ public sealed class SpaltenPanel : Panel
             foreach (var kind in sichtbar)
             {
                 kind.Arrange(new Rect(0, y, finale.Width, kind.DesiredSize.Height));
-                y += kind.DesiredSize.Height + ABSTAND;
+                y += kind.DesiredSize.Height + SpaltenUmbruch.ABSTAND;
             }
             return finale;
         }
 
-        double spalte = SpaltenBreite(finale.Width, sichtbar.Count);
+        double spalte = SpaltenUmbruch.Spaltenbreite(finale.Width, sichtbar.Count);
         for (int i = 0; i < sichtbar.Count; i++)
-            sichtbar[i].Arrange(new Rect(i * (spalte + ABSTAND), 0, spalte, finale.Height));
+            sichtbar[i].Arrange(new Rect(i * (spalte + SpaltenUmbruch.ABSTAND), 0, spalte, finale.Height));
         return finale;
     }
-
-    private static double SpaltenBreite(double breite, int anzahl) => (breite - ABSTAND * (anzahl - 1)) / anzahl;
 
     private List<UIElement> SichtbareKinder() => Children.Where(k => k.Visibility == Visibility.Visible).ToList();
 

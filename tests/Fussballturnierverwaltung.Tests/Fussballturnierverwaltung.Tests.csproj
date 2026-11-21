@@ -33,6 +33,11 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- Reine Funktion ohne Oberfläche aus WinUi, hier verknüpft, weil das Testprojekt WinUi nicht referenziert (#247) -->
+    <Compile Include="..\..\src\Fussballturnierverwaltung.WinUi\Views\SpaltenUmbruch.cs" Link="Verknuepft\SpaltenUmbruch.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\..\src\Fussballturnierverwaltung.Domain\Fussballturnierverwaltung.Domain.csproj" />
     <ProjectReference Include="..\..\src\Fussballturnierverwaltung.Application\Fussballturnierverwaltung.Application.csproj" />
     <ProjectReference Include="..\..\src\Fussballturnierverwaltung.Infrastructure\Fussballturnierverwaltung.Infrastructure.csproj" />

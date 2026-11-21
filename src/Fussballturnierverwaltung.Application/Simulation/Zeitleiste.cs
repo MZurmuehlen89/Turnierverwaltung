@@ -49,7 +49,9 @@ public static class Zeitleiste
     /// Schnellsimulation persistiert keine Einzelereignisse – sonst stünde dort ein vorgetäuschter HALBZEIT-Trenner).
     /// Die Spielstände kommen aus <paramref name="stand"/>; dessen <c>Ereignisse</c> werden nicht gelesen. Das
     /// Wiederholungsspiel hat eine eigene Uhr und eine eigene Zeitleiste (<see cref="ErstellenWiederholungsspiel"/>,
-    /// #247) – seine Ereignisse gehören nicht hierher.</summary>
+    /// #247) – seine Ereignisse gehören nicht hierher. Ereignisse eines Wiederholungsspiels ohne gespeichertes
+    /// Wiederholungsergebnis kann die App nicht erzeugen (Engine und Eingabe setzen beides zusammen); bei solchen
+    /// Bestandsdaten fehlt die Karte des Wiederholungsspiels.</summary>
     public static IReadOnlyList<EinzelspielEreignisZeile> Erstellen(
         SimulationsErgebnis stand, IEnumerable<ZeitleistenEreignis> ereignisse, SpielSeite heim, SpielSeite auswaerts) =>
         Aufbauen(stand, ereignisse.Where(ev => !ev.ImWiederholungsspiel).ToList(), heim, auswaerts);
