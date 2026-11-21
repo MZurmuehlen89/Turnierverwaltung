@@ -112,7 +112,7 @@ public class SimulationsService(
         CancellationToken ct = default,
         bool ueberschreiben = false)
     {
-        var ergebnis = await SimulierenUndSpeichernAsync(spielId, rng ?? zufallsquelle.Erzeugen(), ct, ueberschreiben);
+        var ergebnis = await SimulierenUndSpeichernAsync(spielId, rng ?? zufallsquelle.Erzeugen(), [], ct, ueberschreiben);
 
         // Issue #90: Vorwärts-Auflösung der Folgerunden-Platzhalter — hier für das eine Spiel, bei
         // Massensimulationen einmal je Block (siehe MehrereSimulierenAsync).
@@ -125,7 +125,7 @@ public class SimulationsService(
     /// Auflösung ist mit Abstand der teuerste Schritt (Issue #386: ~99 % der Laufzeit einer Massensimulation)
     /// und übernimmt der Aufrufer.</summary>
     private async Task<SimulationsErgebnis> SimulierenUndSpeichernAsync(
-        int spielId, Random rng, CancellationToken ct, bool ueberschreiben = false)
+        int spielId, Random rng, Dictionary<int, int> staerkeSeeds, CancellationToken ct, bool ueberschreiben = false)
     {
         var spiel = await SpielFuerSimulationLadenAsync(spielId, ueberschreiben, ct);
 
@@ -156,13 +156,15 @@ public class SimulationsService(
         // Issue #171: Ereignisse werden unabhängig vom gewählten Modus immer berechnet und
         // gespeichert (In-Memory-Berechnung ist vernachlässigbar teuer) — sonst bleibt der
         // Spielverlauf leer, wenn ein schnellsimuliertes Spiel später im Detail betrachtet wird.
+        // #679: die verborgene Turnierstärke beider Teams, für das ganze Turnier gleich.
+        var turnierform = await TurnierformAsync(spiel, staerkeSeeds, ct);
         var ergebnis = SimulationsEngine.Simulieren(
             spiel.HeimMannschaft!, spiel.AuswaertsMannschaft!,
             istKoHinspiel || istKoRueckspiel ? [] : verfahren, ausfuehrlich: true, rng, spielortvorteil,
-            runde.Ueberraschungsfaktor, hinspielstand, runde.Spielbedeutung, runde.NeutralerSpielort);
+            runde.Ueberraschungsfaktor, hinspielstand, runde.Spielbedeutung, runde.NeutralerSpielort, turnierform);
 
         if (istKoRueckspiel && verfahren.Count > 0)
-            ergebnis = RueckspielEntscheiden(ergebnis, spiel, verfahren, rng, spielortvorteil);
+            ergebnis = RueckspielEntscheiden(ergebnis, spiel, verfahren, rng, spielortvorteil, turnierform);
 
         await SpeichernAsync(spiel, ergebnis, ct);
 
@@ -175,6 +177,19 @@ public class SimulationsService(
             spiel.AuswaertsMannschaft.Name, ergebnis.EntscheidungArt);
 
         return ergebnis;
+    }
+
+    /// <summary>Die Turnierform des Spiels aus dem Stärke-Seed seines Turniers. Den Seed holt (und sichert) ein Vorgang je
+    /// Turnier nur einmal – <paramref name="staerkeSeeds"/> merkt ihn (Massensimulation, #386). Der Kandidat kommt aus
+    /// <see cref="Zufallsquelle.SeedZiehen"/>, nicht aus dem <see cref="Random"/> des Spiels: dessen Strom bleibt unberührt.</summary>
+    private async Task<Turnierform> TurnierformAsync(Spiel spiel, Dictionary<int, int> staerkeSeeds, CancellationToken ct)
+    {
+        if (!staerkeSeeds.TryGetValue(spiel.TurnierInstanzId, out int seed))
+        {
+            seed = await instanzRepository.StaerkeSeedSichernAsync(spiel.TurnierInstanzId, zufallsquelle.SeedZiehen(), ct);
+            staerkeSeeds[spiel.TurnierInstanzId] = seed;
+        }
+        return Turnierstaerke.Form(seed, spiel.HeimMannschaft!.Id, spiel.AuswaertsMannschaft!.Id);
     }
 
     private async Task<Spiel> SpielFuerSimulationLadenAsync(int spielId, bool ueberschreiben, CancellationToken ct)
@@ -213,7 +228,7 @@ public class SimulationsService(
     /// Rückspiel ausgeglichen ist (#346); sonst bleibt das Ergebnis der regulären Spielzeit.</summary>
     private static SimulationsErgebnis RueckspielEntscheiden(
         SimulationsErgebnis ergebnis, Spiel spiel, IReadOnlyList<EntscheidungsVerfahren> verfahren, Random rng,
-        Spielortvorteil spielortvorteil)
+        Spielortvorteil spielortvorteil, Turnierform turnierform)
     {
         var runde = spiel.TurnierRunde;
         var hinspiel = spiel.Hinspiel!.Ergebnis!;
@@ -229,7 +244,7 @@ public class SimulationsService(
         return ergebnis.MitEntscheidung(SimulationsEngine.EntscheidungsverfahrenAnwenden(
             spiel.HeimMannschaft!, spiel.AuswaertsMannschaft!, verfahren, ausfuehrlich: true, rng, spielortvorteil,
             runde.Ueberraschungsfaktor, Platzverweise.AusEreignissen(ergebnis.Ereignisse), runde.Spielbedeutung,
-            runde.NeutralerSpielort));
+            runde.NeutralerSpielort, turnierform));
     }
 
     /// <summary>Simuliert die übergebenen Spiele in dieser Reihenfolge und löst danach einmal die Platzhalter
@@ -242,11 +257,12 @@ public class SimulationsService(
     {
         int? letzteSpielId = null;
         int simuliert = 0;
+        var staerkeSeeds = new Dictionary<int, int>();
         try
         {
             foreach (var spielId in spielIds)
             {
-                await SimulierenUndSpeichernAsync(spielId, rng, ct);
+                await SimulierenUndSpeichernAsync(spielId, rng, staerkeSeeds, ct);
                 letzteSpielId = spielId;
                 simuliert++;
             }

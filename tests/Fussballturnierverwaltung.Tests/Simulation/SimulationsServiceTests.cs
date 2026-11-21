@@ -17,7 +17,7 @@ public class SimulationsServiceTests
 {
     // ── Testdaten ─────────────────────────────────────────────────────────────
 
-    private static void GrunddatenAnlegen(TurnierverwaltungDbContext ctx, int mannschaften)
+    internal static void GrunddatenAnlegen(TurnierverwaltungDbContext ctx, int mannschaften)
     {
         ctx.Verbaende.Add(new Verband { Id = 1, Name = "Verband", Kurzname = "V" });
         ctx.Laender.Add(new Land { Id = 1, Name = "Land", Kurzname = "L", FifaCode = "LAN", VerbandId = 1 });
@@ -61,6 +61,13 @@ public class SimulationsServiceTests
             });
         }
     }
+
+    /// <summary>Die Turnierform, die der Service für diese Paarung aus dem gesicherten Stärke-Seed bildet (#679) – für Tests,
+    /// die den Service Zug für Zug mit einem direkten Engine-Aufruf vergleichen.</summary>
+    private static Turnierform? StaerkeForm(TurnierverwaltungDbContext ctx, int heimId, int gastId) =>
+        ctx.TurnierInstanzen.AsNoTracking().Single().StaerkeSeed is int seed
+            ? Turnierstaerke.Form(seed, heimId, gastId)
+            : null;
 
     private static List<Spiel> SpieleMitErgebnis(TurnierverwaltungDbContext ctx) =>
         [.. ctx.Spiele.AsNoTracking().Include(s => s.Ergebnis).Include(s => s.Ereignisse).OrderBy(s => s.Id)];
@@ -325,7 +332,8 @@ public class SimulationsServiceTests
         andersAlsNormal.Should().BeGreaterThan(0);
 
         SimulationsErgebnis Direkt(Spielbedeutung bedeutung, int seed) => SimulationsEngine.Simulieren(
-            heim, gast, verfahren, ausfuehrlich: true, new Random(seed), spielbedeutung: bedeutung);
+            heim, gast, verfahren, ausfuehrlich: true, new Random(seed), spielbedeutung: bedeutung,
+            turnierform: StaerkeForm(ctx, 1, 2));
         static List<SimuliertesEreignis> Ereignisse(SimulationsErgebnis e) => [.. e.Ereignisse];
     }
 
@@ -372,10 +380,11 @@ public class SimulationsServiceTests
             var rng = new Random(seed);
             var rueckspiel = SimulationsEngine.Simulieren(heim, gast, [], ausfuehrlich: true, rng,
                 hinspielstand: Hinspielstand.AusHinspiel(0, 0, auswaertstorRegelAktiv: false),
-                spielbedeutung: Spielbedeutung.Gering);
+                spielbedeutung: Spielbedeutung.Gering, turnierform: StaerkeForm(ctx, 2, 1));
             if (rueckspiel.HeimToreRegulaer != rueckspiel.AuswaertsToreRegulaer) return [];
             var kette = SimulationsEngine.EntscheidungsverfahrenAnwenden(heim, gast, verfahren, ausfuehrlich: true, rng,
-                platzverweise: Platzverweise.AusEreignissen(rueckspiel.Ereignisse), spielbedeutung: inDerVerlaengerung);
+                platzverweise: Platzverweise.AusEreignissen(rueckspiel.Ereignisse), spielbedeutung: inDerVerlaengerung,
+                turnierform: StaerkeForm(ctx, 2, 1));
             return [.. kette.Ereignisse.Where(x => x.Minute > 90)];
         }
         static List<SimuliertesEreignis> Verlaengerung(SimulationsErgebnis e) => [.. e.Ereignisse.Where(x => x.Minute > 90)];

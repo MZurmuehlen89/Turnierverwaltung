@@ -22,6 +22,7 @@ public class SimulationsServiceHinRueckspielTests
     private static void SetupAnlegen(TurnierverwaltungDbContext ctx)
     {
         ctx.Verbaende.Add(new Verband { Id = 1, Name = "Verband", Kurzname = "V" });
+        ctx.TurnierInstanzen.Add(new TurnierInstanz { Id = 1, Name = "Turnier" });
         ctx.Laender.Add(new Land { Id = 1, Name = "Land", Kurzname = "L", FifaCode = "LAN", VerbandId = 1 });
         ctx.Regelwerke.Add(new Regelwerk { Id = 1, Name = "Standard" });
         ctx.Entscheidungsverfahren.Add(new EntscheidungsVerfahren
@@ -167,21 +168,9 @@ public class SimulationsServiceHinRueckspielTests
 
     // ── Issue #671: Risikostufe im Rückspiel nach dem Gesamtstand ─────────────────────────
 
-    /// <summary>Taktikwechsel eines ruhigen Rückspiels (0:0), dessen Heimteam das Hinspiel 0:5 verloren hat (K3, K4;
-    /// seit #673 nach dem Entscheidungsmodell, jeder Wurf „noch nicht“, also sieben Minuten nach der Schwelle). Die
-    /// Teams aus <c>SetupAnlegen</c> sind gleich stark: offensiv in der 7., alles nach vorn in der 27., aussichtslos
-    /// in der 68. – ohne Torwart vorn; der Gast wird in der 67. defensiv (#667) und mauert in der 77.</summary>
-    private static readonly (int, bool, string)[] TaktikNachHinspielNullZuFuenfGleichStark =
-    [
-        (7, true, "Stellt auf Offensive um"),
-        (27, true, "Wirft alles nach vorn"),
-        (67, false, "Zieht sich etwas zurück und sichert die Führung"),
-        (68, true, "Kehrt zur gewohnten Ordnung zurück"),
-        (77, false, "Zieht sich zurück und verteidigt die Führung"),
-    ];
-
-    /// <summary>Dasselbe mit Heim- und Gastteam aus den Engine-Testdaten (Stärkeanteil 2/3 gegen 1/3): das Heimteam
-    /// drückt früher, der Gast mauert früher.</summary>
+    /// <summary>Taktikwechsel eines ruhigen Rückspiels (0:0), dessen Heimteam das Hinspiel 0:5 verloren hat (K3, K4; seit
+    /// #673 nach dem Entscheidungsmodell, jeder Wurf „noch nicht“), mit Heim- und Gastteam aus den Engine-Testdaten
+    /// (Stärkeanteil 2/3 gegen 1/3): das Heimteam drückt früher, der Gast mauert früher.</summary>
     private static readonly (int, bool, string)[] TaktikNachHinspielNullZuFuenf =
     [
         (1, true, "Stellt auf Offensive um"),
@@ -194,6 +183,11 @@ public class SimulationsServiceHinRueckspielTests
     private static IEnumerable<(int, bool, string)> Taktikwechsel(SimulationsErgebnis ergebnis) =>
         ergebnis.Ereignisse.Where(e => e.Art == EreignisArt.Taktikwechsel).Select(e => (e.Minute, e.IstHeim, e.Beschreibung));
 
+    // Das Rückspiel der Datenbank-Simulation (Hinspiel 5:0 aus Sicht von Team 1) spielt mit der Risikostufe nach dem
+    // Gesamtstand (#671), sieben Minuten nach der Schwelle bei jedem Wurf „noch nicht“ (#673). Seit #679 trägt das Spiel
+    // die Turnierform seines Turniers und die Teams sind nicht mehr genau gleich stark – die Minuten stehen deshalb nicht
+    // fest, sondern müssen Zug für Zug dem direkten Engine-Aufruf mit derselben Form entsprechen. Die festen Minuten
+    // prüft <c>RueckspielSimulieren_FreieSimulation_TaktikNachGesamtstand</c> ohne Turnier.
     [Fact]
     public async Task SpielSimulierenAsync_Rueckspiel_TaktikNachGesamtstand()
     {
@@ -207,12 +201,17 @@ public class SimulationsServiceHinRueckspielTests
             SiegerMannschaftId = hinspiel.HeimMannschaftId, EntscheidungArt = EntscheidungArt.RegulaereSpielzeit
         });
         ctx.SaveChanges();
-        var service = SimulationsDienste.Service(ctx, new Zufallsquelle());
+        var service = SimulationsDienste.Service(ctx, new Zufallsquelle(7));
 
         var ergebnis = await service.SpielSimulierenAsync(2, new Ablauffolge().Zufall());
 
-        (ergebnis.HeimToreRegulaer, ergebnis.AuswaertsToreRegulaer).Should().Be((0, 0));
-        Taktikwechsel(ergebnis).Should().Equal(TaktikNachHinspielNullZuFuenfGleichStark);
+        int seed = ctx.TurnierInstanzen.AsNoTracking().Single().StaerkeSeed!.Value;
+        var direkt = SimulationsEngine.Simulieren(
+            ctx.Mannschaften.Single(m => m.Id == 2), ctx.Mannschaften.Single(m => m.Id == 1), [], ausfuehrlich: true,
+            new Ablauffolge().Zufall(), hinspielstand: Hinspielstand.AusHinspiel(5, 0, auswaertstorRegelAktiv: false),
+            turnierform: Turnierstaerke.Form(seed, 2, 1));
+        Taktikwechsel(ergebnis).Should().Equal(Taktikwechsel(direkt));
+        Taktikwechsel(ergebnis).Should().NotBeEmpty();
     }
 
     [Fact]

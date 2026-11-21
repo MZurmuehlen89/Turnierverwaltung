@@ -20,6 +20,7 @@ public class SimulationsServiceSpielortTests
     private static void SetupAnlegen(TurnierverwaltungDbContext ctx, bool neutral, bool gastIstGastgeber)
     {
         ctx.Verbaende.Add(new Verband { Id = 1, Name = "Verband", Kurzname = "V" });
+        ctx.TurnierInstanzen.Add(new TurnierInstanz { Id = 1, Name = "Turnier" });
         ctx.Laender.Add(new Land { Id = 1, Name = "Land", Kurzname = "L", FifaCode = "LAN", VerbandId = 1 });
         ctx.Regelwerke.Add(new Regelwerk { Id = 1, Name = "Standard" });
         ctx.TurnierRunden.Add(new TurnierRunde
