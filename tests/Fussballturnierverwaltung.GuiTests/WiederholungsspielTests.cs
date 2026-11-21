@@ -51,7 +51,7 @@ public sealed class WiederholungsspielTests(TurnierverwaltungApp app) : IClassFi
         // Heimteam links (die Runde ist nicht neutral, das Heimrecht tauscht) und dem Ergebnis aus dessen Sicht.
         spielplan.SpielWaehlen(entschieden.Heim, entschieden.Auswaerts);
         var karten = turnier.SpielverlaufAnsehen().WiederholungsspielAbwarten(entschieden.Heim, entschieden.Auswaerts);
-        karten.Spiel.Score.Should().Be("2:2", "das erste Spiel endete 1:1 und 1:1 n.V.");
+        karten.Spiel.Score.Should().Be("1:1", "das erste Spiel endete 1:1 und nach Verlängerung (kumulativ eingetragen) weiter 1:1");
         karten.Spiel.Zwischenstaende.Should().Contain("Wdh. 0:2");
         karten.Kontext.Should().Be("Wiederholungsspiel");
         karten.Wiederholungsspiel.Should().Match<SpielKopfAnzeige>(k =>
