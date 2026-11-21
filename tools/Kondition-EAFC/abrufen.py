@@ -1,5 +1,5 @@
 """Holt die Spielerliste der EA-Ratings-API seitenweise (seriell, mit Pause) und speichert je Spieler nur die Felder,
-die die Auswertung braucht (#677). Aufruf: python -I abrufen.py <datenordner>
+die die Auswertung braucht (#677; seit #669 auch Ruhe am Ball und Elfmeter). Aufruf: python -I abrufen.py <datenordner>
 Die Rohdaten bleiben lokal (im Repo git-ignoriert) – eingecheckt wird nur die Stufenliste aus auswerten.py."""
 import json, sys, time, urllib.request, urllib.error
 from pathlib import Path
@@ -7,7 +7,7 @@ from pathlib import Path
 URL = "https://drop-api.ea.com/rating/ea-sports-fc?locale=en&limit={limit}&offset={offset}"
 SEITE = 100
 PAUSE_SEKUNDEN = 1.5
-KENNUNG = "Turnierverwaltung-Datentool"
+KENNUNG = "Datentool"
 
 
 def seite_holen(offset):
@@ -36,6 +36,7 @@ def main():
         for s in daten["items"]:
             spieler.append({
                 "id": s["id"], "gesamt": s["overallRating"], "ausdauer": s["stats"]["stamina"]["value"],
+                "ruhe": s["stats"]["composure"]["value"], "elfmeter": s["stats"]["penalties"]["value"],
                 "teamId": (s.get("team") or {}).get("id"), "team": (s.get("team") or {}).get("label"),
                 "nation": (s.get("nationality") or {}).get("label"), "frauen": (s.get("gender") or {}).get("id") != 0,
             })

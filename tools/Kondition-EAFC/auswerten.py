@@ -1,7 +1,10 @@
-"""Leitet aus den Spielerwerten (abrufen.py) die Kondition je Seed-Mannschaft ab und schreibt
-KonditionSeedListe.cs (#677). Aufruf: python -I auswerten.py <datenordner> <repo-wurzel>
+"""Leitet aus den Spielerwerten (abrufen.py) eine dreistufige Kennzahl je Seed-Mannschaft ab und schreibt die
+Stufenliste (#677 Kondition, #669 Nervenstärke).
+Aufruf: python -I auswerten.py <datenordner> <repo-wurzel> [kondition|nervenstaerke]   (Standard: kondition)
+Ein Lauf schreibt nur die Liste seiner Kennzahl; die der anderen bleibt unberührt.
 
-Teamwert = Mittel der Ausdauer der elf Spieler mit dem höchsten Gesamtwert (nur Männer, mindestens elf Spieler).
+Kondition: Spielerwert = Ausdauer. Nervenstärke: Spielerwert = Mittel aus Ruhe am Ball (composure) und Elfmeter (penalties).
+Teamwert = Mittel des Spielerwerts der elf Spieler mit dem höchsten Gesamtwert (nur Männer, mindestens elf Spieler).
 Vereine und Nationalteams werden getrennt in Viertel geteilt (die Nationalspieler liegen höher): oberes Viertel
 stark, unteres schwach, Rest normal – verglichen werden nur Teams, die einer Seed-Mannschaft zugeordnet sind.
 Zuordnung der Vereine über den Namen (normalisiert, dann Ähnlichkeit ab SCHWELLE) plus die Abgleichsliste unten;
@@ -17,6 +20,18 @@ from pathlib import Path
 
 SCHWELLE = 0.88
 ELF = 11
+
+# Je Kennzahl: Spielerwert, Enum, Name der erzeugten Liste, Issue für den Dateikopf.
+KENNZAHLEN = {
+    "kondition": {
+        "wert": lambda s: s["ausdauer"], "enum": "Kondition", "praefix": "Kondition", "issue": "#677",
+        "bezeichnung": "Ausdauer",
+    },
+    "nervenstaerke": {
+        "wert": lambda s: (s["ruhe"] + s["elfmeter"]) / 2, "enum": "Nervenstaerke", "praefix": "Nervenstaerke",
+        "issue": "#669", "bezeichnung": "Ruhe am Ball und Elfmeter",
+    },
+}
 
 # EA-Name → FIFA-Code des Seed-Landes.
 NATIONEN = {
@@ -118,13 +133,13 @@ def nation_code(name):
     return next((c for anfang, c in NATIONEN_ANFANG.items() if name.startswith(anfang)), None)
 
 
-def teamwerte(gruppen):
-    """{Name: Spielerliste} → {Name: Mittel der Ausdauer der elf besten}, nur mit mindestens elf Spielern."""
+def teamwerte(gruppen, spielerwert):
+    """{Name: Spielerliste} → {Name: Mittel des Spielerwerts der elf besten}, nur mit mindestens elf Spielern."""
     werte = {}
     for name, liste in gruppen.items():
         beste = sorted(liste, key=lambda s: -s["gesamt"])[:ELF]
         if len(beste) == ELF:
-            werte[name] = statistics.mean(s["ausdauer"] for s in beste)
+            werte[name] = statistics.mean(spielerwert(s) for s in beste)
     return werte
 
 
@@ -166,14 +181,16 @@ def verein_zuordnen(ea_namen, vereine):
     return zuordnung, unsicher, mehrdeutig
 
 
-def zeile(art, kurz, land, stufe, kommentar=""):
+def zeile(art, kurz, land, stufe, enum, kommentar=""):
     name = "Stark" if stufe > 0 else "Schwach"
-    return f'        new(Mannschaftsart.{art}, "{kurz}", "{land}", Kondition.{name}),{kommentar}'
+    return f'        new(Mannschaftsart.{art}, "{kurz}", "{land}", {enum}.{name}),{kommentar}'
 
 
 def main():
     sys.stdout.reconfigure(encoding="utf-8")
     ordner, wurzel = Path(sys.argv[1]), sys.argv[2]
+    kennzahl = KENNZAHLEN[sys.argv[3] if len(sys.argv) > 3 else "kondition"]
+    spielerwert, enum, praefix = kennzahl["wert"], kennzahl["enum"], kennzahl["praefix"]
     spieler = [s for s in json.loads((ordner / "spieler.json").read_text(encoding="utf-8")) if not s["frauen"]]
     vereine, seed_nationen = seed_lesen(wurzel)
     bericht = []
@@ -183,7 +200,7 @@ def main():
     for s in spieler:
         if s["team"]:
             gruppen[s["team"]].append(s)
-    werte = teamwerte(gruppen)
+    werte = teamwerte(gruppen, spielerwert)
     zuordnung, unsicher, mehrdeutig = verein_zuordnen(werte, vereine)
     verein_werte = {ea: werte[ea] for ea in zuordnung}
     verein_stufen = stufen(verein_werte)
@@ -192,7 +209,7 @@ def main():
     bericht.append("Mehrdeutig (nicht zugeordnet): " + ", ".join(mehrdeutig))
     bericht.append("Nicht zugeordnet: " + ", ".join(sorted(set(werte) - set(zuordnung) - set(mehrdeutig))))
     bericht.append("Zuordnung über Ähnlichkeit (prüfen): " + "; ".join(f"{a} -> {b} ({r:.2f})" for a, b, r in unsicher))
-    bericht.append(f"Vereine: Quartile der Ausdauer {[round(q, 1) for q in statistics.quantiles(verein_werte.values(), n=4)]}")
+    bericht.append(f"Vereine: Quartile ({kennzahl["bezeichnung"]}) {[round(q, 1) for q in statistics.quantiles(verein_werte.values(), n=4)]}")
 
     # ── Nationalteams ──
     nat = defaultdict(list)
@@ -200,34 +217,34 @@ def main():
         code = nation_code(s["nation"]) if s["nation"] else None
         if code in seed_nationen:
             nat[code].append(s)
-    nat_werte = teamwerte(nat)
+    nat_werte = teamwerte(nat, spielerwert)
     nat_stufen = stufen(nat_werte)
     unbekannt = sorted({s["nation"] for s in spieler if s["nation"] and nation_code(s["nation"]) is None})
     bericht.append(f"Nationalteams: {len(nat_werte)} von {len(seed_nationen)} Seed-Teams mit mindestens 11 Spielern; "
                    f"EA-Nationen ohne Code: {unbekannt}")
-    bericht.append(f"Nationalteams: Quartile der Ausdauer {[round(q, 1) for q in statistics.quantiles(nat_werte.values(), n=4)]}")
+    bericht.append(f"Nationalteams: Quartile ({kennzahl["bezeichnung"]}) {[round(q, 1) for q in statistics.quantiles(nat_werte.values(), n=4)]}")
 
     # ── Liste schreiben ──
     zeilen = []
     for ea, stufe in sorted(verein_stufen.items(), key=lambda kv: (zuordnung[kv[0]][2], zuordnung[kv[0]][1])):
         name, kurz, land = zuordnung[ea]
-        zeilen.append(zeile("Verein", kurz, land, stufe, f"   // {name}"))
+        zeilen.append(zeile("Verein", kurz, land, stufe, enum, f"   // {name}"))
     for code, stufe in sorted(nat_stufen.items()):
-        zeilen.append(zeile("Nationalmannschaft", code, code, stufe))
+        zeilen.append(zeile("Nationalmannschaft", code, code, stufe, enum))
     schluessel = [(z.split('"')[1], z.split('"')[3]) for z in zeilen if ".Verein," in z]
     doppelt = sorted({k for k in schluessel if schluessel.count(k) > 1})
     bericht.append(f"Liste: {len(verein_stufen)} Vereine, {len(nat_stufen)} Nationalteams; doppelte Vereinsschlüssel: {doppelt}")
     if doppelt:  # das statische Wörterbuch im Seed würde beim Start werfen – nichts schreiben
         raise SystemExit("Abbruch, mehrere EA-Teams auf derselben Seed-Mannschaft: " + str(doppelt))
 
-    ziel = Path(wurzel) / "src/Fussballturnierverwaltung.Infrastructure/Seed/Daten/KonditionSeedListe.cs"
+    ziel = Path(wurzel) / f"src/Fussballturnierverwaltung.Infrastructure/Seed/Daten/{praefix}SeedListe.cs"
     kopf = ("using Fussballturnierverwaltung.Domain.Entitaeten.Stammdaten;\n"
             "using Fussballturnierverwaltung.Domain.Enums;\n\n"
             "namespace Fussballturnierverwaltung.Infrastructure.Seed.Daten;\n\n"
-            "/// <summary>Erzeugt von <c>tools/Kondition-EAFC/auswerten.py</c> (#677) – nicht von Hand ändern. Nur die\n"
+            f"/// <summary>Erzeugt von <c>tools/Kondition-EAFC/auswerten.py</c> ({kennzahl['issue']}) – nicht von Hand ändern. Nur die\n"
             "/// Teams, die vom Standard „normal“ abweichen.</summary>\n"
-            "public static class KonditionSeedListe\n{\n"
-            "    public static readonly IReadOnlyList<KonditionSeedDaten.Eintrag> Handliste =\n    [\n")
+            f"public static class {praefix}SeedListe\n{{\n"
+            f"    public static readonly IReadOnlyList<{praefix}SeedDaten.Eintrag> Handliste =\n    [\n")
     ziel.write_text(kopf + "\n".join(zeilen) + "\n    ];\n}\n", encoding="utf-8")
     (ordner / "bericht.txt").write_text("\n\n".join(bericht), encoding="utf-8")
     print("\n\n".join(bericht))
