@@ -396,6 +396,31 @@
                                      AutomationProperties.Name="{Binding Anzeige}" />
                     </Grid>
                     <TextBlock Text="{Binding Spielweise.KonditionErklaerung}" FontSize="12" Opacity="0.7"
+                               Margin="0,6,0,16" TextWrapping="Wrap" />
+
+                    <!-- Nervenstärke (#669): wie die Kondition drei Knöpfe, nur der Name. -->
+                    <TextBlock Text="Nervenstärke" FontSize="12" Margin="0,0,0,6" />
+                    <Grid ColumnDefinitions="*,*,*" ColumnSpacing="4">
+                        <RadioButton GroupName="Nervenstaerke" Style="{StaticResource SpielweiseKnopfStil}"
+                                     DataContext="{Binding Spielweise.Nervenstaerken[0]}"
+                                     Content="{Binding Anzeige}" HorizontalContentAlignment="Center"
+                                     IsChecked="{Binding IstGewaehlt, Mode=TwoWay}"
+                                     AutomationProperties.AutomationId="{Binding AutomationId}"
+                                     AutomationProperties.Name="{Binding Anzeige}" />
+                        <RadioButton Grid.Column="1" GroupName="Nervenstaerke" Style="{StaticResource SpielweiseKnopfStil}"
+                                     DataContext="{Binding Spielweise.Nervenstaerken[1]}"
+                                     Content="{Binding Anzeige}" HorizontalContentAlignment="Center"
+                                     IsChecked="{Binding IstGewaehlt, Mode=TwoWay}"
+                                     AutomationProperties.AutomationId="{Binding AutomationId}"
+                                     AutomationProperties.Name="{Binding Anzeige}" />
+                        <RadioButton Grid.Column="2" GroupName="Nervenstaerke" Style="{StaticResource SpielweiseKnopfStil}"
+                                     DataContext="{Binding Spielweise.Nervenstaerken[2]}"
+                                     Content="{Binding Anzeige}" HorizontalContentAlignment="Center"
+                                     IsChecked="{Binding IstGewaehlt, Mode=TwoWay}"
+                                     AutomationProperties.AutomationId="{Binding AutomationId}"
+                                     AutomationProperties.Name="{Binding Anzeige}" />
+                    </Grid>
+                    <TextBlock Text="{Binding Spielweise.NervenstaerkeErklaerung}" FontSize="12" Opacity="0.7"
                                Margin="0,6,0,24" TextWrapping="Wrap" />
                 </StackPanel>
             </ScrollViewer>

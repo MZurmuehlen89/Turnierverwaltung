@@ -265,7 +265,7 @@ public partial class MannschaftenViewModel : ViewModelBase, IRibbonAware, IHatUn
                 Heimstaerke = 70;
                 Auswaertsstaerke = 65;
                 WappenDaten = null;
-                Spielweise.Zeigen(Grundausrichtung.Ausgeglichen, Flexibilitaet.Normal, Kondition.Normal);
+                Spielweise.Zeigen(Grundausrichtung.Ausgeglichen, Flexibilitaet.Normal, Kondition.Normal, Nervenstaerke.Normal);
             }
             else
             {
@@ -281,7 +281,8 @@ public partial class MannschaftenViewModel : ViewModelBase, IRibbonAware, IHatUn
                 Heimstaerke = mannschaft.Heimstaerke;
                 Auswaertsstaerke = mannschaft.Auswaertsstaerke;
                 WappenDaten = mannschaft.Wappen;
-                Spielweise.Zeigen(mannschaft.Grundausrichtung, mannschaft.Flexibilitaet, mannschaft.Kondition);
+                Spielweise.Zeigen(
+                    mannschaft.Grundausrichtung, mannschaft.Flexibilitaet, mannschaft.Kondition, mannschaft.Nervenstaerke);
             }
             IsDirty = false;
             Fehlermeldung = null;
@@ -311,7 +312,7 @@ public partial class MannschaftenViewModel : ViewModelBase, IRibbonAware, IHatUn
             Heimstaerke = 70;
             Auswaertsstaerke = 65;
             WappenDaten = null;
-            Spielweise.Zeigen(Grundausrichtung.Ausgeglichen, Flexibilitaet.Normal, Kondition.Normal);
+            Spielweise.Zeigen(Grundausrichtung.Ausgeglichen, Flexibilitaet.Normal, Kondition.Normal, Nervenstaerke.Normal);
             Fehlermeldung = null;
         }
         finally
@@ -406,13 +407,15 @@ public partial class MannschaftenViewModel : ViewModelBase, IRibbonAware, IHatUn
         Name, Kurzname, AusgewaehlteArt,
         AusgewaehltesLand?.Id ?? 0,
         OffensivRating, MittelfeldRating, DefensivRating,
-        Heimstaerke, Auswaertsstaerke, WappenDaten, Spielweise.Grundausrichtung, Spielweise.Flexibilitaet, Spielweise.Kondition);
+        Heimstaerke, Auswaertsstaerke, WappenDaten, Spielweise.Grundausrichtung, Spielweise.Flexibilitaet, Spielweise.Kondition,
+        Spielweise.Nervenstaerke);
 
     private MannschaftAktualisierenEingabe AktualisierenEingabe() => new(
         Name, Kurzname,
         AusgewaehltesLand?.Id ?? 0,
         OffensivRating, MittelfeldRating, DefensivRating,
-        Heimstaerke, Auswaertsstaerke, WappenDaten, Spielweise.Grundausrichtung, Spielweise.Flexibilitaet, Spielweise.Kondition);
+        Heimstaerke, Auswaertsstaerke, WappenDaten, Spielweise.Grundausrichtung, Spielweise.Flexibilitaet, Spielweise.Kondition,
+        Spielweise.Nervenstaerke);
 
     private void AktualisiereFormularFehler()
     {

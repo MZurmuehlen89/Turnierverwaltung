@@ -5,13 +5,13 @@ using Fussballturnierverwaltung.Domain.Enums;
 
 namespace Fussballturnierverwaltung.WinUi.ViewModels;
 
-/// <summary>Ein Knopf der Spielweise: Grundausrichtung, Flexibilität oder Kondition. <see cref="IstGewaehlt"/> hängt TwoWay am
+/// <summary>Ein Knopf der Spielweise: Grundausrichtung, Flexibilität, Kondition oder Nervenstärke. <see cref="IstGewaehlt"/> hängt TwoWay am
 /// RadioButton; wird er gewählt, meldet die Option das ihrer Auswahl.</summary>
 public partial class SpielweiseOption(string anzeige, int wert, string automationId, Action<SpielweiseOption> gewaehlt)
     : ObservableObject
 {
     public string Anzeige { get; } = anzeige;
-    /// <summary>Enum-Wert: Stufe der Grundausrichtung (−2 … 2) bzw. der Flexibilität/Kondition (−1 … 1).</summary>
+    /// <summary>Enum-Wert: Stufe der Grundausrichtung (−2 … 2) bzw. der Flexibilität/Kondition/Nervenstärke (−1 … 1).</summary>
     public int Wert { get; } = wert;
     public string AutomationId { get; } = automationId;
 
@@ -25,7 +25,7 @@ public partial class SpielweiseOption(string anzeige, int wert, string automatio
 
 /// <summary>
 /// Abschnitt „Spielweise“ der Mannschaftspflege (#667): Grundausrichtung und Flexibilität als Knöpfe (seit #677 dazu die
-/// Kondition), dazu der Vorschlag aus den Ratings mit „Übernehmen“. Aus dem <see cref="MannschaftenViewModel"/> herausgelöst (SRP); das
+/// Kondition, seit #669 die Nervenstärke), dazu der Vorschlag aus den Ratings mit „Übernehmen“. Aus dem <see cref="MannschaftenViewModel"/> herausgelöst (SRP); das
 /// reicht die Ratings über <see cref="RatingsAktualisieren"/> herein und liest beim Speichern die Werte.
 /// </summary>
 public partial class SpielweiseAuswahl : ObservableObject
@@ -38,11 +38,13 @@ public partial class SpielweiseAuswahl : ObservableObject
     public IReadOnlyList<SpielweiseOption> Grundausrichtungen { get; }
     public IReadOnlyList<SpielweiseOption> Flexibilitaeten { get; }
     public IReadOnlyList<SpielweiseOption> Konditionen { get; }
+    public IReadOnlyList<SpielweiseOption> Nervenstaerken { get; }
 
     // Nach außen nur lesbar (Tell, don't ask): geändert wird über Waehlen, damit Knöpfe und Geaendert mitziehen.
     private Grundausrichtung _grundausrichtung;
     private Flexibilitaet _flexibilitaet;
     private Kondition _kondition;
+    private Nervenstaerke _nervenstaerke;
 
     public Grundausrichtung Grundausrichtung
     {
@@ -73,6 +75,15 @@ public partial class SpielweiseAuswahl : ObservableObject
         }
     }
 
+    public Nervenstaerke Nervenstaerke
+    {
+        get => _nervenstaerke;
+        private set
+        {
+            if (SetProperty(ref _nervenstaerke, value)) OnPropertyChanged(nameof(NervenstaerkeErklaerung));
+        }
+    }
+
     /// <summary>Vom Nutzer geändert – nicht beim Laden über <see cref="Zeigen"/>.</summary>
     public event Action? Geaendert;
 
@@ -81,15 +92,19 @@ public partial class SpielweiseAuswahl : ObservableObject
         // Nach Wert sortiert: GetValues ordnet negative Werte nach ihrer Bitdarstellung hinter die positiven.
         Grundausrichtungen = Enum.GetValues<Grundausrichtung>().OrderBy(g => (int)g)
             .Select(g => new SpielweiseOption(Anzeige(g), (int)g, $"Mannschaften.Grundausrichtung.{g}",
-                o => OptionGewaehlt((Grundausrichtung)o.Wert, Flexibilitaet, Kondition)))
+                o => OptionGewaehlt((Grundausrichtung)o.Wert, Flexibilitaet, Kondition, Nervenstaerke)))
             .ToList();
         Flexibilitaeten = Enum.GetValues<Flexibilitaet>().OrderBy(f => (int)f)
             .Select(f => new SpielweiseOption(Anzeige(f), (int)f, $"Mannschaften.Flexibilitaet.{f}",
-                o => OptionGewaehlt(Grundausrichtung, (Flexibilitaet)o.Wert, Kondition)))
+                o => OptionGewaehlt(Grundausrichtung, (Flexibilitaet)o.Wert, Kondition, Nervenstaerke)))
             .ToList();
         Konditionen = Enum.GetValues<Kondition>().OrderBy(k => (int)k)
             .Select(k => new SpielweiseOption(Anzeige(k), (int)k, $"Mannschaften.Kondition.{k}",
-                o => OptionGewaehlt(Grundausrichtung, Flexibilitaet, (Kondition)o.Wert)))
+                o => OptionGewaehlt(Grundausrichtung, Flexibilitaet, (Kondition)o.Wert, Nervenstaerke)))
+            .ToList();
+        Nervenstaerken = Enum.GetValues<Nervenstaerke>().OrderBy(n => (int)n)
+            .Select(n => new SpielweiseOption(Anzeige(n), (int)n, $"Mannschaften.Nervenstaerke.{n}",
+                o => OptionGewaehlt(Grundausrichtung, Flexibilitaet, Kondition, (Nervenstaerke)o.Wert)))
             .ToList();
         Markieren();
     }
@@ -118,6 +133,13 @@ public partial class SpielweiseAuswahl : ObservableObject
         _                 => "Ermüdet wie eine durchschnittliche Mannschaft."
     };
 
+    public string NervenstaerkeErklaerung => Nervenstaerke switch
+    {
+        Nervenstaerke.Schwach => "Verschießt im Elfmeterschießen häufiger, vor allem unter Druck.",
+        Nervenstaerke.Stark   => "Trifft im Elfmeterschießen sicherer, vor allem unter Druck.",
+        _                     => "Trifft im Elfmeterschießen wie eine durchschnittliche Mannschaft."
+    };
+
     public void RatingsAktualisieren(int offensivRating, int defensivRating)
     {
         _offensivRating = offensivRating;
@@ -127,31 +149,36 @@ public partial class SpielweiseAuswahl : ObservableObject
     }
 
     [RelayCommand]
-    private void VorschlagUebernehmen() => Waehlen(Vorschlag, Flexibilitaet, Kondition);
+    private void VorschlagUebernehmen() => Waehlen(Vorschlag, Flexibilitaet, Kondition, Nervenstaerke);
 
     // ── Auswahl ───────────────────────────────────────────────────────────
 
     /// <summary>Zeigt die gespeicherten Werte einer Mannschaft, ohne <see cref="Geaendert"/> auszulösen.</summary>
-    public void Zeigen(Grundausrichtung grundausrichtung, Flexibilitaet flexibilitaet, Kondition kondition)
+    public void Zeigen(
+        Grundausrichtung grundausrichtung, Flexibilitaet flexibilitaet, Kondition kondition, Nervenstaerke nervenstaerke)
     {
         _ladenAktiv = true;
-        try { Waehlen(grundausrichtung, flexibilitaet, kondition); }
+        try { Waehlen(grundausrichtung, flexibilitaet, kondition, nervenstaerke); }
         finally { _ladenAktiv = false; }
     }
 
     /// <summary>Ein Knopf wurde gewählt – per Klick; beim Markieren selbst nicht (sonst liefe Markieren verschachtelt
     /// in sich selbst, Befund aus dem KI-Review).</summary>
-    private void OptionGewaehlt(Grundausrichtung grundausrichtung, Flexibilitaet flexibilitaet, Kondition kondition)
+    private void OptionGewaehlt(
+        Grundausrichtung grundausrichtung, Flexibilitaet flexibilitaet, Kondition kondition, Nervenstaerke nervenstaerke)
     {
-        if (!_markiertGerade) Waehlen(grundausrichtung, flexibilitaet, kondition);
+        if (!_markiertGerade) Waehlen(grundausrichtung, flexibilitaet, kondition, nervenstaerke);
     }
 
-    private void Waehlen(Grundausrichtung grundausrichtung, Flexibilitaet flexibilitaet, Kondition kondition)
+    private void Waehlen(
+        Grundausrichtung grundausrichtung, Flexibilitaet flexibilitaet, Kondition kondition, Nervenstaerke nervenstaerke)
     {
-        bool geaendert = grundausrichtung != Grundausrichtung || flexibilitaet != Flexibilitaet || kondition != Kondition;
+        bool geaendert = grundausrichtung != Grundausrichtung || flexibilitaet != Flexibilitaet || kondition != Kondition
+            || nervenstaerke != Nervenstaerke;
         Grundausrichtung = grundausrichtung;
         Flexibilitaet = flexibilitaet;
         Kondition = kondition;
+        Nervenstaerke = nervenstaerke;
         Markieren();
         if (geaendert && !_ladenAktiv) Geaendert?.Invoke();
     }
@@ -168,6 +195,8 @@ public partial class SpielweiseAuswahl : ObservableObject
                 option.IstGewaehlt = option.Wert == (int)Flexibilitaet;
             foreach (var option in Konditionen)
                 option.IstGewaehlt = option.Wert == (int)Kondition;
+            foreach (var option in Nervenstaerken)
+                option.IstGewaehlt = option.Wert == (int)Nervenstaerke;
         }
         finally { _markiertGerade = false; }
     }
@@ -186,6 +215,13 @@ public partial class SpielweiseAuswahl : ObservableObject
         Kondition.Schwach => "schwach",
         Kondition.Stark   => "stark",
         _                 => "normal"
+    };
+
+    private static string Anzeige(Nervenstaerke nervenstaerke) => nervenstaerke switch
+    {
+        Nervenstaerke.Schwach => "schwach",
+        Nervenstaerke.Stark   => "stark",
+        _                     => "normal"
     };
 
     private static string Anzeige(Flexibilitaet flexibilitaet) => flexibilitaet switch

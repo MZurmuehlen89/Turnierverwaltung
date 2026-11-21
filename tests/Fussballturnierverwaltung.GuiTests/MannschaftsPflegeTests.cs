@@ -163,6 +163,29 @@ public sealed class MannschaftsPflegeTests(TurnierverwaltungApp app) : IClassFix
         _seite.KonditionAbwarten("Schwach").Should().Be("Schwach");
     }
 
+    /// <summary>#669 K6: Eine neue und eine bestehende Mannschaft zeigen die Nervenstärke „normal“; eine gewählte
+    /// „stark“ macht das Formular „geändert“ und steht nach dem Speichern und erneuten Öffnen da.</summary>
+    [Fact]
+    public void Nervenstaerke_StartetNormal_WirdGespeichertUndWiederGezeigt()
+    {
+        _seite.Neu();
+        _seite.NervenstaerkeAbwarten("Normal").Should().Be("Normal");
+        _seite.Abbrechen();
+
+        string name = EindeutigerName();
+        _seite.Anlegen(name, "GTN", 72);
+        _seite.Auswaehlen(name);
+        _seite.NervenstaerkeAbwarten("Normal").Should().Be("Normal");
+        _seite.SpeichernFreigabeAbwarten(false).Should().BeFalse("frisch geladen ist nichts geändert");
+
+        _seite.NervenstaerkeWaehlen("Stark");
+        _seite.SpeichernFreigabeAbwarten(true).Should().BeTrue("die Nervenstärke ist eine Änderung");
+        _seite.Speichern();
+
+        _seite.Auswaehlen(name);
+        _seite.NervenstaerkeAbwarten("Stark").Should().Be("Stark");
+    }
+
     private const string VORSCHLAG = "Vorschlag aus den Ratings: ";
     private const string PASST = "Entspricht dem Vorschlag aus den Ratings.";
 
