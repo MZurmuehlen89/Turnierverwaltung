@@ -108,6 +108,10 @@ public partial class SimulationsViewModel : ViewModelBase, IRibbonAware
     public bool HatProtokoll             => Protokoll is not null;
     public bool HatProtokollWiederholung => ProtokollWiederholung is not null;
 
+    // #691: die Turnier-Simulation bleibt ein Zug, ein ausstehendes Wiederholungsspiel gibt es hier nicht –
+    // SpielberichtControl bindet die Eigenschaft für den Platzhalter der Einzelspiel-Simulation mit.
+    public bool ZeigeWiederholungAusstehend => false;
+
     // ── Status ────────────────────────────────────────────────────────────────
 
     [ObservableProperty]
@@ -560,7 +564,7 @@ public partial class SimulationsViewModel : ViewModelBase, IRibbonAware
             var auswaertsSeite = new SpielSeite(spiel.AuswaertsMannschaft, auswaerts);
             var zeilen = Zeitleiste.Erstellen(ergebnis, ereignisse, heimSeite, auswaertsSeite).ToList();
             ProtokollWiederholung = SpielBeinAnsicht.Wiederholungsspiel(
-                ergebnis.Wiederholung, ereignisse, heimSeite, auswaertsSeite, spiel.TurnierRunde?.NeutralerSpielort == true, untertitel);
+                ergebnis, ereignisse, heimSeite, auswaertsSeite, spiel.TurnierRunde?.NeutralerSpielort == true, untertitel);
             Protokoll = new SpielBeinAnsicht(kopf, zeilen);
         }
     }

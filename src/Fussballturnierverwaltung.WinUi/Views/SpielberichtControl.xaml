@@ -24,6 +24,17 @@
                         <views:SpielberichtKarte DataContext="{Binding ProtokollWiederholung}"
                                                  AutomationProperties.AutomationId="Spielbericht.Wiederholungsspiel" />
                     </Grid>
+                    <!-- #691: das Wiederholungsspiel ist ein eigener Schritt; bis dahin steht hier ein Platzhalter. Eigener
+                         Wrapper, damit die Spalte nur bei ausstehendem Wiederholungsspiel mitzählt (das SpaltenPanel verteilt
+                         nur sichtbare Kinder). Das Turnier-ViewModel liefert die Eigenschaft fest als false. -->
+                    <Grid Visibility="{Binding ZeigeWiederholungAusstehend, Converter={StaticResource BoolToVisibility}}">
+                        <Border BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1"
+                                CornerRadius="6" Padding="14,11" VerticalAlignment="Top">
+                            <TextBlock AutomationProperties.AutomationId="Spielbericht.WiederholungsspielAusstehend"
+                                       Text="Wiederholungsspiel steht noch aus — oben „Wiederholungsspiel simulieren“ klicken."
+                                       Opacity="0.5" FontSize="13" TextWrapping="Wrap" />
+                        </Border>
+                    </Grid>
                 </views:SpaltenPanel>
             </ScrollViewer>
         </Grid>

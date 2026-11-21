@@ -124,4 +124,19 @@ public class FreiePaarungGesamtTests
         FreiePaarungGesamt.Bewerten(Hin(2, 0), Rueck(0, 0, EntscheidungArt.Losentscheid, los: true))
             .Should().Be(new FreiePaarungGesamt(2, 0, PaarungSieger.Heim, "nach Losentscheid"));
     }
+
+    // #691 K4: das Rückspiel ist angehalten, das Wiederholungsspiel steht an – Summe, aber noch kein Sieger.
+    [Fact]
+    public void WiederholungsspielAusstehend_SummeOhneSieger_ZusatzNenntDenAusstehendenSchritt()
+    {
+        FreiePaarungGesamt.Bewerten(Hin(2, 1), Rueck(1, 0), wiederholungAusstehend: true)
+            .Should().Be(new FreiePaarungGesamt(2, 2, PaarungSieger.Keiner, "nach Rückspiel – Wiederholungsspiel steht an"));
+    }
+
+    [Fact]
+    public void WiederholungsspielAusstehend_MitVerlaengerungImRueckspiel_ZaehltDieVerlaengerungInDieSumme()
+    {
+        FreiePaarungGesamt.Bewerten(Hin(1, 1), Rueck(0, 0, EntscheidungArt.Verlaengerung, verlaengerung: (1, 1)), wiederholungAusstehend: true)
+            .Should().Be(new FreiePaarungGesamt(2, 2, PaarungSieger.Keiner, "nach Rückspiel – Wiederholungsspiel steht an"));
+    }
 }

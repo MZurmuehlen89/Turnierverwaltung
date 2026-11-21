@@ -18,15 +18,11 @@ public class SimulationsEngineEntscheidungTests
     private const double TRIFFT = 0.0;
     private const double VERSCHIESST = 0.99;
 
-    private static (int? HeimVerl, int? GastVerl, int? HeimElf, int? GastElf, EntscheidungArt Art,
-                    IReadOnlyList<SimuliertesEreignis> Ereignisse, bool? LosGewinnerHeim,
-                    Wiederholungsergebnis? Wiederholung)
+    private static Entscheidungsausgang
         Anwenden(VorgegebenerZufall zufall, bool ausfuehrlich, params VerfahrenArt[] arten) =>
         Anwenden(zufall, ausfuehrlich, HeimTeam(), GastTeam(), arten);
 
-    private static (int? HeimVerl, int? GastVerl, int? HeimElf, int? GastElf, EntscheidungArt Art,
-                    IReadOnlyList<SimuliertesEreignis> Ereignisse, bool? LosGewinnerHeim,
-                    Wiederholungsergebnis? Wiederholung)
+    private static Entscheidungsausgang
         Anwenden(VorgegebenerZufall zufall, bool ausfuehrlich, Mannschaft heim, Mannschaft gast, params VerfahrenArt[] arten) =>
         SimulationsEngine.EntscheidungsverfahrenAnwenden(
             heim, gast, VerfahrenKette(arten), ausfuehrlich, zufall);

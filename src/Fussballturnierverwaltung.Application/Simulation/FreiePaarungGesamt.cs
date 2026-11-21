@@ -15,10 +15,15 @@ public sealed record FreiePaarungGesamt(int HeimTore, int AuswaertsTore, Paarung
 {
     /// <param name="hinspiel">Hinspiel aus Sicht seines Heimteams.</param>
     /// <param name="rueckspiel">Rückspiel mit vertauschten Rollen: dessen „Heim“ ist das Hinspiel-Auswärtsteam.</param>
-    public static FreiePaarungGesamt Bewerten(SimulationsErgebnis hinspiel, SimulationsErgebnis rueckspiel)
+    /// <param name="wiederholungAusstehend">#691: das Rückspiel ist angehalten, das Wiederholungsspiel steht an – noch kein Sieger.</param>
+    public static FreiePaarungGesamt Bewerten(
+        SimulationsErgebnis hinspiel, SimulationsErgebnis rueckspiel, bool wiederholungAusstehend = false)
     {
         int heimGesamt      = hinspiel.HeimToreRegulaer      + rueckspiel.AuswaertsToreRegulaer + (rueckspiel.AuswaertsToreVerlaengerung ?? 0);
         int auswaertsGesamt = hinspiel.AuswaertsToreRegulaer + rueckspiel.HeimToreRegulaer      + (rueckspiel.HeimToreVerlaengerung ?? 0);
+
+        if (wiederholungAusstehend)
+            return new FreiePaarungGesamt(heimGesamt, auswaertsGesamt, PaarungSieger.Keiner, "nach Rückspiel – Wiederholungsspiel steht an");
 
         var sieger = heimGesamt != auswaertsGesamt
             ? (heimGesamt > auswaertsGesamt ? PaarungSieger.Heim : PaarungSieger.Auswaerts)

@@ -22,11 +22,14 @@ public sealed record SpielKopf(
 
     /// <summary>Baut den Spielkopf aus einem Ergebnis; <paramref name="untertitel"/> liefert Verband und Liga für die
     /// Untertitel (#384).</summary>
-    public static SpielKopf Aus(string? kontext, SpielSeite heim, SpielSeite auswaerts, SimulationsErgebnis e, UntertitelQuellen untertitel) =>
-        new(kontext,
+    public static SpielKopf Aus(string? kontext, SpielSeite heim, SpielSeite auswaerts, SimulationsErgebnis ergebnis, UntertitelQuellen untertitel)
+    {
+        var e = ergebnis.ErstesSpiel(); // #691: groß nur der Stand des eigenen Spiels, nichts vom Wiederholungsspiel
+        return new(kontext,
             heim.Name, heim.Wappen, SpielKopfUntertitel.Fuer(heim.Mannschaft, auswaerts.Mannschaft, untertitel), Kuerzel(heim),
             auswaerts.Name, auswaerts.Wappen, SpielKopfUntertitel.Fuer(auswaerts.Mannschaft, heim.Mannschaft, untertitel), Kuerzel(auswaerts),
             ScoreText(e), EntscheidungText(e, heim, auswaerts), ZwischenstandText(e));
+    }
 
     /// <summary>Gesamtkopf einer Hin-/Rückspiel-Paarung aus Sicht des Hinspiel-Heimteams — Summenergebnis
     /// in der Box, <paramref name="zusatz"/> ("Ergebnis nach Hinspiel", "nach 180 Minuten", …) darunter;
@@ -38,15 +41,18 @@ public sealed record SpielKopf(
             score, zusatz, null);
 
     /// <summary>#247: Kopf der Wiederholungsspiel-Karte – das tatsächliche Heimteam links. <paramref name="heim"/>/
-    /// <paramref name="auswaerts"/> sind die Seiten des ersten Spiels, <paramref name="wiederholung"/> steht in dessen
-    /// Sicht (so gespeichert); bei <paramref name="getauscht"/> werden Seiten und Tore gespiegelt.</summary>
+    /// <paramref name="auswaerts"/> sind die Seiten des ersten Spiels, dessen vollständiges Ergebnis
+    /// <paramref name="erstesSpiel"/> das Wiederholungsspiel in dessen Sicht trägt (so gespeichert); bei
+    /// <paramref name="getauscht"/> werden Seiten und Tore gespiegelt. Elfmeterschießen oder Los nach dem
+    /// Wiederholungsspiel stehen hier, nicht auf der Karte des ersten Spiels (#691).</summary>
     public static SpielKopf Wiederholungsspiel(
-        SpielSeite heim, SpielSeite auswaerts, Wiederholungsergebnis wiederholung, bool getauscht, UntertitelQuellen untertitel)
+        SpielSeite heim, SpielSeite auswaerts, SimulationsErgebnis erstesSpiel, bool getauscht, UntertitelQuellen untertitel)
     {
         var links  = getauscht ? auswaerts : heim;
         var rechts = getauscht ? heim : auswaerts;
-        return Aus("Wiederholungsspiel", links, rechts, wiederholung.AlsErgebnis(getauscht), untertitel)
-            with { Entscheidung = getauscht ? "Heimrecht getauscht" : "Heimrecht wie im ersten Spiel" };
+        var kopf = Aus("Wiederholungsspiel", links, rechts, erstesSpiel.Wiederholung!.AlsErgebnis(getauscht, erstesSpiel), untertitel);
+        string heimrecht = getauscht ? "Heimrecht getauscht" : "Heimrecht wie im ersten Spiel";
+        return kopf with { Entscheidung = kopf.Entscheidung is null ? heimrecht : $"{kopf.Entscheidung} · {heimrecht}" };
     }
 
     // Wie bei kicker: nach Elfmeterschießen steht der Elfmeterstand groß in der Box, das Ergebnis

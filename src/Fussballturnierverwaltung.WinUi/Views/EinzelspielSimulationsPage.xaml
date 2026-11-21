@@ -195,6 +195,16 @@
                                 <views:SpielberichtKarte AutomationProperties.AutomationId="Einzelspiel.Wiederholungsspiel"
                                                          DataContext="{Binding RueckspielWiederholung}" />
                             </Grid>
+
+                            <!-- #691: Platzhalter, bis das Wiederholungsspiel simuliert ist; eigener Wrapper, damit die Spalte nur dann mitzählt. -->
+                            <Grid Visibility="{Binding ZeigeWiederholungAusstehend, Converter={StaticResource BoolToVisibility}}">
+                                <Border BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1"
+                                        CornerRadius="6" Padding="14,11" VerticalAlignment="Top">
+                                    <TextBlock AutomationProperties.AutomationId="Einzelspiel.WiederholungsspielAusstehend"
+                                               Text="Wiederholungsspiel steht noch aus — oben „Wiederholungsspiel simulieren“ klicken."
+                                               Opacity="0.5" FontSize="13" TextWrapping="Wrap" />
+                                </Border>
+                            </Grid>
                         </views:SpaltenPanel>
                     </ScrollViewer>
                 </Grid>

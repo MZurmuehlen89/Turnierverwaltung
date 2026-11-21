@@ -54,22 +54,28 @@ public static class Zeitleiste
     /// Bestandsdaten fehlt die Karte des Wiederholungsspiels.</summary>
     public static IReadOnlyList<EinzelspielEreignisZeile> Erstellen(
         SimulationsErgebnis stand, IEnumerable<ZeitleistenEreignis> ereignisse, SpielSeite heim, SpielSeite auswaerts) =>
-        Aufbauen(stand, ereignisse.Where(ev => !ev.ImWiederholungsspiel).ToList(), heim, auswaerts);
+        Aufbauen(stand.ErstesSpiel(), ereignisse.Where(ev => !GehoertZumWiederholungsspiel(ev, stand)).ToList(), heim, auswaerts);
+
+    // #691: Elfmeterschießen beendet die Kette; steht es neben einem Wiederholungsergebnis, kam es danach.
+    private static bool GehoertZumWiederholungsspiel(ZeitleistenEreignis ereignis, SimulationsErgebnis stand) =>
+        ereignis.ImWiederholungsspiel
+        || (stand.Wiederholung is not null && ereignis.Art is EreignisArt.ElfmeterTor or EreignisArt.ElfmeterVerschossen);
 
     /// <summary>Die Zeitleiste des Wiederholungsspiels (#247) mit eigenem Anpfiff bei Minute 0 und eigenen Trennern.
     /// <paramref name="heim"/>/<paramref name="auswaerts"/> sind die Seiten des ersten Spiels, die Ereignisse stehen –
-    /// wie <paramref name="wiederholung"/> – in dessen Sicht; bei <paramref name="getauscht"/> wird gespiegelt, damit das
+    /// wie dessen Wiederholungsergebnis – in dessen Sicht; bei <paramref name="getauscht"/> wird gespiegelt, damit das
     /// tatsächliche Heimteam des Wiederholungsspiels links steht.</summary>
     public static IReadOnlyList<EinzelspielEreignisZeile> ErstellenWiederholungsspiel(
-        Wiederholungsergebnis wiederholung, IEnumerable<ZeitleistenEreignis> ereignisse, SpielSeite heim, SpielSeite auswaerts, bool getauscht)
+        SimulationsErgebnis erstesSpiel, IEnumerable<ZeitleistenEreignis> ereignisse, SpielSeite heim, SpielSeite auswaerts, bool getauscht)
     {
         var eigene = ereignisse
-            .Where(ev => ev.ImWiederholungsspiel)
+            .Where(ev => GehoertZumWiederholungsspiel(ev, erstesSpiel))
             .Select(ev => getauscht ? ev with { IstHeimSeite = !ev.IstHeimSeite } : ev)
             .ToList();
+        var stand = erstesSpiel.Wiederholung!.AlsErgebnis(getauscht, erstesSpiel);
         return getauscht
-            ? Aufbauen(wiederholung.AlsErgebnis(true), eigene, auswaerts, heim)
-            : Aufbauen(wiederholung.AlsErgebnis(false), eigene, heim, auswaerts);
+            ? Aufbauen(stand, eigene, auswaerts, heim)
+            : Aufbauen(stand, eigene, heim, auswaerts);
     }
 
     private static IReadOnlyList<EinzelspielEreignisZeile> Aufbauen(

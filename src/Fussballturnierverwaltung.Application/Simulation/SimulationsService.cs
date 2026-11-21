@@ -36,12 +36,25 @@ public class SimulationsService(
         SimulationsModus modus,
         Random? rng = null)
     {
+        var schritt = EinzelspielBisWiederholungSimulieren(heim, auswaerts, verfahren, modus, rng);
+        return schritt.Ausstehend?.Austragen() ?? schritt.Ergebnis;
+    }
+
+    /// <summary>#691: wie <see cref="EinzelspielSimulieren"/>, hält aber vor einem Wiederholungsspiel an; das Ergebnis steht
+    /// dann ohne Wiederholungsspiel da und <see cref="SimulationsSchritt.Ausstehend"/> trägt es auf demselben Zufallsstrom aus.</summary>
+    public SimulationsSchritt EinzelspielBisWiederholungSimulieren(
+        Mannschaft heim,
+        Mannschaft auswaerts,
+        IReadOnlyList<EntscheidungsVerfahren> verfahren,
+        SimulationsModus modus,
+        Random? rng = null)
+    {
         rng ??= zufallsquelle.Erzeugen();
         bool ausfuehrlich = modus == SimulationsModus.AusfuehrlicheSimulation;
-        var ergebnis = SimulationsEngine.Simulieren(heim, auswaerts, verfahren, ausfuehrlich, rng);
+        var schritt = SimulationsEngine.SimulierenBisWiederholung(heim, auswaerts, verfahren, ausfuehrlich, rng);
         logger.LogDebug("Einzelspiel: {Heim} {H}:{G} {Gast}",
-            heim.Name, ergebnis.HeimToreRegulaer, ergebnis.AuswaertsToreRegulaer, auswaerts.Name);
-        return ergebnis;
+            heim.Name, schritt.Ergebnis.HeimToreRegulaer, schritt.Ergebnis.AuswaertsToreRegulaer, auswaerts.Name);
+        return schritt;
     }
 
     /// <summary>Rückspiel der freien Hin-/Rückspiel-Simulation (#248), ausführlich; <paramref name="heim"/> ist das
@@ -53,6 +66,16 @@ public class SimulationsService(
     /// nur bei auch gleich vielen läuft das Verfahren.</summary>
 #pragma warning disable S107 // Mannschaften, Hinspiel, Verfahren, Zufall, Regel – ein Parameterobjekt wäre nur Bulk (KISS)
     public SimulationsErgebnis RueckspielSimulieren(
+        Mannschaft heim, Mannschaft auswaerts, SimulationsErgebnis hinspiel,
+        IReadOnlyList<EntscheidungsVerfahren> verfahren, Random rng, bool auswaertstorRegelAktiv = false)
+    {
+        var schritt = RueckspielBisWiederholungSimulieren(heim, auswaerts, hinspiel, verfahren, rng, auswaertstorRegelAktiv);
+        return schritt.Ausstehend?.Austragen() ?? schritt.Ergebnis;
+    }
+
+    /// <summary>#691: wie <see cref="RueckspielSimulieren"/>, hält aber vor einem Wiederholungsspiel an (Ergebnis ohne
+    /// Wiederholungsspiel, <see cref="SimulationsSchritt.Ausstehend"/> trägt es auf demselben <paramref name="rng"/> aus).</summary>
+    public SimulationsSchritt RueckspielBisWiederholungSimulieren(
         Mannschaft heim, Mannschaft auswaerts, SimulationsErgebnis hinspiel,
         IReadOnlyList<EntscheidungsVerfahren> verfahren, Random rng, bool auswaertstorRegelAktiv = false)
 #pragma warning restore S107
@@ -72,31 +95,13 @@ public class SimulationsService(
             ergebnis.HeimToreRegulaer, ergebnis.AuswaertsToreRegulaer,
             auswaertstorRegelAktiv);
         if (gesamtstandGleich && !noetig)
-            return ergebnis with { EntscheidungArt = EntscheidungArt.Auswaertstorregel };
+            return new SimulationsSchritt(ergebnis with { EntscheidungArt = EntscheidungArt.Auswaertstorregel }, null);
         if (!noetig || verfahren.Count == 0)
-            return ergebnis;
+            return new SimulationsSchritt(ergebnis, null);
 
-        return MitEntscheidung(ergebnis, SimulationsEngine.EntscheidungsverfahrenAnwenden(
-            heim, auswaerts, verfahren, ausfuehrlich: true, rng,
-            platzverweise: Platzverweise.AusEreignissen(ergebnis.Ereignisse)));
+        return SimulationsEngine.EntscheidungsverfahrenBisWiederholung(
+            ergebnis, heim, auswaerts, verfahren, rng, platzverweise: Platzverweise.AusEreignissen(ergebnis.Ereignisse));
     }
-
-    // Das Ergebnis der regulären Spielzeit um den Ausgang des Entscheidungsverfahrens ergänzen.
-    private static SimulationsErgebnis MitEntscheidung(
-        SimulationsErgebnis ergebnis,
-        (int? HeimVerl, int? GastVerl, int? HeimElf, int? GastElf, EntscheidungArt Art,
-            IReadOnlyList<SimuliertesEreignis> Ereignisse, bool? LosGewinnerHeim, Wiederholungsergebnis? Wiederholung) entscheidung)
-        => ergebnis with
-        {
-            HeimToreVerlaengerung      = entscheidung.HeimVerl,
-            AuswaertsToreVerlaengerung = entscheidung.GastVerl,
-            HeimElfmetertore           = entscheidung.HeimElf,
-            AuswaertsElfmetertore      = entscheidung.GastElf,
-            EntscheidungArt            = entscheidung.Art,
-            Ereignisse                 = [.. ergebnis.Ereignisse, .. entscheidung.Ereignisse],
-            LosGewinnerHeim            = entscheidung.LosGewinnerHeim,
-            Wiederholung               = entscheidung.Wiederholung,
-        };
 
     // ── Ein einzelnes Spiel ───────────────────────────────────────────────
 
@@ -221,7 +226,7 @@ public class SimulationsService(
             return ergebnis;
 
         // #361: die Verlängerung setzt das Rückspiel fort – mit dessen Platzverweisen, nicht denen des Hinspiels.
-        return MitEntscheidung(ergebnis, SimulationsEngine.EntscheidungsverfahrenAnwenden(
+        return ergebnis.MitEntscheidung(SimulationsEngine.EntscheidungsverfahrenAnwenden(
             spiel.HeimMannschaft!, spiel.AuswaertsMannschaft!, verfahren, ausfuehrlich: true, rng, spielortvorteil,
             runde.Ueberraschungsfaktor, Platzverweise.AusEreignissen(ergebnis.Ereignisse), runde.Spielbedeutung,
             runde.NeutralerSpielort));

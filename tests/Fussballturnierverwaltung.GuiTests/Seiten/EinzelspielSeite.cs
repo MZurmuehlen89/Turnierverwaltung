@@ -18,6 +18,11 @@ public sealed class EinzelspielSeite(Window fenster)
     private const string GESAMT = "Einzelspiel.Gesamt";
     private const string SIEGER = "Einzelspiel.Sieger";
     private const string RUECKSPIEL_AUSSTEHEND = "Einzelspiel.RueckspielAusstehend";
+    private const string WIEDERHOLUNGSSPIEL = "Einzelspiel.Wiederholungsspiel";
+    private const string WIEDERHOLUNG_AUSSTEHEND = "Einzelspiel.WiederholungsspielAusstehend";
+    private const string SPIEL_WIEDERHOLUNGSSPIEL = "Spielbericht.Wiederholungsspiel";
+    private const string SPIEL_WIEDERHOLUNG_AUSSTEHEND = "Spielbericht.WiederholungsspielAusstehend";
+    private const string WIEDERHOLUNG_KNOPF = "Befehlsleiste.WiederholungsspielSimulieren";
 
     // Die gewählten Mannschaften: Erst wenn ein Spielkopf sie zeigt, gehört er zur letzten Aktion und nicht zu einer
     // früheren Paarung.
@@ -100,6 +105,80 @@ public sealed class EinzelspielSeite(Window fenster)
             KopfAbwarten(GESAMT, _heim, _auswaerts),
             siegerzeile);
     }
+
+    // ── Wiederholungsspiel als eigener Schritt (#691) ──────────────────────────────
+
+    /// <summary>Ob das Wiederholungsspiel ansteht: Platzhalter in der Spalte des Wiederholungsspiels (mit Rückspiel in der
+    /// Paarung, sonst neben dem Spiel).</summary>
+    public bool WiederholungAusstehend =>
+        fenster.TryFindById(WIEDERHOLUNG_AUSSTEHEND) is not null || fenster.TryFindById(SPIEL_WIEDERHOLUNG_AUSSTEHEND) is not null;
+
+    /// <summary>Ob die Karte des Wiederholungsspiels steht.</summary>
+    public bool WiederholungsspielGespielt =>
+        fenster.TryFindById(WIEDERHOLUNGSSPIEL) is not null || fenster.TryFindById(SPIEL_WIEDERHOLUNGSSPIEL) is not null;
+
+    /// <summary>Ob der Knopf „Wiederholungsspiel simulieren“ in der Leiste steht (nur bei Regelwerken mit Wiederholungsspiel).</summary>
+    public bool WiederholungsspielKnopfVorhanden => fenster.TryFindById(WIEDERHOLUNG_KNOPF) is not null;
+
+    /// <summary>Ob der Knopf aktiv ist – erst wenn das Wiederholungsspiel ansteht.</summary>
+    public bool WiederholungsspielKnopfAktiv => fenster.TryFindById(WIEDERHOLUNG_KNOPF)?.IsEnabled == true;
+
+    /// <summary>Simuliert das Rückspiel, ohne eine Siegerzeile zu verlangen: Es endet mit Sieger oder – bei Gleichstand und
+    /// Wiederholungsspiel in der Kette – mit dem Platzhalter. Liefert, ob das Wiederholungsspiel ansteht.</summary>
+    public bool RueckspielSimulierenBisWiederholung()
+    {
+        fenster.ActivateById("Befehlsleiste.RueckspielSimulieren");
+        Wait.Until(() => WiederholungAusstehend || SiegerzeileSichtbar, Wait.DefaultTimeout,
+            "Siegerzeile oder Platzhalter des Wiederholungsspiels nach dem Rückspiel");
+        return WiederholungAusstehend;
+    }
+
+    /// <summary>Simuliert ein Einzelspiel ohne Rückspiel und liefert, ob das Wiederholungsspiel ansteht.</summary>
+    public bool EinzelspielSimulierenBisWiederholung()
+    {
+        fenster.ActivateById("Befehlsleiste.EinzelspielSimulieren");
+        Wait.Until(
+            () => WiederholungAusstehend
+                  || (fenster.TryFindById("Spielbericht.Spiel") is { } karte && KopfLesen(karte) is { } kopf && ZeigtErgebnis(kopf, _heim, _auswaerts)),
+            Wait.DefaultTimeout, "Spielkopf oder Platzhalter des Wiederholungsspiels nach dem Einzelspiel");
+        return WiederholungAusstehend;
+    }
+
+    /// <summary>Klickt „Wiederholungsspiel simulieren“ und wartet auf dessen Karte.</summary>
+    public SpielKopfAnzeige WiederholungsspielSimulieren()
+    {
+        fenster.ActivateById(WIEDERHOLUNG_KNOPF);
+        return Wait.UntilFound(
+            () => (fenster.TryFindById(WIEDERHOLUNGSSPIEL) ?? fenster.TryFindById(SPIEL_WIEDERHOLUNGSSPIEL)) is { } karte
+                  && KopfLesen(karte) is { } kopf && Spielstand.Tore(kopf.Score) is not null ? kopf : null,
+            Wait.DefaultTimeout,
+            "Karte des Wiederholungsspiels");
+    }
+
+    /// <summary>Der Spielkopf des (ersten) Spiels ohne Rückspiel.</summary>
+    public SpielKopfAnzeige SpielKopf() =>
+        KopfAbwarten("Spielbericht.Spiel", _heim, _auswaerts);
+
+    public Rectangle WiederholungAusstehendLage =>
+        Lage(fenster.TryFindById(WIEDERHOLUNG_AUSSTEHEND) is not null ? WIEDERHOLUNG_AUSSTEHEND : SPIEL_WIEDERHOLUNG_AUSSTEHEND);
+
+    /// <summary>Wie viele Spielkarten (Hinspiel, Rückspiel, Wiederholungsspiel, Platzhalter) nebeneinander stehen (#691 K13).</summary>
+    public int Spielspalten =>
+        new[] { HINSPIEL, RUECKSPIEL, RUECKSPIEL_AUSSTEHEND, WIEDERHOLUNGSSPIEL, WIEDERHOLUNG_AUSSTEHEND,
+                "Spielbericht.Spiel", SPIEL_WIEDERHOLUNGSSPIEL, SPIEL_WIEDERHOLUNG_AUSSTEHEND }
+            .Count(id => fenster.TryFindById(id) is not null);
+
+    public Rectangle SpielLage => Lage("Spielbericht.Spiel");
+    public Rectangle WiederholungsspielLage => Lage(fenster.TryFindById(WIEDERHOLUNGSSPIEL) is not null ? WIEDERHOLUNGSSPIEL : SPIEL_WIEDERHOLUNGSSPIEL);
+
+    /// <summary>Der Gesamtkopf nach dem Rückspiel, auch wenn noch kein Sieger feststeht.</summary>
+    public SpielKopfAnzeige GesamtLesen() => KopfAbwarten(GESAMT, _heim, _auswaerts);
+
+    /// <summary>Ob die Siegerzeile der Paarung dasteht.</summary>
+    public bool SiegerzeileSichtbar => fenster.TryFindById(SIEGER) is not null;
+
+    /// <summary>Der Kopf der Rückspiel-Karte.</summary>
+    public SpielKopfAnzeige RueckspielKopf() => KopfAbwarten(RUECKSPIEL, _auswaerts, _heim);
 
     /// <summary>Ob ein vorhandenes Rückspiel samt Siegerzeile verworfen ist (#539) – beide sind dann nicht mehr im
     /// UIA-Baum, weil ihre Elemente ausgeblendet sind.</summary>

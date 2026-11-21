@@ -147,6 +147,48 @@ public class ZeitleisteTests
             "[Ende] ABPFIFF · 1:1 @0");
     }
 
+    // #691 K11: Elfmeterschießen kam nach dem Wiederholungsspiel – es steht nicht in der Zeitleiste des ersten Spiels.
+    [Fact]
+    public void ErstesSpiel_ElfmeterschiessenNachWiederholungsspiel_StehtNichtDort()
+    {
+        var zeilen = Bauen(
+            [E(20, EreignisArt.Tor, true, "Tor"),
+             E(80, EreignisArt.Tor, false, "Tor"),
+             E(30, EreignisArt.Tor, true, "Tor", wiederholung: true),
+             E(121, EreignisArt.ElfmeterTor, true, "Elfmeter verwandelt"),
+             E(122, EreignisArt.ElfmeterVerschossen, false, "Elfmeter verschossen")],
+            1, 1, EntscheidungArt.Elfmeterschiessen, elfmeter: (4, 3), wiederholung: new Wiederholungsergebnis(1, 1, null, null));
+
+        Texte(zeilen).Should().Equal(
+            "[Start] ANPFIFF @0",
+            "20' Heimteam Tor",
+            "[Abschnitt] HALBZEIT · 1:0 @45",
+            "80' Gastteam Tor",
+            "[Ende] ABPFIFF · 1:1 @0");
+    }
+
+    [Fact]
+    public void Wiederholungsspiel_ElfmeterschiessenDanach_StehtAufSeinerZeitleiste()
+    {
+        var zeilen = WiederholungBauen(
+            [E(30, EreignisArt.Tor, true, "Tor", wiederholung: true),
+             E(60, EreignisArt.Tor, false, "Tor", wiederholung: true),
+             E(121, EreignisArt.ElfmeterTor, true, "Elfmeter verwandelt"),
+             E(122, EreignisArt.ElfmeterVerschossen, false, "Elfmeter verschossen")],
+            new Wiederholungsergebnis(1, 1, null, null), getauscht: false, elfmeter: (4, 3));
+
+        Texte(zeilen).Should().Equal(
+            "[Start] ANPFIFF @0",
+            "30' Heimteam Tor",
+            "[Abschnitt] HALBZEIT · 1:0 @45",
+            "60' Gastteam Tor",
+            "[Abschnitt] 90 MINUTEN · 1:1 @90",
+            "121' Heimteam Elfmeter verwandelt",
+            "122' Gastteam Elfmeter verschossen",
+            "[Elfmeter] ELFMETERSCHIESSEN · 4:3 @0",
+            "[Ende] ABPFIFF · 1:1 (4:3 i.E.) @0");
+    }
+
     [Fact]
     public void ErstesSpiel_NurEreignisseDesWiederholungsspiels_LeereListe()
     {
@@ -155,9 +197,10 @@ public class ZeitleisteTests
 
     private static List<EinzelspielEreignisZeile> WiederholungBauen(
         IEnumerable<(int Minute, int? Nachspielminute, EreignisArt Art, bool IstHeimSeite, string Beschreibung, bool ImWiederholungsspiel)> ereignisse,
-        Wiederholungsergebnis wiederholung, bool getauscht)
+        Wiederholungsergebnis wiederholung, bool getauscht, (int Heim, int Auswaerts)? elfmeter = null)
         => Zeitleiste.ErstellenWiederholungsspiel(
-            wiederholung,
+            new SimulationsErgebnis(1, 1, null, null, elfmeter?.Heim, elfmeter?.Auswaerts,
+                elfmeter is null ? EntscheidungArt.Wiederholungsspiel : EntscheidungArt.Elfmeterschiessen, [], Wiederholung: wiederholung),
             ereignisse.Select(e => new ZeitleistenEreignis(e.Minute, e.Nachspielminute, e.Art, e.IstHeimSeite, e.Beschreibung, e.ImWiederholungsspiel)),
             new SpielSeite(new Mannschaft { Name = HEIM }, HEIM),
             new SpielSeite(new Mannschaft { Name = GAST }, GAST),

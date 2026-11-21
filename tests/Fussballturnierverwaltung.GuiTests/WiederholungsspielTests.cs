@@ -52,7 +52,8 @@ public sealed class WiederholungsspielTests(TurnierverwaltungApp app) : IClassFi
         spielplan.SpielWaehlen(entschieden.Heim, entschieden.Auswaerts);
         var karten = turnier.SpielverlaufAnsehen().WiederholungsspielAbwarten(entschieden.Heim, entschieden.Auswaerts);
         karten.Spiel.Score.Should().Be("1:1", "das erste Spiel endete 1:1 und nach Verlängerung (kumulativ eingetragen) weiter 1:1");
-        karten.Spiel.Zwischenstaende.Should().Contain("Wdh. 0:2");
+        karten.Spiel.Zwischenstaende.Should().NotContain("Wdh.", "die Karte des ersten Spiels zeigt nur dessen Stand (#691 K10)");
+        karten.Spiel.Entscheidung.Should().NotContain("Wiederholungsspiel");
         karten.Kontext.Should().Be("Wiederholungsspiel");
         karten.Wiederholungsspiel.Should().Match<SpielKopfAnzeige>(k =>
             k.Heim == entschieden.Auswaerts && k.Auswaerts == entschieden.Heim && k.Score == "2:0" && k.Entscheidung == "Heimrecht getauscht");

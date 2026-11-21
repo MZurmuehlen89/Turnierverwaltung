@@ -13,7 +13,30 @@ public static class SimulationsEngine
     // ── Öffentliche Eintrittspunkte ────────────────────────────────────────
 
 #pragma warning disable S107 // drei Parameter mit Standardwerten; Bündeln hieße alle Aufrufer und Tests umstellen, intern läuft es als Paarung (#503)
+    /// <summary>Simuliert ein Spiel in einem Zug – bei einer Kette mit Wiederholungsspiel samt diesem. Es gibt nur einen
+    /// Rechenweg: <see cref="SimulierenBisWiederholung"/> und sofort <see cref="AusstehendesWiederholungsspiel.Austragen"/> (#691).</summary>
     public static SimulationsErgebnis Simulieren(
+        Mannschaft heim,
+        Mannschaft auswaerts,
+        IReadOnlyList<EntscheidungsVerfahren> verfahren,
+        bool ausfuehrlich,
+        Random rng,
+        Spielortvorteil spielortvorteil = Spielortvorteil.Heim,
+        int ueberraschungsfaktor = 0,
+        Hinspielstand hinspielstand = default,
+        Spielbedeutung spielbedeutung = Spielbedeutung.Normal,
+        bool neutralerSpielort = false)
+    {
+        var schritt = SimulierenBisWiederholung(
+            heim, auswaerts, verfahren, ausfuehrlich, rng, spielortvorteil, ueberraschungsfaktor, hinspielstand,
+            spielbedeutung, neutralerSpielort);
+        return schritt.Ausstehend?.Austragen() ?? schritt.Ergebnis;
+    }
+
+    /// <summary>#691: wie <see cref="Simulieren"/>, hält die Verfahrenskette aber vor dem Wiederholungsspiel an. Das
+    /// Ergebnis steht dann ohne Wiederholungsspiel da; <see cref="SimulationsSchritt.Ausstehend"/> trägt es auf demselben
+    /// <paramref name="rng"/> aus (kein frischer Strom: mit festem Seed begänne er dieselbe Folge wie das erste Spiel).</summary>
+    public static SimulationsSchritt SimulierenBisWiederholung(
         Mannschaft heim,
         Mannschaft auswaerts,
         IReadOnlyList<EntscheidungsVerfahren> verfahren,
@@ -34,34 +57,25 @@ public static class SimulationsEngine
         var (heimTore, gastTore, ereignisse) = ablauf?.RegulaereSpielzeit()
             ?? new(ZiehePoisson(paarung.HeimTorerwartung, rng), ZiehePoisson(paarung.GastTorerwartung, rng), []);
 
-        // Entscheidungsverfahren bei Gleichstand
-        int? heimVerl = null, gastVerl = null, heimElf = null, gastElf = null;
-        bool? losGewinnerHeim = null;
-        Wiederholungsergebnis? wiederholung = null;
-        var entscheidung = EntscheidungArt.RegulaereSpielzeit;
-
-        if (heimTore == gastTore)
-        {
-            IReadOnlyList<SimuliertesEreignis> extras;
-            (heimVerl, gastVerl, heimElf, gastElf, entscheidung, extras, losGewinnerHeim, wiederholung) =
-                VerfahrenKetteAnwenden(paarung, verfahren, ablauf, rng);
-            ereignisse = [.. ereignisse, .. extras];
-        }
-
         // Issue #104: Halbzeitstand aus den generierten Torereignissen ableiten (nur bei ausführlicher
         // Simulation verfügbar, sonst existieren keine Minutenangaben — bleibt dann null statt eines
         // fälschlich vorgetäuschten 0:0). Verlängerungs-Torereignisse liegen immer jenseits Minute 90
         // und fließen hier nie mit ein; Tore in der Nachspielzeit („45+2'“) tragen Minute 45 und zählen mit (#361).
         int? heimHalbzeit = ausfuehrlich
-            ? ereignisse.Count(e => e.Art == EreignisArt.Tor && e.IstHeim && e.Minute <= 45 && !e.ImWiederholungsspiel)
+            ? ereignisse.Count(e => e.Art == EreignisArt.Tor && e.IstHeim && e.Minute <= 45)
             : null;
         int? gastHalbzeit = ausfuehrlich
-            ? ereignisse.Count(e => e.Art == EreignisArt.Tor && !e.IstHeim && e.Minute <= 45 && !e.ImWiederholungsspiel)
+            ? ereignisse.Count(e => e.Art == EreignisArt.Tor && !e.IstHeim && e.Minute <= 45)
             : null;
 
-        return new SimulationsErgebnis(
-            heimTore, gastTore, heimVerl, gastVerl, heimElf, gastElf,
-            entscheidung, ereignisse, heimHalbzeit, gastHalbzeit, losGewinnerHeim, wiederholung);
+        var regulaer = new SimulationsErgebnis(
+            heimTore, gastTore, null, null, null, null,
+            EntscheidungArt.RegulaereSpielzeit, ereignisse, heimHalbzeit, gastHalbzeit);
+        if (heimTore != gastTore) return new SimulationsSchritt(regulaer, null);
+
+        // Entscheidungsverfahren bei Gleichstand
+        var (ausgang, weiter) = VerfahrenKetteAnwenden(paarung, verfahren, ablauf, rng, vorWiederholungAnhalten: true);
+        return SimulationsSchritt.Aus(regulaer.MitEntscheidung(ausgang), weiter);
     }
 
     /// <summary>
@@ -76,39 +90,68 @@ public static class SimulationsEngine
     /// <paramref name="spielbedeutung"/>: die der Runde (#668), wie im Spiel davor.
     /// </summary>
 #pragma warning disable S107 // wie bei Simulieren: Standardwerte, Bündeln hieße alle Aufrufer umstellen
-    public static (int? HeimVerl, int? GastVerl, int? HeimElf, int? GastElf,
-                   EntscheidungArt Art, IReadOnlyList<SimuliertesEreignis> Ereignisse, bool? LosGewinnerHeim,
-                   Wiederholungsergebnis? Wiederholung)
-        EntscheidungsverfahrenAnwenden(
+    public static Entscheidungsausgang EntscheidungsverfahrenAnwenden(
             Mannschaft heim, Mannschaft auswaerts,
             IReadOnlyList<EntscheidungsVerfahren> verfahren, bool ausfuehrlich, Random rng,
+            Spielortvorteil spielortvorteil = Spielortvorteil.Heim, int ueberraschungsfaktor = 0,
+            Platzverweise platzverweise = default, Spielbedeutung spielbedeutung = Spielbedeutung.Normal,
+            bool neutralerSpielort = false)
+    {
+        var paarung = new Paarung(heim, auswaerts, spielortvorteil, ueberraschungsfaktor, spielbedeutung, neutralerSpielort);
+        var ablauf = ausfuehrlich ? paarung.Anpfiff(rng, platzverweise, gespielteMinuten: 90) : null;
+        return VerfahrenKetteAnwenden(paarung, verfahren, ablauf, rng, vorWiederholungAnhalten: false).Ausgang;
+    }
+
+    /// <summary>#691: wie <see cref="EntscheidungsverfahrenAnwenden"/> (ausführlich) auf das schon gespielte
+    /// <paramref name="regulaer"/>, hält die Kette aber vor dem Wiederholungsspiel an – für das Rückspiel der freien
+    /// Hin-/Rückspiel-Simulation.</summary>
+    public static SimulationsSchritt EntscheidungsverfahrenBisWiederholung(
+            SimulationsErgebnis regulaer, Mannschaft heim, Mannschaft auswaerts,
+            IReadOnlyList<EntscheidungsVerfahren> verfahren, Random rng,
             Spielortvorteil spielortvorteil = Spielortvorteil.Heim, int ueberraschungsfaktor = 0,
             Platzverweise platzverweise = default, Spielbedeutung spielbedeutung = Spielbedeutung.Normal,
             bool neutralerSpielort = false)
 #pragma warning restore S107
     {
         var paarung = new Paarung(heim, auswaerts, spielortvorteil, ueberraschungsfaktor, spielbedeutung, neutralerSpielort);
-        var ablauf = ausfuehrlich ? paarung.Anpfiff(rng, platzverweise, gespielteMinuten: 90) : null;
-        return VerfahrenKetteAnwenden(paarung, verfahren, ablauf, rng);
+        var ablauf = paarung.Anpfiff(rng, platzverweise, gespielteMinuten: 90);
+        var (ausgang, weiter) = VerfahrenKetteAnwenden(paarung, verfahren, ablauf, rng, vorWiederholungAnhalten: true);
+        return SimulationsSchritt.Aus(regulaer.MitEntscheidung(ausgang), weiter);
     }
 
-    private static (int? HeimVerl, int? GastVerl, int? HeimElf, int? GastElf,
-                    EntscheidungArt Art, IReadOnlyList<SimuliertesEreignis> Ereignisse, bool? LosGewinnerHeim,
-                    Wiederholungsergebnis? Wiederholung)
-        VerfahrenKetteAnwenden(
-            Paarung paarung, IReadOnlyList<EntscheidungsVerfahren> verfahren, Spielablauf? ablauf, Random rng)
+    private static (Entscheidungsausgang Ausgang, Func<Entscheidungsausgang>? Weiter) VerfahrenKetteAnwenden(
+        Paarung paarung, IReadOnlyList<EntscheidungsVerfahren> verfahren, Spielablauf? ablauf, Random rng,
+        bool vorWiederholungAnhalten)
+        => KetteAbarbeiten(
+            paarung, [.. verfahren.OrderBy(v => v.Reihenfolge).Select(v => v.VerfahrenArt)], 0, null, ablauf, rng,
+            vorWiederholungAnhalten);
+
+    /// <summary>Arbeitet die Kette ab <paramref name="ab"/> ab. Mit <paramref name="vorWiederholungAnhalten"/> hört sie vor einem
+    /// Wiederholungsspiel auf, das erreicht wird (also nur, wenn davor nichts entschied): der Ausgang trägt, was bis dahin
+    /// geschah, <c>Weiter</c> setzt dort fort und liefert nur den Rest (#691). Dieselbe Kette ohne Anhalten ist der
+    /// bisherige Einzelzug – derselbe <paramref name="rng"/> in derselben Reihenfolge, also bitgleich.</summary>
+    private static (Entscheidungsausgang Ausgang, Func<Entscheidungsausgang>? Weiter) KetteAbarbeiten(
+        Paarung paarung, IReadOnlyList<VerfahrenArt> kette, int ab, VerfahrenArt? verlaengerungDavor,
+        Spielablauf? ablauf, Random rng, bool vorWiederholungAnhalten)
     {
         int? heimVerl = null, gastVerl = null, heimElf = null, gastElf = null;
         var entscheidung = EntscheidungArt.RegulaereSpielzeit;
         IReadOnlyList<SimuliertesEreignis> ereignisse = [];
         Wiederholungsergebnis? wiederholung = null;
-        VerfahrenArt? verlaengerungDavor = null;
 
-        foreach (var v in verfahren.OrderBy(v => v.Reihenfolge))
+        for (int i = ab; i < kette.Count; i++)
         {
+            if (vorWiederholungAnhalten && kette[i] == VerfahrenArt.Wiederholungsspiel)
+            {
+                int naechster = i;
+                var davor = verlaengerungDavor;
+                return (new Entscheidungsausgang(heimVerl, gastVerl, heimElf, gastElf, entscheidung, ereignisse, null, wiederholung),
+                        () => KetteAbarbeiten(paarung, kette, naechster, davor, ablauf, rng, vorWiederholungAnhalten: false).Ausgang);
+            }
+
             var (result, art, hv, gv, he, ge, extraEreignisse, wdh) =
-                VerfahrenSimulieren(v.VerfahrenArt, paarung, rng, ablauf, verlaengerungDavor);
-            if (IstVerlaengerung(v.VerfahrenArt)) verlaengerungDavor = v.VerfahrenArt;
+                VerfahrenSimulieren(kette[i], paarung, rng, ablauf, verlaengerungDavor);
+            if (IstVerlaengerung(kette[i])) verlaengerungDavor = kette[i];
             wiederholung ??= wdh;
 
             entscheidung = art;
@@ -125,11 +168,11 @@ public static class SimulationsEngine
                 bool? losGewinnerHeim = art is EntscheidungArt.Losentscheid or EntscheidungArt.Muenzwurf
                     ? result > 0
                     : null;
-                return (heimVerl, gastVerl, heimElf, gastElf, entscheidung, ereignisse, losGewinnerHeim, wiederholung);
+                return (new Entscheidungsausgang(heimVerl, gastVerl, heimElf, gastElf, entscheidung, ereignisse, losGewinnerHeim, wiederholung), null);
             }
         }
 
-        return (heimVerl, gastVerl, heimElf, gastElf, entscheidung, ereignisse, null, wiederholung);
+        return (new Entscheidungsausgang(heimVerl, gastVerl, heimElf, gastElf, entscheidung, ereignisse, null, wiederholung), null);
     }
 
     /// <summary>#547/#247: Im Wiederholungsspiel tauschen die Teams das Heimrecht – außer auf neutralem Platz und wenn
@@ -388,7 +431,70 @@ public record SimulationsErgebnis(
     // Issue #383: Sieger eines Losentscheids/Münzwurfs (true = Heim) — sonst null, dort folgt er aus den Toren.
     bool? LosGewinnerHeim = null,
     // #547: das Wiederholungsspiel, falls die Kette bis dorthin kam – sonst null.
-    Wiederholungsergebnis? Wiederholung = null);
+    Wiederholungsergebnis? Wiederholung = null)
+{
+    /// <summary>Ergänzt das Ergebnis der regulären Spielzeit um das, was die Verfahrenskette danach brachte (#691). Tore aus
+    /// Verlängerung und Elfmeterschießen bleiben, wo der Ausgang keine mitbringt – so setzt auch der Rest einer angehaltenen
+    /// Kette (nur das Wiederholungsspiel und was folgt) auf dem Ergebnis bis dorthin auf.</summary>
+    public SimulationsErgebnis MitEntscheidung(Entscheidungsausgang ausgang) => this with
+    {
+        HeimToreVerlaengerung      = ausgang.HeimVerl ?? HeimToreVerlaengerung,
+        AuswaertsToreVerlaengerung = ausgang.GastVerl ?? AuswaertsToreVerlaengerung,
+        HeimElfmetertore           = ausgang.HeimElf ?? HeimElfmetertore,
+        AuswaertsElfmetertore      = ausgang.GastElf ?? AuswaertsElfmetertore,
+        EntscheidungArt            = ausgang.Art,
+        Ereignisse                 = [.. Ereignisse, .. ausgang.Ereignisse],
+        LosGewinnerHeim            = ausgang.LosGewinnerHeim,
+        Wiederholung               = ausgang.Wiederholung ?? Wiederholung,
+    };
+
+    /// <summary>#691: der Stand des ersten Spiels allein. Elfmeterschießen und Los beenden die Kette, stehen sie neben einem
+    /// Wiederholungsergebnis, kamen sie danach – sie gehören zur Karte des Wiederholungsspiels, ebenso das Wiederholungsspiel
+    /// selbst. Ohne Wiederholungsspiel ist das Ergebnis schon der Stand des ersten Spiels.</summary>
+    public SimulationsErgebnis ErstesSpiel() => Wiederholung is null ? this : this with
+    {
+        HeimElfmetertore      = null,
+        AuswaertsElfmetertore = null,
+        LosGewinnerHeim       = null,
+        Wiederholung          = null,
+        EntscheidungArt       = HeimToreVerlaengerung is not null && AuswaertsToreVerlaengerung is not null
+            ? EntscheidungArt.Verlaengerung
+            : EntscheidungArt.RegulaereSpielzeit,
+    };
+}
+
+/// <summary>Was die Verfahrenskette (Verlängerung, Elfmeterschießen, Los, Wiederholungsspiel …) nach der regulären Spielzeit
+/// brachte. <c>HeimVerl</c>/<c>GastVerl</c>/<c>HeimElf</c>/<c>GastElf</c> sind nur gesetzt, wenn das Verfahren sie lieferte.</summary>
+public readonly record struct Entscheidungsausgang(
+    int? HeimVerl, int? GastVerl, int? HeimElf, int? GastElf,
+    EntscheidungArt Art, IReadOnlyList<SimuliertesEreignis> Ereignisse, bool? LosGewinnerHeim,
+    Wiederholungsergebnis? Wiederholung);
+
+/// <summary>#691: ein Spiel, das vor seinem Wiederholungsspiel angehalten wurde. <see cref="Ergebnis"/> steht ohne
+/// Wiederholungsspiel da; <see cref="Ausstehend"/> ist <c>null</c>, wenn keines ansteht.</summary>
+public sealed record SimulationsSchritt(SimulationsErgebnis Ergebnis, AusstehendesWiederholungsspiel? Ausstehend)
+{
+    internal static SimulationsSchritt Aus(SimulationsErgebnis bisher, Func<Entscheidungsausgang>? weiter) =>
+        new(bisher, weiter is null ? null : new AusstehendesWiederholungsspiel(() => bisher.MitEntscheidung(weiter())));
+}
+
+/// <summary>#691: das noch nicht gespielte Wiederholungsspiel samt Rest der Verfahrenskette. Hält Paarung, Ablauf und
+/// denselben <see cref="Random"/> wie das erste Spiel.</summary>
+public sealed class AusstehendesWiederholungsspiel
+{
+    private Func<SimulationsErgebnis>? _austragen;
+
+    internal AusstehendesWiederholungsspiel(Func<SimulationsErgebnis> austragen) => _austragen = austragen;
+
+    /// <summary>Spielt das Wiederholungsspiel samt Rest der Kette und liefert das vollständige Ergebnis. Nur einmal möglich.</summary>
+    public SimulationsErgebnis Austragen()
+    {
+        var austragen = _austragen
+            ?? throw new InvalidOperationException("Das Wiederholungsspiel wurde bereits ausgetragen.");
+        _austragen = null;
+        return austragen();
+    }
+}
 
 /// <summary>#547: Ausgang eines Wiederholungsspiels aus Sicht des Heimteams des ersten Spiels – Tore nach 90 Minuten
 /// und ggf. in der Verlängerung des Wiederholungsspiels.</summary>
@@ -404,13 +510,23 @@ public record Wiederholungsergebnis(int HeimTore, int AuswaertsTore, int? HeimTo
                 ergebnis.HeimToreWiederholungVerlaengerung, ergebnis.AuswaertsToreWiederholungVerlaengerung)
             : null;
 
-    /// <summary>#247: das Wiederholungsspiel als eigenes Ergebnis (nur Tore, keine Verfahren) – bei getauschtem
-    /// Heimrecht aus Sicht von dessen Heimteam, also gespiegelt gegenüber der gespeicherten Sicht des ersten Heims.</summary>
-    public SimulationsErgebnis AlsErgebnis(bool getauscht) => getauscht
-        ? new SimulationsErgebnis(AuswaertsTore, HeimTore, AuswaertsToreVerlaengerung, HeimToreVerlaengerung,
-            null, null, EntscheidungArt.RegulaereSpielzeit, [])
-        : new SimulationsErgebnis(HeimTore, AuswaertsTore, HeimToreVerlaengerung, AuswaertsToreVerlaengerung,
-            null, null, EntscheidungArt.RegulaereSpielzeit, []);
+    /// <summary>#247: das Wiederholungsspiel als eigenes Ergebnis – bei getauschtem Heimrecht aus Sicht von dessen
+    /// Heimteam, also gespiegelt gegenüber der gespeicherten Sicht des ersten Heims. Elfmeterschießen oder Los, die dem
+    /// Wiederholungsspiel folgten (#691), übernimmt es aus <paramref name="erstesSpiel"/> (dem vollständigen Ergebnis).</summary>
+    public SimulationsErgebnis AlsErgebnis(bool getauscht, SimulationsErgebnis erstesSpiel)
+    {
+        bool endetDort = erstesSpiel.EntscheidungArt is EntscheidungArt.Elfmeterschiessen or EntscheidungArt.Losentscheid or EntscheidungArt.Muenzwurf;
+        var art = endetDort ? erstesSpiel.EntscheidungArt
+            : HeimToreVerlaengerung is not null ? EntscheidungArt.Verlaengerung
+            : EntscheidungArt.RegulaereSpielzeit;
+        return getauscht
+            ? new SimulationsErgebnis(AuswaertsTore, HeimTore, AuswaertsToreVerlaengerung, HeimToreVerlaengerung,
+                erstesSpiel.AuswaertsElfmetertore, erstesSpiel.HeimElfmetertore, art, [],
+                LosGewinnerHeim: !erstesSpiel.LosGewinnerHeim)
+            : new SimulationsErgebnis(HeimTore, AuswaertsTore, HeimToreVerlaengerung, AuswaertsToreVerlaengerung,
+                erstesSpiel.HeimElfmetertore, erstesSpiel.AuswaertsElfmetertore, art, [],
+                LosGewinnerHeim: erstesSpiel.LosGewinnerHeim);
+    }
 }
 
 /// <summary>Issue #352: wer im Spiel den Ortsvorteil hat — siehe

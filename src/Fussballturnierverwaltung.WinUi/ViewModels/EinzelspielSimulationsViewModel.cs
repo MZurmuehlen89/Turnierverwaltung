@@ -63,7 +63,13 @@ public partial class EinzelspielSimulationsViewModel : ViewModelBase, IRibbonAwa
     [NotifyPropertyChangedFor(nameof(EinzelspielKannSimuliert))]
     private Mannschaft? _einzelspielAuswaerts;
 
-    [ObservableProperty] private Regelwerk? _einzelspielRegelwerk;
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(RibbonZusatzGruppen))]
+    private Regelwerk? _einzelspielRegelwerk;
+
+    // #691 E3: der Knopf „Wiederholungsspiel simulieren“ steht nur bei Regelwerken, deren Kette ein Wiederholungsspiel kennt.
+    private bool RegelwerkKenntWiederholungsspiel =>
+        EinzelspielRegelwerk?.Entscheidungsverfahren.Any(v => v.VerfahrenArt == VerfahrenArt.Wiederholungsspiel) == true;
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(RibbonZusatzGruppen))]
@@ -142,6 +148,14 @@ public partial class EinzelspielSimulationsViewModel : ViewModelBase, IRibbonAwa
     public bool HatProtokollWiederholung => ProtokollWiederholung is not null;
     public bool ZeigeLeerZustand         => !HatProtokoll;
 
+    // #691: das Wiederholungsspiel ist ein eigener Schritt. Bis es gespielt wird, hält das Spiel (bzw. das Rückspiel) davor
+    // an; solange steht an seiner Stelle ein Platzhalter und der Knopf „Wiederholungsspiel simulieren“ ist aktiv.
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ZeigeWiederholungAusstehend))]
+    private AusstehendesWiederholungsspiel? _ausstehendesWiederholungsspiel;
+
+    public bool ZeigeWiederholungAusstehend => AusstehendesWiederholungsspiel is not null;
+
     // ── Protokoll: mit Rückspiel (#248, zweistufig; #247: Karten nebeneinander) ────────
 
     [ObservableProperty]
@@ -196,6 +210,7 @@ public partial class EinzelspielSimulationsViewModel : ViewModelBase, IRibbonAwa
     public ICommand HinspielSimulierenBefehl     { get; }
     public ICommand RueckspielSimulierenBefehl   { get; }
     public ICommand HinspielUebernehmenBefehl    { get; }
+    public ICommand WiederholungsspielSimulierenBefehl { get; }
 
     public bool RueckspielSimulierenKann =>
         EinzelspielKannSimuliert && EinzelspielMitRueckspiel && HatHinspielErgebnis;
@@ -220,39 +235,50 @@ public partial class EinzelspielSimulationsViewModel : ViewModelBase, IRibbonAwa
     // [NotifyPropertyChangedFor(nameof(RibbonZusatzGruppen))] an _einzelspielMitRueckspiel oben.
     public IReadOnlyList<RibbonGruppe> RibbonZusatzGruppen =>
     [
-        new RibbonGruppe
-        {
-            Header = "Simulation",
-            Aktionen = EinzelspielMitRueckspiel
-                ?
-                [
-                    new RibbonAktion
-                    {
-                        Header = "Hinspiel simulieren",
-                        Befehl = HinspielSimulierenBefehl,
-                        AutomationId = "Befehlsleiste.HinspielSimulieren",
-                        IconGlyph = "",
-                    },
-                    new RibbonAktion
-                    {
-                        Header = "Rückspiel simulieren",
-                        Befehl = RueckspielSimulierenBefehl,
-                        AutomationId = "Befehlsleiste.RueckspielSimulieren",
-                        IconGlyph = "",
-                    },
-                ]
-                :
-                [
-                    new RibbonAktion
-                    {
-                        Header = "Einzelspiel simulieren",
-                        Befehl = EinzelspielFreiBefehl,
-                        AutomationId = "Befehlsleiste.EinzelspielSimulieren",
-                        IconGlyph = "",
-                    },
-                ],
-        },
+        new RibbonGruppe { Header = "Simulation", Aktionen = SimulationsAktionen() },
     ];
+
+    private List<RibbonAktion> SimulationsAktionen()
+    {
+        List<RibbonAktion> aktionen = EinzelspielMitRueckspiel
+            ?
+            [
+                new RibbonAktion
+                {
+                    Header = "Hinspiel simulieren",
+                    Befehl = HinspielSimulierenBefehl,
+                    AutomationId = "Befehlsleiste.HinspielSimulieren",
+                    IconGlyph = "",
+                },
+                new RibbonAktion
+                {
+                    Header = "Rückspiel simulieren",
+                    Befehl = RueckspielSimulierenBefehl,
+                    AutomationId = "Befehlsleiste.RueckspielSimulieren",
+                    IconGlyph = "",
+                },
+            ]
+            :
+            [
+                new RibbonAktion
+                {
+                    Header = "Einzelspiel simulieren",
+                    Befehl = EinzelspielFreiBefehl,
+                    AutomationId = "Befehlsleiste.EinzelspielSimulieren",
+                    IconGlyph = "",
+                },
+            ];
+
+        if (RegelwerkKenntWiederholungsspiel)
+            aktionen.Add(new RibbonAktion
+            {
+                Header = "Wiederholungsspiel simulieren",
+                Befehl = WiederholungsspielSimulierenBefehl,
+                AutomationId = "Befehlsleiste.WiederholungsspielSimulieren",
+                IconGlyph = "",
+            });
+        return aktionen;
+    }
 
     // ── Konstruktor ───────────────────────────────────────────────────────────
 
@@ -276,6 +302,7 @@ public partial class EinzelspielSimulationsViewModel : ViewModelBase, IRibbonAwa
         HinspielSimulierenBefehl   = new AsyncRelayCommand(HinspielSimulierenAsync, () => EinzelspielKannSimuliert);
         RueckspielSimulierenBefehl = new AsyncRelayCommand(RueckspielSimulierenAsync, () => RueckspielSimulierenKann && !IstLadend);
         HinspielUebernehmenBefehl  = new RelayCommand(HinspielUebernehmen, () => EinzelspielKannSimuliert);
+        WiederholungsspielSimulierenBefehl = new AsyncRelayCommand(WiederholungsspielSimulierenAsync, () => ZeigeWiederholungAusstehend && !IstLadend);
     }
 
     // ── Initialisierung ───────────────────────────────────────────────────────
@@ -313,6 +340,7 @@ public partial class EinzelspielSimulationsViewModel : ViewModelBase, IRibbonAwa
             case nameof(EinzelspielAuswaerts):
             case nameof(EinzelspielMitRueckspiel):
             case nameof(HinspielErgebnis):
+            case nameof(AusstehendesWiederholungsspiel):
                 AktualisiereBefehle();
                 break;
         }
@@ -324,6 +352,26 @@ public partial class EinzelspielSimulationsViewModel : ViewModelBase, IRibbonAwa
     {
         LeerProtokoll();
         LeerHinRueckProtokoll();
+    }
+
+    // #691 E2: ein ausstehendes Wiederholungsspiel liefe sonst mit alten Teams oder alter Kette.
+    partial void OnEinzelspielHeimChanged(Mannschaft? value) => AusstehendesVerwerfen();
+
+    partial void OnEinzelspielAuswaertsChanged(Mannschaft? value) => AusstehendesVerwerfen();
+
+    partial void OnEinzelspielRegelwerkChanged(Regelwerk? value) => AusstehendesVerwerfen();
+
+    // Mit Rückspiel gehen Rückspiel und Ausstehendes, das Hinspiel bleibt; ohne Rückspiel ist das Spiel selbst das erste Spiel.
+    private void AusstehendesVerwerfen()
+    {
+        if (AusstehendesWiederholungsspiel is null) return;
+
+        if (!EinzelspielMitRueckspiel)
+            LeerProtokoll();
+        else if (HinspielErgebnis is { } hinspiel && EinzelspielHeim is { } heim && EinzelspielAuswaerts is { } auswaerts)
+            RueckspielVerwerfen(heim, auswaerts, hinspiel);
+        else
+            RueckspielDatenLeeren();
     }
 
     // #539: ein vorhandenes Rückspiel hing von der Regel ab – verwerfen wie bei einem neuen Hinspiel, das Hinspiel bleibt.
@@ -352,15 +400,60 @@ public partial class EinzelspielSimulationsViewModel : ViewModelBase, IRibbonAwa
 
         try
         {
-            var erg = _simulationsService.EinzelspielSimulieren(heim, auswaerts, verfahren, SimulationsModus.AusfuehrlicheSimulation);
-            ProtokollSpielInfo = $"{heim.Name} vs. {auswaerts.Name}";
-            ObservableCollection<EinzelspielEreignisZeile> ereignisse = [];
-            ZeitleisteFuellen(ereignisse, erg, SpielSeite.Von(heim), SpielSeite.Von(auswaerts));
-            ProtokollWiederholung = SpielBeinAnsicht.Wiederholungsspiel(
-                erg.Wiederholung, erg.Ereignisse.Select(ZeitleistenEreignis.Aus),
-                SpielSeite.Von(heim), SpielSeite.Von(auswaerts), neutralerSpielort: false, _untertitel);
-            Protokoll = new SpielBeinAnsicht(
-                SpielKopf.Aus(null, SpielSeite.Von(heim), SpielSeite.Von(auswaerts), erg, _untertitel), ereignisse);
+            // #691: das Wiederholungsspiel ist ein eigener Schritt – hier steht das Spiel bis dorthin da.
+            var schritt = _simulationsService.EinzelspielBisWiederholungSimulieren(heim, auswaerts, verfahren, SimulationsModus.AusfuehrlicheSimulation);
+            ProtokollAnzeigen(heim, auswaerts, schritt.Ergebnis);
+            AusstehendesWiederholungsspiel = schritt.Ausstehend;
+        }
+        catch (Exception ex)
+        {
+            Fehlermeldung = ex.Message;
+        }
+        finally
+        {
+            IstLadend = false;
+            AktualisiereBefehle();
+        }
+    }
+
+    // Spielkarte und (falls schon gespielt) die Karte des Wiederholungsspiels zu einem Ergebnis des Einzelspiels.
+    private void ProtokollAnzeigen(Mannschaft heim, Mannschaft auswaerts, SimulationsErgebnis erg)
+    {
+        ProtokollSpielInfo = $"{heim.Name} vs. {auswaerts.Name}";
+        ObservableCollection<EinzelspielEreignisZeile> ereignisse = [];
+        ZeitleisteFuellen(ereignisse, erg, SpielSeite.Von(heim), SpielSeite.Von(auswaerts));
+        ProtokollWiederholung = SpielBeinAnsicht.Wiederholungsspiel(
+            erg, erg.Ereignisse.Select(ZeitleistenEreignis.Aus),
+            SpielSeite.Von(heim), SpielSeite.Von(auswaerts), neutralerSpielort: false, _untertitel);
+        Protokoll = new SpielBeinAnsicht(
+            SpielKopf.Aus(null, SpielSeite.Von(heim), SpielSeite.Von(auswaerts), erg, _untertitel), ereignisse);
+    }
+
+    // ── Wiederholungsspiel als eigener Schritt (#691) ────────────────────────
+
+    private async Task WiederholungsspielSimulierenAsync()
+    {
+        if (AusstehendesWiederholungsspiel is not { } ausstehend || EinzelspielHeim is null || EinzelspielAuswaerts is null) return;
+
+        var heim      = EinzelspielHeim;
+        var auswaerts = EinzelspielAuswaerts;
+
+        Fehlermeldung = null;
+        IstLadend     = true;
+        AusstehendesWiederholungsspiel = null; // ein Aufruf trägt es genau einmal aus
+
+        await Task.Yield();
+
+        try
+        {
+            var erg = ausstehend.Austragen();
+            if (EinzelspielMitRueckspiel && HinspielErgebnis is { } hinspiel)
+            {
+                RueckspielErgebnis = erg;
+                RueckspielAnzeigen(SpielSeite.Von(heim), SpielSeite.Von(auswaerts), FreiePaarungGesamt.Bewerten(hinspiel, erg), erg);
+            }
+            else
+                ProtokollAnzeigen(heim, auswaerts, erg);
         }
         catch (Exception ex)
         {
@@ -465,6 +558,7 @@ public partial class EinzelspielSimulationsViewModel : ViewModelBase, IRibbonAwa
         RueckspielErgebnis = null;
         RueckspielAnsicht = null;
         RueckspielWiederholung = null;
+        AusstehendesWiederholungsspiel = null;
         SiegerText = null;
         RueckspielEreignisse.Clear();
     }
@@ -494,10 +588,14 @@ public partial class EinzelspielSimulationsViewModel : ViewModelBase, IRibbonAwa
         try
         {
 #pragma warning disable S2234 // Rückspiel: Heim und Auswärts bewusst getauscht
-            var erg2 = _simulationsService.RueckspielSimulieren(auswaerts, heim, erg1, verfahren, _zufallsquelle.Erzeugen(), EinzelspielAuswaertstorRegel);
+            var schritt = _simulationsService.RueckspielBisWiederholungSimulieren(auswaerts, heim, erg1, verfahren, _zufallsquelle.Erzeugen(), EinzelspielAuswaertstorRegel);
 #pragma warning restore S2234
+            var erg2 = schritt.Ergebnis;
             RueckspielErgebnis = erg2;
-            RueckspielAnzeigen(SpielSeite.Von(heim), SpielSeite.Von(auswaerts), FreiePaarungGesamt.Bewerten(erg1, erg2), erg2);
+            RueckspielAnzeigen(
+                SpielSeite.Von(heim), SpielSeite.Von(auswaerts),
+                FreiePaarungGesamt.Bewerten(erg1, erg2, wiederholungAusstehend: schritt.Ausstehend is not null), erg2);
+            AusstehendesWiederholungsspiel = schritt.Ausstehend;
         }
         catch (Exception ex)
         {
@@ -528,7 +626,7 @@ public partial class EinzelspielSimulationsViewModel : ViewModelBase, IRibbonAwa
         ZeitleisteFuellen(RueckspielEreignisse, erg2, auswaerts, heim);
         RueckspielAnsicht = new SpielBeinAnsicht(SpielKopf.Aus("Rückspiel", auswaerts, heim, erg2, _untertitel), RueckspielEreignisse);
         RueckspielWiederholung = SpielBeinAnsicht.Wiederholungsspiel(
-            erg2.Wiederholung, erg2.Ereignisse.Select(ZeitleistenEreignis.Aus), auswaerts, heim, neutralerSpielort: false, _untertitel);
+            erg2, erg2.Ereignisse.Select(ZeitleistenEreignis.Aus), auswaerts, heim, neutralerSpielort: false, _untertitel);
 #pragma warning restore S2234
     }
 
@@ -537,6 +635,7 @@ public partial class EinzelspielSimulationsViewModel : ViewModelBase, IRibbonAwa
         ProtokollSpielInfo = null;
         Protokoll = null;
         ProtokollWiederholung = null;
+        AusstehendesWiederholungsspiel = null;
     }
 
     // Mannschaften kommen ohne Verband (AlleAbrufenMitLandAsync) — Kurzname über die ohnehin geladene
@@ -551,6 +650,7 @@ public partial class EinzelspielSimulationsViewModel : ViewModelBase, IRibbonAwa
         HinspielAnsicht = null;
         RueckspielAnsicht = null;
         RueckspielWiederholung = null;
+        AusstehendesWiederholungsspiel = null;
         GesamtKopf = null;
         SiegerText = null;
         HinspielEreignisse.Clear();
@@ -566,5 +666,6 @@ public partial class EinzelspielSimulationsViewModel : ViewModelBase, IRibbonAwa
         ((AsyncRelayCommand)HinspielSimulierenBefehl).NotifyCanExecuteChanged();
         ((AsyncRelayCommand)RueckspielSimulierenBefehl).NotifyCanExecuteChanged();
         ((RelayCommand)HinspielUebernehmenBefehl).NotifyCanExecuteChanged();
+        ((AsyncRelayCommand)WiederholungsspielSimulierenBefehl).NotifyCanExecuteChanged();
     }
 }

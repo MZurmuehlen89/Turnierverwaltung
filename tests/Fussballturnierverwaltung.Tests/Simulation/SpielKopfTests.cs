@@ -31,6 +31,9 @@ public class SpielKopfTests
         => new(heim, auswaerts, verlaengerung?.Heim, verlaengerung?.Auswaerts, elfmeter?.Heim, elfmeter?.Auswaerts,
             art, [], halbzeit?.Heim, halbzeit?.Auswaerts, losGewinnerHeim, wiederholung);
 
+    private static SimulationsErgebnis MitWiederholung(int heim, int auswaerts, int? heimVerl, int? auswaertsVerl)
+        => Ergebnis(1, 1, EntscheidungArt.Wiederholungsspiel, wiederholung: new Wiederholungsergebnis(heim, auswaerts, heimVerl, auswaertsVerl));
+
     // ── Score, Entscheidung, Zwischenstände ──────────────────────────────
 
     [Fact]
@@ -112,16 +115,67 @@ public class SpielKopfTests
         kopf.AuswaertsName.Should().Be("Sieger Gruppe B");
     }
 
+    // #691 K10: die Karte des ersten Spiels zeigt nur dessen Stand – keine Summe, kein „nach Wiederholungsspiel“, kein „Wdh.“
     [Fact]
-    public void Wiederholungsspiel_StehtInDenZwischenstaenden_MitNachVerlaengerungHinweis()
+    public void ErstesSpielMitWiederholungsspiel_ZeigtNurEigenenStand()
     {
-        Kopf(Ergebnis(1, 1, EntscheidungArt.Wiederholungsspiel, halbzeit: (0, 0),
-                wiederholung: new Wiederholungsergebnis(2, 1, null, null)))
-            .Zwischenstaende.Should().Be("HZ 0:0 · Wdh. 2:1");
+        var kopf = Kopf(Ergebnis(1, 1, EntscheidungArt.Wiederholungsspiel, halbzeit: (0, 0),
+            wiederholung: new Wiederholungsergebnis(2, 1, null, null)));
 
-        Kopf(Ergebnis(1, 1, EntscheidungArt.Wiederholungsspiel, halbzeit: (0, 0),
-                wiederholung: new Wiederholungsergebnis(1, 1, 1, 0)))
-            .Zwischenstaende.Should().Be("HZ 0:0 · Wdh. 2:1 n.V.");
+        kopf.Score.Should().Be("1:1");
+        kopf.Entscheidung.Should().BeNull();
+        kopf.Zwischenstaende.Should().Be("HZ 0:0");
+    }
+
+    [Fact]
+    public void ErstesSpielMitWiederholungsspiel_NachVerlaengerung_ZeigtDieEigeneVerlaengerung()
+    {
+        var kopf = Kopf(Ergebnis(1, 1, EntscheidungArt.Wiederholungsspiel, verlaengerung: (1, 0), halbzeit: (0, 0),
+            wiederholung: new Wiederholungsergebnis(2, 1, null, null)));
+
+        kopf.Score.Should().Be("2:1");
+        kopf.Entscheidung.Should().Be("nach Verlängerung");
+        kopf.Zwischenstaende.Should().Be("HZ 0:0 · 90' 1:1 · n.V. 2:1");
+    }
+
+    // #691 K11: Elfmeterschießen und Los kamen nach dem Wiederholungsspiel – sie stehen auf dessen Karte.
+    [Fact]
+    public void ErstesSpielMitWiederholungsspiel_ElfmeterschiessenDanach_StehtNichtAufDerKarteDesErstenSpiels()
+    {
+        var kopf = Kopf(Ergebnis(1, 1, EntscheidungArt.Elfmeterschiessen, elfmeter: (5, 4),
+            wiederholung: new Wiederholungsergebnis(1, 1, null, null)));
+
+        kopf.Score.Should().Be("1:1");
+        kopf.Entscheidung.Should().BeNull();
+        kopf.Zwischenstaende.Should().BeNull();
+    }
+
+    [Fact]
+    public void Wiederholungsspiel_ElfmeterschiessenDanach_StehtAufDerKarteDesWiederholungsspiels()
+    {
+        var erstes = Ergebnis(1, 1, EntscheidungArt.Elfmeterschiessen, elfmeter: (5, 4),
+            wiederholung: new Wiederholungsergebnis(1, 1, null, null));
+
+        var ohneTausch = SpielKopf.Wiederholungsspiel(SpielSeite.Von(_alpha), SpielSeite.Von(_beta), erstes, getauscht: false, _quellen);
+        ohneTausch.Score.Should().Be("5:4");
+        ohneTausch.Entscheidung.Should().Be("im Elfmeterschießen · Heimrecht wie im ersten Spiel");
+        ohneTausch.Zwischenstaende.Should().Be("90' 1:1");
+
+        var getauscht = SpielKopf.Wiederholungsspiel(SpielSeite.Von(_alpha), SpielSeite.Von(_beta), erstes, getauscht: true, _quellen);
+        getauscht.HeimName.Should().Be("Beta Berlin");
+        getauscht.Score.Should().Be("4:5");
+    }
+
+    [Fact]
+    public void Wiederholungsspiel_LosDanach_NenntDenGewinnerAusSichtDerKarte()
+    {
+        // Das Heimteam des ersten Spiels (Alpha) gewinnt das Los; bei getauschtem Heimrecht steht Beta links.
+        var erstes = Ergebnis(1, 1, EntscheidungArt.Losentscheid, losGewinnerHeim: true,
+            wiederholung: new Wiederholungsergebnis(0, 0, null, null));
+
+        var kopf = SpielKopf.Wiederholungsspiel(SpielSeite.Von(_alpha), SpielSeite.Von(_beta), erstes, getauscht: true, _quellen);
+
+        kopf.Entscheidung.Should().Be("per Losentscheid für Alpha · Heimrecht getauscht");
     }
 
     // ── Seiten, Kontext, Kürzel ──────────────────────────────────────────
@@ -179,7 +233,7 @@ public class SpielKopfTests
     public void Wiederholungsspiel_OhneTausch_HeimteamLinksUndHeimrechtWieImErstenSpiel()
     {
         var kopf = SpielKopf.Wiederholungsspiel(
-            SpielSeite.Von(_alpha), SpielSeite.Von(_beta), new Wiederholungsergebnis(2, 1, null, null), getauscht: false, _quellen);
+            SpielSeite.Von(_alpha), SpielSeite.Von(_beta), MitWiederholung(2, 1, null, null), getauscht: false, _quellen);
 
         kopf.Kontext.Should().Be("Wiederholungsspiel");
         kopf.HeimName.Should().Be("Alpha");
@@ -191,7 +245,7 @@ public class SpielKopfTests
     public void Wiederholungsspiel_MitTausch_GastteamDesErstenSpielsLinksUndScoreGespiegelt()
     {
         var kopf = SpielKopf.Wiederholungsspiel(
-            SpielSeite.Von(_alpha), SpielSeite.Von(_beta), new Wiederholungsergebnis(2, 1, null, null), getauscht: true, _quellen);
+            SpielSeite.Von(_alpha), SpielSeite.Von(_beta), MitWiederholung(2, 1, null, null), getauscht: true, _quellen);
 
         kopf.HeimName.Should().Be("Beta Berlin");
         kopf.AuswaertsName.Should().Be("Alpha");
@@ -203,7 +257,7 @@ public class SpielKopfTests
     public void Wiederholungsspiel_MitVerlaengerung_ScoreGesamtUndZwischenstand()
     {
         var kopf = SpielKopf.Wiederholungsspiel(
-            SpielSeite.Von(_alpha), SpielSeite.Von(_beta), new Wiederholungsergebnis(1, 1, 1, 0), getauscht: true, _quellen);
+            SpielSeite.Von(_alpha), SpielSeite.Von(_beta), MitWiederholung(1, 1, 1, 0), getauscht: true, _quellen);
 
         kopf.Score.Should().Be("1:2");
         kopf.Zwischenstaende.Should().Be("90' 1:1 · n.V. 1:2");

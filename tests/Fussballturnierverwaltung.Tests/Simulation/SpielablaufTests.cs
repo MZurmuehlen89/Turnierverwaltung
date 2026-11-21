@@ -19,9 +19,7 @@ public class SpielablaufTests
     internal static SimulationsErgebnis Simulieren(Random zufall, params VerfahrenArt[] verfahren) =>
         SimulationsEngine.Simulieren(HeimTeam(), GastTeam(), VerfahrenKette(verfahren), ausfuehrlich: true, zufall);
 
-    private static (int? HeimVerl, int? GastVerl, int? HeimElf, int? GastElf, EntscheidungArt Art,
-                    IReadOnlyList<SimuliertesEreignis> Ereignisse, bool? LosGewinnerHeim,
-                    Wiederholungsergebnis? Wiederholung)
+    private static Entscheidungsausgang
         Anwenden(VorgegebenerZufall zufall, params VerfahrenArt[] verfahren) =>
         SimulationsEngine.EntscheidungsverfahrenAnwenden(
             HeimTeam(), GastTeam(), VerfahrenKette(verfahren), ausfuehrlich: true, zufall);
