@@ -1,5 +1,5 @@
 """Leitet aus den Spielerwerten (abrufen.py) eine dreistufige Kennzahl je Seed-Mannschaft ab und schreibt die
-Stufenliste (#677 Kondition, #669 Nervenstärke).
+Stufenliste (#677 Kondition, #669 Nervenstärke); Bericht in bericht-<kennzahl>.txt.
 Aufruf: python -I auswerten.py <datenordner> <repo-wurzel> [kondition|nervenstaerke]   (Standard: kondition)
 Ein Lauf schreibt nur die Liste seiner Kennzahl; die der anderen bleibt unberührt.
 
@@ -246,7 +246,7 @@ def main():
             f"public static class {praefix}SeedListe\n{{\n"
             f"    public static readonly IReadOnlyList<{praefix}SeedDaten.Eintrag> Handliste =\n    [\n")
     ziel.write_text(kopf + "\n".join(zeilen) + "\n    ];\n}\n", encoding="utf-8")
-    (ordner / "bericht.txt").write_text("\n\n".join(bericht), encoding="utf-8")
+    (ordner / f"bericht-{praefix.lower()}.txt").write_text("\n\n".join(bericht), encoding="utf-8")
     print("\n\n".join(bericht))
 
 

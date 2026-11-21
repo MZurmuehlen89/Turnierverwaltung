@@ -5,7 +5,9 @@ namespace Fussballturnierverwaltung.Application.Simulation;
 
 /// <summary>Elfmeterschießen der <see cref="SimulationsEngine"/>: fünf Schüsse je Seite mit vorzeitigem Abbruch,
 /// danach Sudden Death. Ein Exemplar hält den Zwischenstand eines einzelnen Elfmeterschießens (aus der Engine
-/// herausgelöst, #503).</summary>
+/// herausgelöst, #503). Die Trefferquote je Schuss hängt von der <see cref="Nervenstaerke"/> des Schützen und davon ab,
+/// ob der Schuss unter Druck steht (#669, <see cref="Nervenwirkung"/>); ohne Abweichung von „normal“ bleibt sie die
+/// Basisquote des Teams.</summary>
 internal sealed class Elfmeterschiessen
 {
     private const int REGULAERE_SCHUESSE = 5;

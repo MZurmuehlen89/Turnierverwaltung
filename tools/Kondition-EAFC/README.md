@@ -8,7 +8,7 @@ Bedingungen prüfen, siehe #677).
 | Skript | Tut |
 |---|---|
 | `abrufen.py` | holt die Spielerliste der EA-Ratings-API (`drop-api.ea.com/rating/ea-sports-fc`) **seriell**, 100 je Seite mit 1,5 s Pause (Retry-After wird beachtet), und speichert je Spieler nur Gesamtwert, Ausdauer, Ruhe am Ball, Elfmeter, Team, Nation und Geschlecht |
-| `auswerten.py` | Teamwert = Mittel des Spielerwerts der elf besten Männer je Team (Kondition: Ausdauer; Nervenstärke: Mittel aus Ruhe am Ball und Elfmeter); Vereine und Nationalteams getrennt in Viertel (oben stark, unten schwach); schreibt die Liste der gewählten Kennzahl und `bericht.txt` – die andere Liste bleibt unberührt |
+| `auswerten.py` | Teamwert = Mittel des Spielerwerts der elf besten Männer je Team (Kondition: Ausdauer; Nervenstärke: Mittel aus Ruhe am Ball und Elfmeter); Vereine und Nationalteams getrennt in Viertel (oben stark, unten schwach); schreibt die Liste der gewählten Kennzahl und `bericht-<kennzahl>.txt` – die andere Liste bleibt unberührt |
 
 ## Aufruf
 
