@@ -243,8 +243,8 @@ public static class SimulationsEngine
         double lambda = TOR_GRUNDERWARTUNG
                         * Math.Pow(angriff / Math.Max(0.3, verteid), spreizung)
                         * ortFaktor;
-        // #679: die verborgene Turnierstärke beider Teams; ohne Turnier (1,0) bleibt λ bitgleich.
-        if (turnierfaktor != 1.0) lambda *= turnierfaktor;
+        // #679: die verborgene Turnierstärke beider Teams; ohne Turnier (1,0) bleibt λ bitgleich (x · 1,0 = x).
+        lambda *= turnierfaktor;
         return Math.Clamp(lambda, MIN_TORERWARTUNG, MAX_TORERWARTUNG);
     }
 
