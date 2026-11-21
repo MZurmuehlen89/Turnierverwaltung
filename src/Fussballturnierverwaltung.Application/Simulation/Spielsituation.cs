@@ -192,6 +192,28 @@ public static class Spielsituation
         return toreGefallen ? NACH_AUSGLEICH : 1;
     }
 
+    /// <summary>Schwung nach dem Ausgleich (#692): Wer ausgleicht, hat bis zum nächsten Tor ×<c>AUSGLEICH_SCHWUNG</c>
+    /// Chancen, sein Gegner ÷<c>AUSGLEICH_SCHWUNG</c>. Real werden Spiele nach dem Ausgleich öfter gedreht, als die
+    /// Simulation es tut: Ausgeglichen wird oft genug (Bundesliga, +1 zur Pause: 32,7 % real, 31,9 % simuliert), gedreht
+    /// aber zu selten (34,2 % real, 27,4 % simuliert; Diagnose und Messreihe in #692). Anders als die in #674 verworfene
+    /// Torkopplung der Spielkontrolle wirkt er nur nach einem Ausgleich und endet mit dem nächsten Tor.</summary>
+    public const double AUSGLEICH_SCHWUNG = 1.25;
+
+    /// <summary>Faktor auf die Chancenrate eines Teams durch den Schwung nach dem Ausgleich; in der Verlängerung 1 (wie
+    /// <see cref="Spielstandfaktor"/>, die Verlängerung ist eigens kalibriert).</summary>
+    /// <param name="schwung">1: das Team hat ausgeglichen und noch kein weiteres Tor fiel; −1: sein Gegner; 0: keiner.</param>
+    /// <param name="verlaengerung">Ob die Minute zur Verlängerung gehört.</param>
+    public static double Schwungfaktor(int schwung, bool verlaengerung)
+    {
+        if (verlaengerung) return 1;
+        return schwung switch
+        {
+            > 0 => AUSGLEICH_SCHWUNG,
+            < 0 => 1 / AUSGLEICH_SCHWUNG,
+            _   => 1
+        };
+    }
+
     // ── Zeitprofil ────────────────────────────────────────────────────────
 
     // Faktor auf die Chancenrate je Viertelstunde der regulären Spielzeit und in der Nachspielzeit (#431, Schritt 4).

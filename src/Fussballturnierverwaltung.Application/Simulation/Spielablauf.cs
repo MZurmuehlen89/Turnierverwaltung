@@ -61,6 +61,8 @@ internal sealed class Spielablauf
     private int _heimTore;
     private int _gastTore;
     private int _gespielteMinuten;
+    // Schwung nach dem Ausgleich (#692): 1 = das Heimteam hat ausgeglichen, −1 = das Gastteam, 0 = keiner (bis zum nächsten Tor)
+    private int _schwung;
 
     /// <param name="platzverweise">Platzverweise, mit denen das Spiel weitergeht (Verlängerung nach dem Rückspiel).</param>
     /// <param name="gespielteMinuten">Bereits gespielte Minuten – bestimmt die Ermüdung.</param>
@@ -196,9 +198,9 @@ internal sealed class Spielablauf
         double spielstand = Spielsituation.Spielstandfaktor(
             _hinspielstand.VorsprungDesHeimteams(_heimTore, _gastTore), toreGefallen, verlaengerung);
         double heim = _heimChancenJeMinute * Spielsituation.Angriffsfaktor(_heim, _gast, zeitfaktor) * spielstand * Kontrolle.HeimFaktor
-                      * Spielsituation.Konditionsfaktor(heimRueckstand, gastRueckstand);
+                      * Spielsituation.Konditionsfaktor(heimRueckstand, gastRueckstand) * Spielsituation.Schwungfaktor(_schwung, verlaengerung);
         double gast = _gastChancenJeMinute * Spielsituation.Angriffsfaktor(_gast, _heim, zeitfaktor) * spielstand * Kontrolle.GastFaktor
-                      * Spielsituation.Konditionsfaktor(gastRueckstand, heimRueckstand);
+                      * Spielsituation.Konditionsfaktor(gastRueckstand, heimRueckstand) * Spielsituation.Schwungfaktor(-_schwung, verlaengerung);
         double gesamt = heim + gast;
         heimAngriff = false;
         if (_rng.NextDouble() >= gesamt / (1 + gesamt))
@@ -246,6 +248,7 @@ internal sealed class Spielablauf
     {
         if (heimTrifft) _heimTore++;
         else _gastTore++;
+        SchwungAktualisieren(heimTrifft);
 
         if (goldenGoal)
         {
@@ -255,6 +258,14 @@ internal sealed class Spielablauf
 
         string text = Torbeschreibung.Zufaellig(_rng, insLeereTor, art);
         _ereignisse.Add(new(minute, EreignisArt.Tor, heimTrifft, text, nachspielminute, art));
+    }
+
+    /// <summary>Schwung nach dem Ausgleich (#692): Gleicht das Tor den maßgeblichen Stand aus (im Rückspiel samt Hinspiel),
+    /// hat der Torschütze den Schwung; jedes andere Tor beendet ihn. Zieht keinen Zufall.</summary>
+    private void SchwungAktualisieren(bool heimTrifft)
+    {
+        bool ausgeglichen = _hinspielstand.VorsprungDesHeimteams(_heimTore, _gastTore) == 0;
+        _schwung = ausgeglichen ? (heimTrifft ? 1 : -1) : 0;
     }
 
     /// <summary>Passt die Risikostufe beider Teams an Spielstand und Zeit an (#673); jeder Wechsel ist ein Ereignis.

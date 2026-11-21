@@ -220,6 +220,26 @@ public class SpielsituationTests
         Spielsituation.Spielstandfaktor(vorsprung, toreGefallen, verlaengerung: true).Should().Be(1);
     }
 
+    /// <summary>#692 K1: Das Team mit dem Schwung hat ×1,25 Chancen, sein Gegner ÷1,25, ohne Schwung ist der Faktor 1.</summary>
+    [Theory]
+    [InlineData(1, 1.25)]
+    [InlineData(-1, 0.8)]
+    [InlineData(0, 1.0)]
+    public void Schwungfaktor_EigenesTeamMehr_GegnerWeniger_OhneSchwungEins(int schwung, double faktor)
+    {
+        Spielsituation.Schwungfaktor(schwung, verlaengerung: false).Should().BeApproximately(faktor, 1e-12);
+    }
+
+    /// <summary>#692 K3: In der Verlängerung wirkt der Schwung nicht (wie der Spielstandfaktor).</summary>
+    [Theory]
+    [InlineData(1)]
+    [InlineData(-1)]
+    [InlineData(0)]
+    public void Schwungfaktor_InDerVerlaengerung_Eins(int schwung)
+    {
+        Spielsituation.Schwungfaktor(schwung, verlaengerung: true).Should().Be(1);
+    }
+
     [Theory]
     [InlineData(Risikostufe.Defensiv, 1, "Zieht sich etwas zurück und sichert die Führung")]
     [InlineData(Risikostufe.Defensiv, 0, "Zieht sich etwas zurück und sichert das Unentschieden")]
