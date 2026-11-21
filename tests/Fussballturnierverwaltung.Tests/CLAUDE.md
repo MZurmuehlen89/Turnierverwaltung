@@ -76,7 +76,15 @@ then `dotnet test --project tests/Fussballturnierverwaltung.Tests -- --filter-cl
 switching the seed by hand; the genuine deviations from the real picture (≥ 2.5 σ) belong to the calibration issues. A metric the simulation misses today is **not** loosened: its test carries an
 unconditional `Skip` naming the measured value and the issue that is to fix it — that issue switches it back on.
 Classes built from a noisy per-pairing estimate (half A) must not use that estimate as the prediction as well: it
-regresses to the mean (#678) — group by A, measure everything in B.
+regresses to the mean (#678) — group by A, measure everything in B. **Cross estimation (#679):** the draw-rate classes
+use both halves: each game is assigned to a class by the win chance of the *other* half, and both halves are measured
+(twice the games per class, minimum 2000 instead of 1000; a game still never decides its own class). Before, the single
+half B left the smallest class (0.33–0.40) so noisy that the maximum over classes hit the band by chance (2/30 seeds red,
+caused by noise, not by the tournament strength). **Sample with tournament strength (#679):** `RealismusStichprobe` draws one
+`Turnierform` per season (σ 0.075), like a real season; the reference without it is commit 6d5cf95. Do not move bands or the
+seed by hand after such a change — run the measurement series. `Simulation/TurnierstaerkeMessung` (`Explicit`, 10 seeds ×
+1000 knockout tournaments of the 16 strongest Bundesliga teams, neutral venue) measures the effect (K11: share of winners from
+the lower half).
 
 ## GUI tests (#494, #521)
 
