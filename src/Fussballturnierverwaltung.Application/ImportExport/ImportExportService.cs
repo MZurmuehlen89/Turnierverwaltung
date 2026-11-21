@@ -96,7 +96,8 @@ public class ImportExportService(
                         Auswaertsstaerke: ParseInt(zeile, "Auswaertsstaerke", 65),
                         Grundausrichtung: ParseEnum<Grundausrichtung>(zeile, "Grundausrichtung"),
                         Flexibilitaet:    ParseEnum<Flexibilitaet>(zeile, "Flexibilitaet"),
-                        Kondition:        ParseEnum<Kondition>(zeile, "Kondition"));
+                        Kondition:        ParseEnum<Kondition>(zeile, "Kondition"),
+                        Nervenstaerke:    ParseEnum<Nervenstaerke>(zeile, "Nervenstaerke"));
 
                     await mannschaftService.AktualisierenAsync(vorhanden.Id, aktualisierenEingabe, ct);
                     aktualisiert++;
@@ -117,7 +118,8 @@ public class ImportExportService(
                         Auswaertsstaerke: ParseInt(zeile, "Auswaertsstaerke", 65),
                         Grundausrichtung: ParseEnum<Grundausrichtung>(zeile, "Grundausrichtung") ?? Grundausrichtung.Ausgeglichen,
                         Flexibilitaet:    ParseEnum<Flexibilitaet>(zeile, "Flexibilitaet") ?? Flexibilitaet.Normal,
-                        Kondition:        ParseEnum<Kondition>(zeile, "Kondition") ?? Kondition.Normal);
+                        Kondition:        ParseEnum<Kondition>(zeile, "Kondition") ?? Kondition.Normal,
+                        Nervenstaerke:    ParseEnum<Nervenstaerke>(zeile, "Nervenstaerke") ?? Nervenstaerke.Normal);
 
                     await mannschaftService.ErstellenAsync(erstellenEingabe, ct);
                     neu++;
@@ -149,7 +151,7 @@ public class ImportExportService(
         sb.AppendLine(KopfZeile(
             "Name", "Kurzname", "Mannschaftsart", "LandFifaCode",
             "OffensivRating", "MittelfeldRating", "DefensivRating",
-            "Heimstaerke", "Auswaertsstaerke", "Grundausrichtung", "Flexibilitaet", "Kondition"));
+            "Heimstaerke", "Auswaertsstaerke", "Grundausrichtung", "Flexibilitaet", "Kondition", "Nervenstaerke"));
 
         foreach (var m in mannschaften)
         {
@@ -158,7 +160,8 @@ public class ImportExportService(
                 m.Land?.FifaCode ?? "",
                 m.OffensivRating.ToString(), m.MittelfeldRating.ToString(),
                 m.DefensivRating.ToString(), m.Heimstaerke.ToString(),
-                m.Auswaertsstaerke.ToString(), m.Grundausrichtung.ToString(), m.Flexibilitaet.ToString(), m.Kondition.ToString()));
+                m.Auswaertsstaerke.ToString(), m.Grundausrichtung.ToString(), m.Flexibilitaet.ToString(), m.Kondition.ToString(),
+                m.Nervenstaerke.ToString()));
         }
 
         await File.WriteAllTextAsync(dateipfad, sb.ToString(), Encoding.UTF8, ct);

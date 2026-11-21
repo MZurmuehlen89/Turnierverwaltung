@@ -50,7 +50,8 @@ public class MannschaftService(
             Wappen           = eingabe.Wappen,
             Grundausrichtung = eingabe.Grundausrichtung,
             Flexibilitaet    = eingabe.Flexibilitaet,
-            Kondition        = eingabe.Kondition
+            Kondition        = eingabe.Kondition,
+            Nervenstaerke    = eingabe.Nervenstaerke
         };
 
         await repository.HinzufuegenAsync(mannschaft, ct);
@@ -77,6 +78,7 @@ public class MannschaftService(
         mannschaft.Grundausrichtung = eingabe.Grundausrichtung ?? mannschaft.Grundausrichtung;
         mannschaft.Flexibilitaet    = eingabe.Flexibilitaet ?? mannschaft.Flexibilitaet;
         mannschaft.Kondition        = eingabe.Kondition ?? mannschaft.Kondition;
+        mannschaft.Nervenstaerke    = eingabe.Nervenstaerke ?? mannschaft.Nervenstaerke;
 
         await repository.AktualisierenAsync(mannschaft, ct);
         logger.LogInformation("Mannschaft '{Name}' (ID {Id}) aktualisiert.", mannschaft.Name, mannschaft.Id);

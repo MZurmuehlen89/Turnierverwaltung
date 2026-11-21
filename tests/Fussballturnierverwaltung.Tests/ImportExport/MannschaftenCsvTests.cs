@@ -81,7 +81,7 @@ public sealed class MannschaftenCsvTests : IDisposable
         team.Kondition = Kondition.Stark;
         _ctx.SaveChanges();
         await Service().MannschaftenExportierenCsvAsync(_datei);
-        File.ReadAllLines(_datei)[0].Should().EndWith(";Kondition");
+        File.ReadAllLines(_datei)[0].Should().EndWith(";Kondition;Nervenstaerke");
         team.Kondition = Kondition.Schwach;
         _ctx.SaveChanges();
 
@@ -108,6 +108,44 @@ public sealed class MannschaftenCsvTests : IDisposable
         (await Neugeladen(team.Id)).Kondition.Should().Be(Kondition.Schwach);
         _ctx.ChangeTracker.Clear();
         (await _ctx.Mannschaften.SingleAsync(m => m.Name == "Neuelf")).Kondition.Should().Be(Kondition.Normal);
+    }
+
+    // ── Nervenstärke (#669, K7) ───────────────────────────────────────────
+
+    [Fact]
+    public async Task ExportUndReimport_StelltDieNervenstaerkeWiederHer_UndExportHatDieSpalte()
+    {
+        var team = TeamAnlegen(Grundausrichtung.Ausgeglichen, Flexibilitaet.Normal);
+        team.Nervenstaerke = Nervenstaerke.Stark;
+        _ctx.SaveChanges();
+        await Service().MannschaftenExportierenCsvAsync(_datei);
+        File.ReadAllLines(_datei)[0].Should().EndWith(";Nervenstaerke");
+        team.Nervenstaerke = Nervenstaerke.Schwach;
+        _ctx.SaveChanges();
+
+        await Service().MannschaftenImportierenAsync(_datei);
+
+        (await Neugeladen(team.Id)).Nervenstaerke.Should().Be(Nervenstaerke.Stark);
+    }
+
+    [Fact]
+    public async Task ImportOhneNervenstaerkeSpalte_LaesstBestehendeUnveraendert_NeueBekommenNormal()
+    {
+        var team = TeamAnlegen(Grundausrichtung.Ausgeglichen, Flexibilitaet.Normal);
+        team.Nervenstaerke = Nervenstaerke.Schwach;
+        _ctx.SaveChanges();
+        File.WriteAllLines(_datei,
+        [
+            "Name;Kurzname;Mannschaftsart;LandFifaCode;OffensivRating;MittelfeldRating;DefensivRating;Heimstaerke;Auswaertsstaerke",
+            "Testelf;TE;Verein;TST;81;78;76;75;65",
+            "Neuelf;NE;Verein;TST;70;70;70;75;65"
+        ]);
+
+        await Service().MannschaftenImportierenAsync(_datei);
+
+        (await Neugeladen(team.Id)).Nervenstaerke.Should().Be(Nervenstaerke.Schwach);
+        _ctx.ChangeTracker.Clear();
+        (await _ctx.Mannschaften.SingleAsync(m => m.Name == "Neuelf")).Nervenstaerke.Should().Be(Nervenstaerke.Normal);
     }
 
     [Fact]
