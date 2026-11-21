@@ -3,10 +3,12 @@ using Fussballturnierverwaltung.Application.Simulation;
 namespace Fussballturnierverwaltung.Tests.Simulation.Realismus;
 
 /// <summary>Je Paarung vorab gerechnete Größen der Stichprobe: Vorhersagen aus der Hälfte A der Durchläufe (Favorit,
-/// Siegchancen), mittlere Tore aus allen Durchläufen (für λ und μ).</summary>
+/// Siegchancen), mittlere Tore aus allen Durchläufen (für λ und μ). Die Siegchancen aus Hälfte B dienen nur der
+/// Kreuzschätzung der Remisklassen (#679).</summary>
 public sealed record PaarungsDaten(
     double SiegHeimA, double SiegGastA,
-    double MittlereToreHeim, double MittlereToreGast)
+    double MittlereToreHeim, double MittlereToreGast,
+    double SiegHeimB, double SiegGastB)
 {
     public bool HeimIstFavorit => SiegHeimA > SiegGastA;
     public double FavoritenChanceA => Math.Max(SiegHeimA, SiegGastA);
@@ -18,6 +20,17 @@ public sealed record SimuliertesSpiel(
 {
     public int HeimTore => Ergebnis.HeimToreRegulaer;
     public int GastTore => Ergebnis.AuswaertsToreRegulaer;
+
+    /// <summary>#679: Siegchancen der Paarung aus der Hälfte, zu der dieses Spiel nicht gehört – so bestimmt ein Spiel
+    /// nie seine eigene Einteilung, und beide Hälften können gemessen werden.</summary>
+    private (double Heim, double Gast) SiegchancenAusGegenhaelfte =>
+        Durchlauf < RealismusStichprobe.ENDE_HAELFTE_A
+            ? (Paarung.SiegHeimB, Paarung.SiegGastB)
+            : (Paarung.SiegHeimA, Paarung.SiegGastA);
+
+    public bool HeimIstFavoritLautGegenhaelfte => SiegchancenAusGegenhaelfte.Heim > SiegchancenAusGegenhaelfte.Gast;
+
+    public double FavoritenChanceLautGegenhaelfte => Math.Max(SiegchancenAusGegenhaelfte.Heim, SiegchancenAusGegenhaelfte.Gast);
 }
 
 /// <summary>
@@ -48,10 +61,14 @@ public sealed class RealismusStichprobe
         var roh = new List<Rohspiel>();
         for (int d = 0; d < DURCHLAEUFE; d++)
         {
+            // #679: je Saison eine Turnierstärke je Team. Der Seed folgt aus Stichproben-Seed und Durchlauf, nicht aus
+            // dem Strom der Spiele – der bleibt unverändert.
+            int staerkeSeed = seed * 1000 + d;
             foreach (var heim in teams)
             {
                 foreach (var gast in teams.Where(t => t != heim))
-                    roh.Add(new(heim.Id, gast.Id, d, SimulationsEngine.Simulieren(heim, gast, [], ausfuehrlich: true, rng)));
+                    roh.Add(new(heim.Id, gast.Id, d, SimulationsEngine.Simulieren(
+                        heim, gast, [], ausfuehrlich: true, rng, turnierform: Turnierstaerke.Form(staerkeSeed, heim.Id, gast.Id))));
             }
         }
 
@@ -67,8 +84,10 @@ public sealed class RealismusStichprobe
         static bool Gastsieg(SimulationsErgebnis e) => e.HeimToreRegulaer < e.AuswaertsToreRegulaer;
 
         var a = spiele.Where(s => s.Durchlauf < ENDE_HAELFTE_A).ToList();
+        var b = spiele.Where(s => s.Durchlauf >= ENDE_HAELFTE_A).ToList();
         return new PaarungsDaten(
             Anteil(a, Heimsieg), Anteil(a, Gastsieg),
-            spiele.Average(s => s.Ergebnis.HeimToreRegulaer), spiele.Average(s => s.Ergebnis.AuswaertsToreRegulaer));
+            spiele.Average(s => s.Ergebnis.HeimToreRegulaer), spiele.Average(s => s.Ergebnis.AuswaertsToreRegulaer),
+            Anteil(b, Heimsieg), Anteil(b, Gastsieg));
     }
 }

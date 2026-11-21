@@ -13,12 +13,13 @@ internal sealed record Realismuskennzahl(
 /// <summary>
 /// #683: der Katalog aller Bänder der Realismus-Tests – jedes Band genau einmal definiert, damit die Tests
 /// (<c>SimulationsRealismusTests</c>) und das Messwerkzeug (<c>RealismusMessreihe</c>) dieselben Grenzen nutzen.
-/// Die Favoritenklassen der Remisquote werden einmal auf der vollen Stichprobe gewählt (mindestens 1000 Spiele in
-/// Hälfte B) und im Jackknife nicht neu bestimmt.
+/// Die Favoritenklassen der Remisquote werden einmal auf der vollen Stichprobe gewählt (mindestens 2000 Spiele über
+/// beide Hälften) und im Jackknife nicht neu bestimmt.
 /// </summary>
 internal sealed class Realismuskennzahlen
 {
-    private const int MINDESTSPIELE_KLASSE = 1000;
+    // #679: 2000 über beide Hälften entspricht den früheren 1000 in Hälfte B – die Auswahl der Klassen bleibt gleich streng.
+    private const int MINDESTSPIELE_KLASSE = 2000;
 
     // Klassen der Siegchance des Favoriten (wie im Auswertungsskript) – in der Simulation nur eine Gruppierung.
     private static readonly (double Von, double Bis)[] _favoritenklassen =
@@ -37,7 +38,7 @@ internal sealed class Realismuskennzahlen
         _voll = voll;
         _geprueft = voll.Count == 0
             ? []
-            : [.. _favoritenklassen.Where(k => Klasse(HaelfteB(voll), k).Count >= MINDESTSPIELE_KLASSE)];
+            : [.. _favoritenklassen.Where(k => Klasse(voll, k).Count >= MINDESTSPIELE_KLASSE)];
         Remisklassen = new("Remisquote je Favoritenklasse: größte Abweichung vom Ziel", 0, 0.030,
             "Ziel je Klasse: quotenimplizierte Remisquote", "P1", RemisklassenAbweichung, MitRauschzuschlag: false);
         Alle =
@@ -67,8 +68,8 @@ internal sealed class Realismuskennzahlen
     private static List<(double Lambda, double Mu, int Heim, int Gast)> DixonColesDaten(IReadOnlyList<SimuliertesSpiel> s) =>
         s.Select(x => (x.Paarung.MittlereToreHeim, x.Paarung.MittlereToreGast, x.HeimTore, x.GastTore)).ToList();
 
-    private static List<SimuliertesSpiel> Klasse(IEnumerable<SimuliertesSpiel> haelfteB, (double Von, double Bis) klasse) =>
-        [.. haelfteB.Where(x => x.Paarung.FavoritenChanceA >= klasse.Von && x.Paarung.FavoritenChanceA < klasse.Bis)];
+    private static List<SimuliertesSpiel> Klasse(IEnumerable<SimuliertesSpiel> spiele, (double Von, double Bis) klasse) =>
+        [.. spiele.Where(x => x.FavoritenChanceLautGegenhaelfte >= klasse.Von && x.FavoritenChanceLautGegenhaelfte < klasse.Bis)];
 
     // ── K1 Ergebnisverteilung ─────────────────────────────────────────────
 
@@ -140,21 +141,20 @@ internal sealed class Realismuskennzahlen
 
     // ── K5 Struktur der Ausgangswahrscheinlichkeiten ──────────────────────
 
-    /// <summary>Größte Abweichung der Remisquote vom Quotenbild über die geprüften Favoritenklassen: Klassen aus Hälfte A,
-    /// Siegquote des Favoriten und Remisquote beide in Hälfte B – die A-Schätzung selbst taugt nicht als Siegchance der
-    /// Klasse (Regression zur Mitte, in #678 nachgerechnet).
+    /// <summary>Größte Abweichung der Remisquote vom Quotenbild über die geprüften Favoritenklassen. Kreuzschätzung (#679):
+    /// Jedes Spiel wird nach der Siegchance aus der <b>anderen</b> Hälfte eingeteilt, Siegquote des Favoriten und
+    /// Remisquote zählen über beide Hälften – die Schätzung aus der eigenen Hälfte taugt nicht als Siegchance der Klasse
+    /// (Regression zur Mitte, in #678 nachgerechnet).
     /// <para>Ohne Rauschzuschlag (#683): für ein Maximum ist der Jackknife ungeeignet (nicht glatt) – er überschätzte das
-    /// Rauschen über 30 Seeds um den Faktor 1,76, auch mit festgehaltener Klasse noch 1,72. Die Kennzahl liegt im Mittel
-    /// (2,1 Punkte) mehr als 2 SD innerhalb ihres Bandes und war ohne Zuschlag in keinem Seed rot.</para></summary>
+    /// Rauschen über 30 Seeds um den Faktor 1,76, auch mit festgehaltener Klasse noch 1,72.</para></summary>
     public Realismuskennzahl Remisklassen { get; }
 
     private double RemisklassenAbweichung(IReadOnlyList<SimuliertesSpiel> spiele)
     {
-        var haelfteB = HaelfteB(spiele).ToList();
         double max = 0;
         foreach (var klasse in _geprueft)
         {
-            var spieleKlasse = Klasse(haelfteB, klasse);
+            var spieleKlasse = Klasse(spiele, klasse);
             if (spieleKlasse.Count == 0) continue;
             var (_, remis, ziel) = Remisbild(spieleKlasse);
             max = Math.Max(max, Math.Abs(remis - ziel));
@@ -164,7 +164,7 @@ internal sealed class Realismuskennzahlen
 
     private static (double SiegFavorit, double Remis, double Ziel) Remisbild(List<SimuliertesSpiel> klasse)
     {
-        double siegFavorit = Anteil(klasse, x => x.Paarung.HeimIstFavorit ? x.HeimTore > x.GastTore : x.GastTore > x.HeimTore);
+        double siegFavorit = Anteil(klasse, x => x.HeimIstFavoritLautGegenhaelfte ? x.HeimTore > x.GastTore : x.GastTore > x.HeimTore);
         double remis = Anteil(klasse, x => x.HeimTore == x.GastTore);
         return (siegFavorit, remis, Realismusauswertung.Interpolieren(_remisJeSiegchance, siegFavorit));
     }
@@ -172,15 +172,14 @@ internal sealed class Realismuskennzahlen
     /// <summary>Berichtszeilen je Favoritenklasse auf der vollen Stichprobe (Anteil, Siegquote, Remis, Ziel).</summary>
     public IEnumerable<string> Remisklassenzeilen()
     {
-        var haelfteB = HaelfteB(_voll).ToList();
         foreach (var klasse in _favoritenklassen)
         {
-            var spiele = Klasse(haelfteB, klasse);
+            var spiele = Klasse(_voll, klasse);
             if (spiele.Count == 0) { yield return $"Favorit {klasse.Von:F2}–{klasse.Bis:F2}: keine Spiele"; continue; }
             var (siegFavorit, remis, ziel) = Remisbild(spiele);
-            yield return $"Favorit {klasse.Von:F2}–{klasse.Bis:F2}: n = {spiele.Count}, Anteil {(double)spiele.Count / haelfteB.Count:P1}, " +
+            yield return $"Favorit {klasse.Von:F2}–{klasse.Bis:F2}: n = {spiele.Count}, Anteil {(double)spiele.Count / _voll.Count:P1}, " +
                          $"Siegquote Favorit {siegFavorit:P1}, Remis {remis:P1} (Ziel {ziel:P1} ± 3,0)" +
-                         (spiele.Count < MINDESTSPIELE_KLASSE ? ", nicht geprüft (< 1000 Spiele)" : "");
+                         (spiele.Count < MINDESTSPIELE_KLASSE ? $", nicht geprüft (< {MINDESTSPIELE_KLASSE} Spiele)" : "");
         }
     }
 

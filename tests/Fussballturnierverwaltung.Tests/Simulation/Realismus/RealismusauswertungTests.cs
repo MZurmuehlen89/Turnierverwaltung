@@ -13,7 +13,7 @@ public class RealismusauswertungTests
         new(1, 2, 0,
             new SimulationsErgebnis(heimTore, gastTore, null, null, null, null,
                 EntscheidungArt.RegulaereSpielzeit, ereignisse),
-            new PaarungsDaten(0.5, 0.3, 1.5, 1.2));
+            new PaarungsDaten(0.5, 0.3, 1.5, 1.2, 0.5, 0.3));
 
     [Fact]
     public void Stand_NachspielzeitDerErstenHalbzeitZaehltZurPause()
@@ -100,7 +100,7 @@ public class RealismusauswertungTests
         new(1, 2, 0,
             new SimulationsErgebnis(heimTore, gastTore, null, null, null, null,
                 EntscheidungArt.RegulaereSpielzeit, [], heimPause, gastPause),
-            new PaarungsDaten(0.5, 0.3, 1.5, 1.2));
+            new PaarungsDaten(0.5, 0.3, 1.5, 1.2, 0.5, 0.3));
 
     [Fact]
     public void ToreZweiteHalbzeit_AusSichtDesFuehrendenZurPause()

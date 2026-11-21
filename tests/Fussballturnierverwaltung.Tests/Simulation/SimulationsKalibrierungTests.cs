@@ -31,11 +31,13 @@ public class SimulationsKalibrierungTests
         for (int s = 0; s < SAISONS; s++)
         {
             var punkte = teams.ToDictionary(t => t.Id, _ => 0);
+            int staerkeSeed = 404_000 + s; // #679: je Saison eine Turnierstärke je Team
             foreach (var heim in teams)
             foreach (var gast in teams)
             {
                 if (heim == gast) continue;
-                var erg = SimulationsEngine.Simulieren(heim, gast, [], ausfuehrlich, rng);
+                var erg = SimulationsEngine.Simulieren(
+                    heim, gast, [], ausfuehrlich, rng, turnierform: Turnierstaerke.Form(staerkeSeed, heim.Id, gast.Id));
                 spiele++;
                 tore += erg.HeimToreRegulaer + erg.AuswaertsToreRegulaer;
                 if (erg.HeimToreRegulaer > erg.AuswaertsToreRegulaer) { heimsiege++; punkte[heim.Id] += 3; }
@@ -95,9 +97,10 @@ public class SimulationsKalibrierungTests
         foreach (var favorit in bundesliga)
         foreach (var aussenseiter in unterklassig)
         {
-            // Im DFB-Pokal hat der unterklassige Verein Heimrecht.
+            // Im DFB-Pokal hat der unterklassige Verein Heimrecht. #679: je Durchlauf eine Turnierstärke je Team.
             var erg = SimulationsEngine.Simulieren(
-                aussenseiter, favorit, verfahren, ausfuehrlich, rng, Spielortvorteil.Heim, ueberraschungsfaktor);
+                aussenseiter, favorit, verfahren, ausfuehrlich, rng, Spielortvorteil.Heim, ueberraschungsfaktor,
+                turnierform: Turnierstaerke.Form(404_100 + d, aussenseiter.Id, favorit.Id));
             spiele++;
             if (HeimGewinnt(erg)) aussenseiterSiege++;
         }

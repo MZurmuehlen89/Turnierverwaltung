@@ -164,8 +164,8 @@ public class SimulationsRealismusTests(RealismusStichprobe stichprobe) : IClassF
     [Fact(Skip = SKIP_MUTATION, SkipWhen = nameof(Mutationslauf.Aktiv), SkipType = typeof(Mutationslauf))]
     public void Remisquote_JeFavoritenklasse_FolgtDemQuotenbild()
     {
-        // Klassen aus Hälfte A, Siegquote des Favoriten und Remisquote beide in Hälfte B (Begründung: Katalog). Die Klassen
-        // mit mindestens 1000 Spielen werden einmal auf der vollen Stichprobe gewählt, nicht im Jackknife.
+        // Kreuzschätzung: jedes Spiel wird nach der Siegchance aus der anderen Hälfte eingeteilt (Begründung: Katalog). Die
+        // Klassen mit mindestens 2000 Spielen werden einmal auf der vollen Stichprobe gewählt, nicht im Jackknife.
         foreach (var zeile in Katalog.Remisklassenzeilen()) Bericht(zeile);
         Katalog.GepruefteRemisklassen.Should().BeGreaterThanOrEqualTo(4, "genug Klassen mit mindestens 1000 Spielen");
         Pruefen(Katalog.Remisklassen);
