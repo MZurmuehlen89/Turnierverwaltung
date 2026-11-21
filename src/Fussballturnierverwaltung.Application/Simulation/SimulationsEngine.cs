@@ -123,57 +123,68 @@ public static class SimulationsEngine
         Paarung paarung, IReadOnlyList<EntscheidungsVerfahren> verfahren, Spielablauf? ablauf, Random rng,
         bool vorWiederholungAnhalten)
         => KetteAbarbeiten(
-            paarung, [.. verfahren.OrderBy(v => v.Reihenfolge).Select(v => v.VerfahrenArt)], 0, null, ablauf, rng,
-            vorWiederholungAnhalten);
+            new Kettenlauf(paarung, [.. verfahren.OrderBy(v => v.Reihenfolge).Select(v => v.VerfahrenArt)], ablauf, rng),
+            0, null, vorWiederholungAnhalten);
+
+    /// <summary>Alles, was die Kette von außen braucht und beim Fortsetzen unverändert bleibt.</summary>
+    private sealed record Kettenlauf(Paarung Paarung, IReadOnlyList<VerfahrenArt> Kette, Spielablauf? Ablauf, Random Rng);
+
+    /// <summary>Was die Kette bisher ergab; Verlängerungs- und Elfmetertore eines früheren Schritts bleiben, wenn ein Folgeschritt
+    /// (z. B. Elfmeter) keine liefert.</summary>
+    private sealed class Kettenstand(VerfahrenArt? verlaengerungDavor)
+    {
+        private int? _heimVerl, _gastVerl, _heimElf, _gastElf;
+        private EntscheidungArt _art = EntscheidungArt.RegulaereSpielzeit;
+        private IReadOnlyList<SimuliertesEreignis> _ereignisse = [];
+        private Wiederholungsergebnis? _wiederholung;
+
+        public VerfahrenArt? VerlaengerungDavor { get; private set; } = verlaengerungDavor;
+
+        public void Uebernehmen(VerfahrenArt verfahren, Verfahrensausgang ausgang)
+        {
+            if (IstVerlaengerung(verfahren)) VerlaengerungDavor = verfahren;
+            _wiederholung ??= ausgang.Wiederholung;
+            _art = ausgang.Art;
+            _heimVerl = ausgang.HeimVerl ?? _heimVerl;
+            _gastVerl = ausgang.GastVerl ?? _gastVerl;
+            _heimElf = ausgang.HeimElf ?? _heimElf;
+            _gastElf = ausgang.GastElf ?? _gastElf;
+            _ereignisse = [.. _ereignisse, .. ausgang.Ereignisse];
+        }
+
+        private static bool IstVerlaengerung(VerfahrenArt verfahren) =>
+            verfahren is VerfahrenArt.VerlaengerungKlassisch or VerfahrenArt.GoldenGoal or VerfahrenArt.SilverGoal;
+
+        public Entscheidungsausgang Ausgang(bool? losGewinnerHeim = null) =>
+            new(_heimVerl, _gastVerl, _heimElf, _gastElf, _art, _ereignisse, losGewinnerHeim, _wiederholung);
+    }
 
     /// <summary>Arbeitet die Kette ab <paramref name="ab"/> ab. Mit <paramref name="vorWiederholungAnhalten"/> hört sie vor einem
     /// Wiederholungsspiel auf, das erreicht wird (also nur, wenn davor nichts entschied): der Ausgang trägt, was bis dahin
     /// geschah, <c>Weiter</c> setzt dort fort und liefert nur den Rest (#691). Dieselbe Kette ohne Anhalten ist der
-    /// bisherige Einzelzug – derselbe <paramref name="rng"/> in derselben Reihenfolge, also bitgleich.</summary>
+    /// bisherige Einzelzug – derselbe <see cref="Random"/> in derselben Reihenfolge, also bitgleich.</summary>
     private static (Entscheidungsausgang Ausgang, Func<Entscheidungsausgang>? Weiter) KetteAbarbeiten(
-        Paarung paarung, IReadOnlyList<VerfahrenArt> kette, int ab, VerfahrenArt? verlaengerungDavor,
-        Spielablauf? ablauf, Random rng, bool vorWiederholungAnhalten)
+        Kettenlauf lauf, int ab, VerfahrenArt? verlaengerungDavor, bool vorWiederholungAnhalten)
     {
-        int? heimVerl = null, gastVerl = null, heimElf = null, gastElf = null;
-        var entscheidung = EntscheidungArt.RegulaereSpielzeit;
-        IReadOnlyList<SimuliertesEreignis> ereignisse = [];
-        Wiederholungsergebnis? wiederholung = null;
-
-        for (int i = ab; i < kette.Count; i++)
+        var stand = new Kettenstand(verlaengerungDavor);
+        for (int i = ab; i < lauf.Kette.Count; i++)
         {
-            if (vorWiederholungAnhalten && kette[i] == VerfahrenArt.Wiederholungsspiel)
-            {
-                int naechster = i;
-                var davor = verlaengerungDavor;
-                return (new Entscheidungsausgang(heimVerl, gastVerl, heimElf, gastElf, entscheidung, ereignisse, null, wiederholung),
-                        () => KetteAbarbeiten(paarung, kette, naechster, davor, ablauf, rng, vorWiederholungAnhalten: false).Ausgang);
-            }
+            if (vorWiederholungAnhalten && lauf.Kette[i] == VerfahrenArt.Wiederholungsspiel)
+                return (stand.Ausgang(), Fortsetzung(lauf, i, stand.VerlaengerungDavor));
 
-            var (result, art, hv, gv, he, ge, extraEreignisse, wdh) =
-                VerfahrenSimulieren(kette[i], paarung, rng, ablauf, verlaengerungDavor);
-            if (IstVerlaengerung(kette[i])) verlaengerungDavor = kette[i];
-            wiederholung ??= wdh;
-
-            entscheidung = art;
-            // Verlängerungstore aus einem früheren Schritt (z.B. VerlaengerungKlassisch)
-            // nicht mit null überschreiben, wenn der Folgeschritt (z.B. Elfmeter) null zurückgibt
-            if (hv.HasValue) heimVerl = hv;
-            if (gv.HasValue) gastVerl = gv;
-            if (he.HasValue) heimElf = he;
-            if (ge.HasValue) gastElf = ge;
-            ereignisse = [.. ereignisse, .. extraEreignisse];
-
-            if (result != 0) // Sieger gefunden
-            {
-                bool? losGewinnerHeim = art is EntscheidungArt.Losentscheid or EntscheidungArt.Muenzwurf
-                    ? result > 0
-                    : null;
-                return (new Entscheidungsausgang(heimVerl, gastVerl, heimElf, gastElf, entscheidung, ereignisse, losGewinnerHeim, wiederholung), null);
-            }
+            var ausgang = VerfahrenSimulieren(lauf.Kette[i], lauf.Paarung, lauf.Rng, lauf.Ablauf, stand.VerlaengerungDavor);
+            stand.Uebernehmen(lauf.Kette[i], ausgang);
+            if (ausgang.Vorsprung != 0) // Sieger gefunden
+                return (stand.Ausgang(LosGewinnerHeim(ausgang)), null);
         }
-
-        return (new Entscheidungsausgang(heimVerl, gastVerl, heimElf, gastElf, entscheidung, ereignisse, null, wiederholung), null);
+        return (stand.Ausgang(), null);
     }
+
+    private static Func<Entscheidungsausgang> Fortsetzung(Kettenlauf lauf, int ab, VerfahrenArt? verlaengerungDavor) =>
+        () => KetteAbarbeiten(lauf, ab, verlaengerungDavor, vorWiederholungAnhalten: false).Ausgang;
+
+    private static bool? LosGewinnerHeim(Verfahrensausgang ausgang) =>
+        ausgang.Art is EntscheidungArt.Losentscheid or EntscheidungArt.Muenzwurf ? ausgang.Vorsprung > 0 : null;
 
     /// <summary>#547/#247: Im Wiederholungsspiel tauschen die Teams das Heimrecht – außer auf neutralem Platz und wenn
     /// ein Gastgeber den Ortsvorteil hat; dort bleibt es wie im ersten Spiel. Eine reine Funktion, damit Engine und
@@ -304,9 +315,6 @@ public static class SimulationsEngine
             VerfahrenArt.Wiederholungsspiel => WiederholungsspielAusgang(paarung, rng, ablauf is not null, verlaengerungDavor),
             _ => new(0, EntscheidungArt.RegulaereSpielzeit, null, null, null, null, [])
         };
-
-    private static bool IstVerlaengerung(VerfahrenArt verfahren) =>
-        verfahren is VerfahrenArt.VerlaengerungKlassisch or VerfahrenArt.GoldenGoal or VerfahrenArt.SilverGoal;
 
     /// <summary>#547: ein eigenes Spiel über 90 Minuten mit neuem Ablauf (frische Ermüdung, keine Platzverweise aus dem
     /// ersten Spiel). Bleibt es torgleich, läuft die Verlängerungsart, die in der Kette vor dem Wiederholungsspiel

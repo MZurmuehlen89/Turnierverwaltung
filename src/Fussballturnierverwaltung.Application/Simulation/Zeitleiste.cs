@@ -62,8 +62,8 @@ public static class Zeitleiste
         || (stand.Wiederholung is not null && ereignis.Art is EreignisArt.ElfmeterTor or EreignisArt.ElfmeterVerschossen);
 
     /// <summary>Die Zeitleiste des Wiederholungsspiels (#247) mit eigenem Anpfiff bei Minute 0 und eigenen Trennern.
-    /// <paramref name="heim"/>/<paramref name="auswaerts"/> sind die Seiten des ersten Spiels, die Ereignisse stehen –
-    /// wie dessen Wiederholungsergebnis – in dessen Sicht; bei <paramref name="getauscht"/> wird gespiegelt, damit das
+    /// <paramref name="heim"/>/<paramref name="auswaerts"/> sind die Seiten des ersten Spiels, die Ereignisse und sein
+    /// Wiederholungsergebnis stehen in dessen Sicht; bei <paramref name="getauscht"/> wird gespiegelt, damit das
     /// tatsächliche Heimteam des Wiederholungsspiels links steht.</summary>
     public static IReadOnlyList<EinzelspielEreignisZeile> ErstellenWiederholungsspiel(
         SimulationsErgebnis erstesSpiel, IEnumerable<ZeitleistenEreignis> ereignisse, SpielSeite heim, SpielSeite auswaerts, bool getauscht)

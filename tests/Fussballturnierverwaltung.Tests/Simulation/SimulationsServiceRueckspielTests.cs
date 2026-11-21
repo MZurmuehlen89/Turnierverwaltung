@@ -108,4 +108,49 @@ public class SimulationsServiceRueckspielTests
         ergebnis.HeimToreVerlaengerung.Should().BeNull();
         ergebnis.HeimElfmetertore.Should().BeNull();
     }
+
+    // ── Wiederholungsspiel als eigener Schritt (#691) ─────────────────────
+
+    private static SimulationsService Service() =>
+        SimulationsDienste.Service(SimulationsDienste.NeuerContext(), new Zufallsquelle());
+
+    /// <summary>Hinspiel 1:1, Kette „Wiederholungsspiel, Los“: Endet das Rückspiel torgleich, steht das Wiederholungsspiel an;
+    /// ausgetragen ist das Ergebnis bitgleich zum Einzelzug <c>RueckspielSimulieren</c>.</summary>
+    [Fact]
+    public void RueckspielBisWiederholung_GesamtstandGleich_WiederholungAusstehendUndAusgetragenBitgleich()
+    {
+        var kette = SimulationsEngineTestdaten.VerfahrenKette(VerfahrenArt.Wiederholungsspiel, VerfahrenArt.Losentscheid);
+        int ausstehend = 0;
+        for (int seed = 0; seed < 100; seed++)
+        {
+            var einzelzug = Rueckspiel(seed, kette);
+            var schritt = Service().RueckspielBisWiederholungSimulieren(
+                SimulationsEngineTestdaten.GastTeam(), SimulationsEngineTestdaten.HeimTeam(),
+                _hinspielEinsZuEins, kette, new Random(seed));
+
+            bool torgleich = schritt.Ergebnis.HeimToreRegulaer == schritt.Ergebnis.AuswaertsToreRegulaer;
+            (schritt.Ausstehend is not null).Should().Be(torgleich, $"Seed {seed}: Wiederholungsspiel nur beim Gesamt-Remis");
+            if (schritt.Ausstehend is not { } offen)
+                continue;
+
+            ausstehend++;
+            schritt.Ergebnis.Wiederholung.Should().BeNull();
+            offen.Austragen().Should().BeEquivalentTo(einzelzug, $"Seed {seed}");
+        }
+        ausstehend.Should().BeGreaterThan(5);
+    }
+
+    [Fact]
+    public void RueckspielBisWiederholung_HinspielFuehrtDeutlich_NichtsAusstehend()
+    {
+        var kette = SimulationsEngineTestdaten.VerfahrenKette(VerfahrenArt.Wiederholungsspiel, VerfahrenArt.Losentscheid);
+        var hinspiel = new SimulationsErgebnis(9, 0, null, null, null, null, EntscheidungArt.RegulaereSpielzeit, []);
+        for (int seed = 0; seed < 30; seed++)
+        {
+            var schritt = Service().RueckspielBisWiederholungSimulieren(
+                SimulationsEngineTestdaten.GastTeam(), SimulationsEngineTestdaten.HeimTeam(), hinspiel, kette, new Random(seed));
+
+            schritt.Ausstehend.Should().BeNull($"Seed {seed}");
+        }
+    }
 }

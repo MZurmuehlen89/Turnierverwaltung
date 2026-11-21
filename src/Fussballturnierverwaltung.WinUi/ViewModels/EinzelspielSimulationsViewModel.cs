@@ -156,6 +156,16 @@ public partial class EinzelspielSimulationsViewModel : ViewModelBase, IRibbonAwa
 
     public bool ZeigeWiederholungAusstehend => AusstehendesWiederholungsspiel is not null;
 
+    // Die Auswahl, für die das Wiederholungsspiel ansteht: verworfen wird erst bei einer anderen Auswahl, nicht schon beim
+    // transienten null, das eine ComboBox beim Neuzuweisen ihrer ItemsSource zurückschreibt (AktivierenAsync, Suchfilter).
+    private (Mannschaft? Heim, Mannschaft? Auswaerts, Regelwerk? Regelwerk) _ausstehendBei;
+
+    private void AusstehendesMerken(AusstehendesWiederholungsspiel? ausstehend)
+    {
+        _ausstehendBei = (EinzelspielHeim, EinzelspielAuswaerts, EinzelspielRegelwerk);
+        AusstehendesWiederholungsspiel = ausstehend;
+    }
+
     // ── Protokoll: mit Rückspiel (#248, zweistufig; #247: Karten nebeneinander) ────────
 
     [ObservableProperty]
@@ -364,7 +374,7 @@ public partial class EinzelspielSimulationsViewModel : ViewModelBase, IRibbonAwa
     // Mit Rückspiel gehen Rückspiel und Ausstehendes, das Hinspiel bleibt; ohne Rückspiel ist das Spiel selbst das erste Spiel.
     private void AusstehendesVerwerfen()
     {
-        if (AusstehendesWiederholungsspiel is null) return;
+        if (AusstehendesWiederholungsspiel is null || !AuswahlGeaendert()) return;
 
         if (!EinzelspielMitRueckspiel)
             LeerProtokoll();
@@ -373,6 +383,11 @@ public partial class EinzelspielSimulationsViewModel : ViewModelBase, IRibbonAwa
         else
             RueckspielDatenLeeren();
     }
+
+    private bool AuswahlGeaendert() =>
+        (EinzelspielHeim is { } heim && heim != _ausstehendBei.Heim)
+        || (EinzelspielAuswaerts is { } auswaerts && auswaerts != _ausstehendBei.Auswaerts)
+        || (EinzelspielRegelwerk is { } regelwerk && regelwerk != _ausstehendBei.Regelwerk);
 
     // #539: ein vorhandenes Rückspiel hing von der Regel ab – verwerfen wie bei einem neuen Hinspiel, das Hinspiel bleibt.
     partial void OnEinzelspielAuswaertstorRegelChanged(bool value)
@@ -403,7 +418,7 @@ public partial class EinzelspielSimulationsViewModel : ViewModelBase, IRibbonAwa
             // #691: das Wiederholungsspiel ist ein eigener Schritt – hier steht das Spiel bis dorthin da.
             var schritt = _simulationsService.EinzelspielBisWiederholungSimulieren(heim, auswaerts, verfahren, SimulationsModus.AusfuehrlicheSimulation);
             ProtokollAnzeigen(heim, auswaerts, schritt.Ergebnis);
-            AusstehendesWiederholungsspiel = schritt.Ausstehend;
+            AusstehendesMerken(schritt.Ausstehend);
         }
         catch (Exception ex)
         {
@@ -595,7 +610,7 @@ public partial class EinzelspielSimulationsViewModel : ViewModelBase, IRibbonAwa
             RueckspielAnzeigen(
                 SpielSeite.Von(heim), SpielSeite.Von(auswaerts),
                 FreiePaarungGesamt.Bewerten(erg1, erg2, wiederholungAusstehend: schritt.Ausstehend is not null), erg2);
-            AusstehendesWiederholungsspiel = schritt.Ausstehend;
+            AusstehendesMerken(schritt.Ausstehend);
         }
         catch (Exception ex)
         {
