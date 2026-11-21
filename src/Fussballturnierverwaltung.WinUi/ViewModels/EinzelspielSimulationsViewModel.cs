@@ -611,6 +611,7 @@ public partial class EinzelspielSimulationsViewModel : ViewModelBase, IRibbonAwa
                 SpielSeite.Von(heim), SpielSeite.Von(auswaerts),
                 FreiePaarungGesamt.Bewerten(erg1, erg2, wiederholungAusstehend: schritt.Ausstehend is not null), erg2);
             AusstehendesMerken(schritt.Ausstehend);
+            if (schritt.Ausstehend is not null) SiegerText = null; // #691: solange das Wiederholungsspiel aussteht, gibt es keinen Sieger – auch kein „Unentschieden“
         }
         catch (Exception ex)
         {
