@@ -32,7 +32,7 @@ public sealed class Spielkontrolle(Random zufall)
     public double GastFaktor => Faktor(-Stand);
 
     /// <summary>Eine Minute weiter.</summary>
-    public void Fortschreiben() => Stand = Naechster(Stand, Normalverteilt());
+    public void Fortschreiben() => Stand = Naechster(Stand, Normalverteilung.Ziehen(zufall));
 
     /// <summary>Stand nach einer Minute bei standardnormalem <paramref name="rauschen"/>; die Schrittweite hält die
     /// Streuung im eingeschwungenen Zustand bei <see cref="STREUUNG"/>.</summary>
@@ -41,12 +41,4 @@ public sealed class Spielkontrolle(Random zufall)
     /// <summary>Faktor auf die Chancenrate des Teams, zu dessen Gunsten <paramref name="stand"/> zeigt; im
     /// eingeschwungenen Zustand im Mittel 1 (E[e^z] = e^(σ²/2)).</summary>
     public static double Faktor(double stand) => Math.Exp(stand) * _normierung;
-
-    // Box-Muller; 1 − u schließt log(0) aus.
-    private double Normalverteilt()
-    {
-        double u1 = 1 - zufall.NextDouble();
-        double u2 = zufall.NextDouble();
-        return Math.Sqrt(-2 * Math.Log(u1)) * Math.Cos(2 * Math.PI * u2);
-    }
 }
