@@ -125,7 +125,7 @@ public class SimulationsService(
     /// Auflösung ist mit Abstand der teuerste Schritt (Issue #386: ~99 % der Laufzeit einer Massensimulation)
     /// und übernimmt der Aufrufer.</summary>
     private async Task<SimulationsErgebnis> SimulierenUndSpeichernAsync(
-        int spielId, Random rng, Dictionary<int, int> staerkeSeeds, CancellationToken ct, bool ueberschreiben = false)
+        int spielId, Random rng, Dictionary<int, TurnierVorgang> vorgaenge, CancellationToken ct, bool ueberschreiben = false)
     {
         var spiel = await SpielFuerSimulationLadenAsync(spielId, ueberschreiben, ct);
 
@@ -157,7 +157,9 @@ public class SimulationsService(
         // gespeichert (In-Memory-Berechnung ist vernachlässigbar teuer) — sonst bleibt der
         // Spielverlauf leer, wenn ein schnellsimuliertes Spiel später im Detail betrachtet wird.
         // #679: die verborgene Turnierstärke beider Teams, für das ganze Turnier gleich.
-        var turnierform = await TurnierformAsync(spiel, staerkeSeeds, ct);
+        // #359: bei eingeschalteter dynamischer Teamstärke zusätzlich der Stand aus den Ergebnissen davor.
+        var vorgang = await VorgangAsync(spiel, vorgaenge, ct);
+        var turnierform = vorgang.Form(spiel);
         var ergebnis = SimulationsEngine.Simulieren(
             spiel.HeimMannschaft!, spiel.AuswaertsMannschaft!,
             istKoHinspiel || istKoRueckspiel ? [] : verfahren, ausfuehrlich: true, rng, spielortvorteil,
@@ -167,6 +169,7 @@ public class SimulationsService(
             ergebnis = RueckspielEntscheiden(ergebnis, spiel, verfahren, rng, spielortvorteil, turnierform);
 
         await SpeichernAsync(spiel, ergebnis, ct);
+        vorgang.Verlauf?.Setzen(spiel, ergebnis);
 
         // Debug statt Information: je Spiel eine Zeile würde das Ablaufprotokoll (#413) bei einer
         // Massensimulation fluten — dort genügt die Zusammenfassung je Block.
@@ -179,17 +182,34 @@ public class SimulationsService(
         return ergebnis;
     }
 
-    /// <summary>Die Turnierform des Spiels aus dem Stärke-Seed seines Turniers. Den Seed holt (und sichert) ein Vorgang je
-    /// Turnier nur einmal – <paramref name="staerkeSeeds"/> merkt ihn (Massensimulation, #386). Der Kandidat kommt aus
+    /// <summary>Was ein Vorgang je Turnier nur einmal holt und dann merkt (Massensimulation, #386): den Stärke-Seed (#679) und bei
+    /// eingeschalteter dynamischer Teamstärke den Verlauf der Wertungen (#359). Der Kandidat für den Seed kommt aus
     /// <see cref="Zufallsquelle.SeedZiehen"/>, nicht aus dem <see cref="Random"/> des Spiels: dessen Strom bleibt unberührt.</summary>
-    private async Task<Turnierform> TurnierformAsync(Spiel spiel, Dictionary<int, int> staerkeSeeds, CancellationToken ct)
+    private async Task<TurnierVorgang> VorgangAsync(Spiel spiel, Dictionary<int, TurnierVorgang> vorgaenge, CancellationToken ct)
     {
-        if (!staerkeSeeds.TryGetValue(spiel.TurnierInstanzId, out int seed))
+        if (vorgaenge.TryGetValue(spiel.TurnierInstanzId, out var vorgang))
+            return vorgang;
+
+        int seed = await instanzRepository.StaerkeSeedSichernAsync(spiel.TurnierInstanzId, zufallsquelle.SeedZiehen(), ct);
+        var instanz = await instanzRepository.FindenNachIdAsync(spiel.TurnierInstanzId, ct);
+        DynamischeTeamstaerkeVerlauf? verlauf = null;
+        if (instanz is { DynamischeTeamstaerkeAktiv: true })
         {
-            seed = await instanzRepository.StaerkeSeedSichernAsync(spiel.TurnierInstanzId, zufallsquelle.SeedZiehen(), ct);
-            staerkeSeeds[spiel.TurnierInstanzId] = seed;
+            var gastgeberIds = await instanzRepository.GastgeberIdsAsync(instanz.Id, ct);
+            var spiele = await spielRepository.AlleNachInstanzAsync(instanz.Id, ct);
+            verlauf = new DynamischeTeamstaerkeVerlauf(instanz.Kategorie, gastgeberIds, spiele);
         }
-        return Turnierstaerke.Form(seed, spiel.HeimMannschaft!.Id, spiel.AuswaertsMannschaft!.Id);
+        return vorgaenge[spiel.TurnierInstanzId] = new TurnierVorgang(seed, verlauf);
+    }
+
+    private sealed record TurnierVorgang(int StaerkeSeed, DynamischeTeamstaerkeVerlauf? Verlauf)
+    {
+        /// <summary>#679 die verborgene Turnierstärke beider Teams, bei aktivem Verlauf um die dynamische Teamstärke ergänzt.</summary>
+        public Turnierform Form(Spiel spiel)
+        {
+            var form = Turnierstaerke.Form(StaerkeSeed, spiel.HeimMannschaft!.Id, spiel.AuswaertsMannschaft!.Id);
+            return Verlauf is null ? form : Verlauf.Anwenden(form, spiel);
+        }
     }
 
     private async Task<Spiel> SpielFuerSimulationLadenAsync(int spielId, bool ueberschreiben, CancellationToken ct)
@@ -257,12 +277,12 @@ public class SimulationsService(
     {
         int? letzteSpielId = null;
         int simuliert = 0;
-        var staerkeSeeds = new Dictionary<int, int>();
+        var vorgaenge = new Dictionary<int, TurnierVorgang>();
         try
         {
             foreach (var spielId in spielIds)
             {
-                await SimulierenUndSpeichernAsync(spielId, rng, staerkeSeeds, ct);
+                await SimulierenUndSpeichernAsync(spielId, rng, vorgaenge, ct);
                 letzteSpielId = spielId;
                 simuliert++;
             }

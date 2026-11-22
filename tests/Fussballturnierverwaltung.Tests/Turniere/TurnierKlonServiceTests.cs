@@ -87,6 +87,21 @@ public class TurnierKlonServiceTests
         klon.StandardRegelwerkId.Should().Be(1);
     }
 
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task KlonenAsync_UebernimmtDenSchalterDynamischeTeamstaerke(bool aktiv)
+    {
+        using var ctx = NeuerContext();
+        var quellId = await QuelleAnlegenAsync(ctx);
+        ctx.TurnierInstanzen.Single(t => t.Id == quellId).DynamischeTeamstaerkeAktiv = aktiv;
+        await ctx.SaveChangesAsync();
+
+        var klon = await ServiceFuer(ctx).KlonenAsync(quellId, "EM 2028", "2028", TurnierStatus.Geplant);
+
+        klon.DynamischeTeamstaerkeAktiv.Should().Be(aktiv);
+    }
+
     [Fact]
     public async Task KlonenAsync_AlsVorlageMitVorhandenemNameUndVariante_WirftValidationException()
     {
