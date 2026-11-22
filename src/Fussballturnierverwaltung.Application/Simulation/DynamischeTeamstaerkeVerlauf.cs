@@ -48,14 +48,14 @@ public sealed class DynamischeTeamstaerkeVerlauf
 
     private Austragung Termin(Spiel spiel)
     {
-        var runde = spiel.TurnierRunde!;
+        var runde = spiel.TurnierRunde;
         var ortsvorteil = SimulationsEngine.SpielortvorteilErmitteln(
             runde.NeutralerSpielort, spiel.HeimMannschaftId, spiel.AuswaertsMannschaftId,
             runde.NeutralerSpielort ? _gastgeberIds : []);
         return new Austragung(
             new Wertungsschluessel(runde.Reihenfolge, spiel.Spieltag ?? 0, spiel.Spielnummer),
             spiel.HeimMannschaft!.Id, spiel.AuswaertsMannschaft!.Id,
-            DynamischeTeamstaerke.Startwert(spiel.HeimMannschaft), DynamischeTeamstaerke.Startwert(spiel.AuswaertsMannschaft!),
+            DynamischeTeamstaerke.Startwert(spiel.HeimMannschaft), DynamischeTeamstaerke.Startwert(spiel.AuswaertsMannschaft),
             ortsvorteil, runde.NeutralerSpielort);
     }
 }

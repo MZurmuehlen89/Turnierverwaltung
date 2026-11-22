@@ -57,7 +57,7 @@ public static class DynamischeTeamstaerke
     public static Dictionary<int, double> Abweichungen(IEnumerable<WertungsSpiel> spiele, double k, Wertungsschluessel vor)
     {
         var abweichung = new Dictionary<int, double>();
-        foreach (var spiel in spiele.Where(s => s.Schluessel.CompareTo(vor) < 0).OrderBy(s => s.Schluessel))
+        foreach (var spiel in spiele.Where(s => s.Schluessel < vor).OrderBy(s => s.Schluessel))
         {
             abweichung.TryGetValue(spiel.HeimId, out double heim);
             abweichung.TryGetValue(spiel.GastId, out double gast);
@@ -107,6 +107,11 @@ public readonly record struct Wertungsschluessel(int Runde, int Spieltag, int Sp
 {
     public int CompareTo(Wertungsschluessel other) =>
         (Runde, Spieltag, Spielnummer, Teil).CompareTo((other.Runde, other.Spieltag, other.Spielnummer, other.Teil));
+
+    public static bool operator <(Wertungsschluessel links, Wertungsschluessel rechts) => links.CompareTo(rechts) < 0;
+    public static bool operator >(Wertungsschluessel links, Wertungsschluessel rechts) => links.CompareTo(rechts) > 0;
+    public static bool operator <=(Wertungsschluessel links, Wertungsschluessel rechts) => links.CompareTo(rechts) <= 0;
+    public static bool operator >=(Wertungsschluessel links, Wertungsschluessel rechts) => links.CompareTo(rechts) >= 0;
 }
 
 /// <summary>Ein gewertetes Spiel: Teams mit ihren Startwerten, Tore und wer den Ortsvorteil hatte.</summary>
