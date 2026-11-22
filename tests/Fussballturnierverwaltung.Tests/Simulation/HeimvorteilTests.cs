@@ -24,4 +24,19 @@ public class HeimvorteilTests
         double gast = SimulationsEngine.Heimvorteil(false, Spielortvorteil.Heim);
         (heim * gast).Should().BeApproximately(1.0, 1e-12);
     }
+
+    [Fact]
+    public void Torerwartung_WirdMitDemHeimvorteilVerrechnet()
+    {
+        // Gleiche Stärken daheim wie auswärts (75): nur der Heimvorteil trennt Heim, Auswärts und neutralen Platz.
+        double Tore(Spielortvorteil ort) => Enumerable.Range(0, 4000)
+            .Average(seed => SimulationsEngine.Simulieren(
+                SimulationsEngineTestdaten.Team(1, heim: 75, ausw: 75), SimulationsEngineTestdaten.Team(2, heim: 75, ausw: 75),
+                [], false, new Random(seed), ort).HeimToreRegulaer);
+
+        double heim = Tore(Spielortvorteil.Heim), neutral = Tore(Spielortvorteil.Neutral), auswaerts = Tore(Spielortvorteil.Auswaerts);
+
+        heim.Should().BeGreaterThan(neutral);
+        auswaerts.Should().BeLessThan(neutral);
+    }
 }

@@ -225,6 +225,8 @@ public static class Spielsituation
     // verschiebt zusätzlich Tore in die 2. Halbzeit; darum die 1. Halbzeit (Viertelstunden 1–3, Nachspielzeit) × 1,035
     // und die 2. Halbzeit × 0,977 gegenüber dem Stand von #431 (ursprünglich 0,815 / 0,955 / 1,01 / 1,05 / 1,03 / 1,065,
     // Nachspielzeit 1,0 / 1,3). Messreihe über 30 Seeds in #694.
+    // Folge: die 3. Viertelstunde (1,0454) liegt knapp über der Schlussphase (1,0405) – bewusst, die Realismus-Bänder
+    // (Tore je Viertelstunde) bleiben grün.
     private static readonly double[] _zeitprofil = [0.8435, 0.9884, 1.0454, 1.0259, 1.0063, 1.0405];
     private const double NACHSPIELZEIT_ERSTE_HALBZEIT  = 1.035;
     private const double NACHSPIELZEIT_ZWEITE_HALBZEIT = 1.2701;
