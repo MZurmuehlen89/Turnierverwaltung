@@ -340,8 +340,12 @@ public class SpielsituationTests
         double ersteViertelstunde = Spielsituation.Zeitfaktor(1, false, 0);
         double schlussphase       = Spielsituation.Zeitfaktor(80, false, 0.9);
         var uebrige = Enumerable.Range(16, 60).Select(m => Spielsituation.Zeitfaktor(m, false, 0)).ToList();
+        // #694: die 3. Viertelstunde (× 1,035) liegt seit der Bundesliga-Anpassung knapp über der Schlussphase (× 0,977);
+        // die Schlussphase bleibt die stärkste der 2. Halbzeit.
+        var zweiteHalbzeitDavor = Enumerable.Range(46, 30).Select(m => Spielsituation.Zeitfaktor(m, false, 0)).ToList();
 
-        uebrige.Should().OnlyContain(f => f > ersteViertelstunde && f < schlussphase);
+        uebrige.Should().OnlyContain(f => f > ersteViertelstunde);
+        zweiteHalbzeitDavor.Should().OnlyContain(f => f < schlussphase);
         Spielsituation.Zeitfaktor(90, true, 1).Should().BeGreaterThan(schlussphase, "in der Nachspielzeit fallen real die meisten Tore je Minute");
     }
 

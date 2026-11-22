@@ -352,7 +352,8 @@ public class SimulationsEngineTests
     {
         // Mittelwert von 100/50 = 75 — entspricht einem Team, das daheim wie auswärts 75 hat.
         var (heimNeutral, _) = MittlereTore(Team(1, heim: 100, ausw: 50), Team(2), Spielortvorteil.Neutral);
-        var (heimReferenz, _) = MittlereTore(Team(1, heim: 75, ausw: 75), Team(2), Spielortvorteil.Heim);
+        // #694: ebenfalls auf neutralem Platz, damit der Heimvorteil die Referenz nicht verschiebt.
+        var (heimReferenz, _) = MittlereTore(Team(1, heim: 75, ausw: 75), Team(2), Spielortvorteil.Neutral);
 
         heimNeutral.Should().BeApproximately(heimReferenz, 0.0001);
     }

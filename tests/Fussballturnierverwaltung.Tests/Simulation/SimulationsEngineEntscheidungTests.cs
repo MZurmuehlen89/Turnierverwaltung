@@ -85,7 +85,7 @@ public class SimulationsEngineEntscheidungTests
     [Fact]
     public void Verlaengerung_GasttorEntscheidet()
     {
-        var zufall = new VorgegebenerZufall([0.51, /* Gast */ 0.73, 0.0]);
+        var zufall = new VorgegebenerZufall([0.50, /* Gast */ 0.73, 0.0]);
 
         var e = Anwenden(zufall, false, VerfahrenArt.VerlaengerungKlassisch, VerfahrenArt.Elfmeterschiessen);
 
@@ -108,13 +108,13 @@ public class SimulationsEngineEntscheidungTests
     }
 
     // ── Golden Goal der Schnellsimulation (je Minute 91–120 Torchance λ/90) ──
-    // Heim 1,95/90 = 0,02167; Gast 0,975/90 = 0,01083. Ausführlich (Minute für Minute, #361): SpielablaufTests.
+    // Heim 1,95 · 1,05/90 = 0,02275; Gast 1,95 · 0,55/1,05/90 = 0,01135 (Heimvorteil #694). Ausführlich (Minute für Minute, #361): SpielablaufTests.
 
     [Fact]
     public void GoldenGoal_HeimTrifft_SpielEndetSofort()
     {
         // Minute 91: beide knapp über ihrer Torchance; Minute 92: Heim knapp darunter. Weitere Werte würden treffen.
-        var zufall = new VorgegebenerZufall([0.0217, 0.0109, 0.0216, 0.5, TRIFFT, TRIFFT, TRIFFT, TRIFFT]);
+        var zufall = new VorgegebenerZufall([0.0228, 0.0114, 0.0227, 0.5, TRIFFT, TRIFFT, TRIFFT, TRIFFT]);
 
         var e = Anwenden(zufall, false, VerfahrenArt.GoldenGoal);
 

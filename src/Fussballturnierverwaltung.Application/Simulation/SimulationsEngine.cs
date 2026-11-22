@@ -221,6 +221,16 @@ public static class SimulationsEngine
 
     // ── Expected-Goals-Formel ──────────────────────────────────────────────
 
+    /// <summary>#694: Faktor auf die Torerwartung eines Teams: <see cref="HEIMVORTEIL"/> für das Team mit dem Ortsvorteil,
+    /// sein Kehrwert für den Gegner, 1 auf neutralem Platz. Bei <see cref="Spielortvorteil.Auswaerts"/> (Gastgeber als
+    /// nominelles Gastteam) hat das Gastteam den Vorteil.</summary>
+    public static double Heimvorteil(bool istHeim, Spielortvorteil spielortvorteil) => spielortvorteil switch
+    {
+        Spielortvorteil.Heim      => istHeim ? HEIMVORTEIL : 1 / HEIMVORTEIL,
+        Spielortvorteil.Auswaerts => istHeim ? 1 / HEIMVORTEIL : HEIMVORTEIL,
+        _                         => 1.0
+    };
+
     private static double BerechneErwartetesTore(
         Mannschaft angreifer, Mannschaft verteidiger, bool istHeim, Spielortvorteil spielortvorteil,
         int ueberraschungsfaktor, double turnierfaktor = 1.0)
@@ -242,7 +252,8 @@ public static class SimulationsEngine
         double spreizung = STAERKE_SPREIZUNG * (1 - Math.Clamp(ueberraschungsfaktor, 0, 100) / 100.0);
         double lambda = TOR_GRUNDERWARTUNG
                         * Math.Pow(angriff / Math.Max(0.3, verteid), spreizung)
-                        * ortFaktor;
+                        * ortFaktor
+                        * Heimvorteil(istHeim, spielortvorteil);
         // #679: die verborgene Turnierstärke beider Teams; ohne Turnier (1,0) bleibt λ bitgleich (x · 1,0 = x).
         lambda *= turnierfaktor;
         return Math.Clamp(lambda, MIN_TORERWARTUNG, MAX_TORERWARTUNG);
@@ -251,7 +262,13 @@ public static class SimulationsEngine
     // Issue #404: per Monte-Carlo an der Bundesliga kalibriert (Seed-Ratings) — ~3,1 Tore je Spiel, ~43 % Heimsiege,
     // Meister ~79 Punkte, ~2,8 ausgeschiedene Bundesligisten in Pokalrunde 1. Abgesichert durch SimulationsKalibrierungTests.
     private const double TOR_GRUNDERWARTUNG = 1.95;
-    private const double STAERKE_SPREIZUNG  = 2.2;
+    // #694: 2,2 → 2,1 – der Heimvorteil allein vergrößert die Tordifferenzen (≥ 3 Tore Unterschied 22,79 %), die kleinere
+    // Spreizung gleicht das aus (22,53 %); Messreihe über 30 Seeds im Issue. 2,0 bringt die Kalibrierung #404 zum Kippen.
+    private const double STAERKE_SPREIZUNG  = 2.1;
+    // #694: Der Heimanteil der Tore fehlte schon in der Start-Torerwartung (λ 53,2 % gegen real 55,7 %, Bundesliga
+    // 2015/16–2024/25); die Heimstärke der Stammdaten bleibt unberührt, der Faktor schließt die Lücke: das Team
+    // mit dem Ortsvorteil ×, sein Gegner ÷, auf neutralem Platz nicht.
+    private const double HEIMVORTEIL        = 1.05;
     private const double MIN_TORERWARTUNG   = 0.1;
     private const double MAX_TORERWARTUNG   = 5.0;
 

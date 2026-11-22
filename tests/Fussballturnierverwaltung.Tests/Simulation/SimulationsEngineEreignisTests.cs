@@ -23,8 +23,8 @@ public class SimulationsEngineEreignisTests
     // ── Torerwartung und Poisson-Ziehung ──────────────────────────────────
 
     [Theory]
-    [InlineData(0.15, 1)]
-    [InlineData(0.14, 0)]
+    [InlineData(0.14, 1)]
+    [InlineData(0.12, 0)]
     public void Torerwartung_HeimteamDaheim(double ersterWert, int tore)
     {
         Simulieren(new VorgegebenerZufall([ersterWert], danach: 0.0))
@@ -32,8 +32,8 @@ public class SimulationsEngineEreignisTests
     }
 
     [Theory]
-    [InlineData(0.38, 1)]
-    [InlineData(0.37, 0)]
+    [InlineData(0.37, 1)]
+    [InlineData(0.35, 0)]
     public void Torerwartung_GastteamAuswaerts(double ersterWert, int tore)
     {
         Simulieren(new VorgegebenerZufall([0.0, ersterWert], danach: 0.0))
@@ -41,11 +41,11 @@ public class SimulationsEngineEreignisTests
     }
 
     [Theory]
-    [InlineData(0.15, 1)]
-    [InlineData(0.14, 0)]
+    [InlineData(0.14, 1)]
+    [InlineData(0.12, 0)]
     public void Torerwartung_SchwacheAbwehrZaehltHoechstensAlsDreissigProzent(double ersterWert, int tore)
     {
-        // Angriff 30 gegen Abwehr 20: die Abwehr zählt als 30 → Kräfteverhältnis 1, λ = 1,95 wie bei Gleichstand.
+        // Angriff 30 gegen Abwehr 20: die Abwehr zählt als 30 → Kräfteverhältnis 1, λ = 1,95 · 1,05 (Heimvorteil, #694) wie bei Gleichstand.
         var angreifer = Team(1, off: 30, mid: 30, heim: 100);
         var verteidiger = Team(2, mid: 20, def: 20);
 

@@ -9,7 +9,7 @@ namespace Fussballturnierverwaltung.Tests.Simulation;
 
 /// <summary>#692 K4: Der Schwung nach dem Ausgleich zieht keine Zufallszahl. Ein Spiel, in dem die reguläre Spielzeit
 /// keinen Ausgleich enthält, verläuft deshalb bitgleich wie vor der Änderung. Die Referenzwerte wurden vor der Änderung
-/// auf main (d6b692c) erzeugt: Ergebnis, Zahl der Ereignisse und der nächste Wert des Zufallsstroms.</summary>
+/// auf main (d6b692c) erzeugt, seit #694 (Heimvorteil, Spreizung, Zeitprofil verschieben den Zufallsstrom) auf dem Stand 6cfa16a + #694 mit Seeds ohne Ausgleich neu erzeugt: Ergebnis, Zahl der Ereignisse und der nächste Wert des Zufallsstroms.</summary>
 public class AusgleichsschwungOhneAusgleichTests
 {
     private static readonly EntscheidungsVerfahren[] _kette =
@@ -60,20 +60,20 @@ public class AusgleichsschwungOhneAusgleichTests
     }
 
     private static readonly (int Seed, string Fingerabdruck)[] _referenz = [
-        (1, "2:0/:/:/10/1095394276"),
-        (2, "0:3/:/:/13/1607840487"),
-        (4, "0:2/:/:/14/384309337"),
-        (7, "4:2/:/:/24/1656421412"),
-        (11, "5:0/:/:/17/142790330"),
-        (12, "0:1/:/:/8/681201683"),
-        (15, "2:0/:/:/16/481981010"),
-        (16, "0:3/:/:/15/2061367703"),
-        (17, "0:2/:/:/13/727942354"),
-        (18, "0:1/:/:/11/1452770357"),
-        (20, "2:0/:/:/9/125321505"),
-        (22, "0:0/0:0/:/13/739955273"),
-        (26, "2:0/:/:/14/1986078368"),
-        (28, "0:3/:/:/13/327786862"),
-        (29, "1:0/:/:/11/1476304597"),
+        (1, "2:0/:/:/12/1095394276"),
+        (2, "1:4/:/:/17/1607840487"),
+        (5, "1:0/:/:/8/1425839066"),
+        (7, "3:1/:/:/20/1169798271"),
+        (8, "0:2/:/:/11/1039358267"),
+        (11, "5:1/:/:/19/1322849083"),
+        (12, "0:1/:/:/7/1037445581"),
+        (15, "1:0/:/:/15/1162606148"),
+        (16, "0:1/:/:/13/1741174867"),
+        (17, "0:1/:/:/13/699481726"),
+        (22, "0:1/:/:/5/931643317"),
+        (25, "4:2/:/:/19/1695090397"),
+        (26, "3:0/:/:/15/1634643521"),
+        (27, "1:2/:/:/14/1833735827"),
+        (28, "0:3/:/:/14/821370125"),
     ];
 }

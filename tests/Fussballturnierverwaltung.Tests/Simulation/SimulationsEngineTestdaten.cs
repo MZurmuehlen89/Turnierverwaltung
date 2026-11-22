@@ -25,9 +25,11 @@ internal static class SimulationsEngineTestdaten
     public static readonly double[] TorstilOhneKonter = [0.0, 0.5, 0.0];
 
     // Gleich starke Teams, deren Torerwartung allein am Ortsfaktor hängt: das Heimteam spielt daheim mit 100 %
-    // (λ = 1,95), das Gastteam auswärts mit 50 % (λ = 0,975). So fällt eine vertauschte Heim-/Gastseite auf.
+    // (λ = 1,95 · 1,05), das Gastteam auswärts mit 55 % (λ = 1,95 · 0,55 / 1,05). Seit dem Heimvorteil (#694) ergibt das
+    // wie vor ihm ein Stärkeverhältnis von 2 : 1 (Heimanteil 2/3), von dem die Taktik-Schwellen der Tests ausgehen.
+    // So fällt eine vertauschte Heim-/Gastseite auf.
     public static Mannschaft HeimTeam() => Team(1, heim: 100, ausw: 50);
-    public static Mannschaft GastTeam() => Team(2, heim: 100, ausw: 50);
+    public static Mannschaft GastTeam() => Team(2, heim: 100, ausw: 55);
 
     /// <summary>Stand als nullbares Paar – ein Tupel aus <c>int</c> wäre für FluentAssertions nie gleich.</summary>
     public static (int?, int?) Stand(int heim, int gast) => (heim, gast);

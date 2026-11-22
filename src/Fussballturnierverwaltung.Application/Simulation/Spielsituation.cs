@@ -221,9 +221,13 @@ public static class Spielsituation
     // 12,3 / 14,2 / 17,2 / 16,4 / 16,5 / 23,4 %, letzte Viertelstunde inklusive Nachspielzeit). Die Werte gleichen
     // aus, was die Risikoachse schon von sich aus an späten Toren erzeugt; kalibriert an
     // SimulationsRealismusTests.Torminuten_ZeitprofilDerTore (Messreihe in #431). Ersetzt den linearen Torfaktor.
-    private static readonly double[] _zeitprofil = [0.815, 0.955, 1.01, 1.05, 1.03, 1.065];
-    private const double NACHSPIELZEIT_ERSTE_HALBZEIT  = 1.0;
-    private const double NACHSPIELZEIT_ZWEITE_HALBZEIT = 1.3;
+    // #694: Bundesliga-Tore fallen häufiger vor der Pause als in den Länderspielen (44,6 % gegen 43,8 %), und die Taktik
+    // verschiebt zusätzlich Tore in die 2. Halbzeit; darum die 1. Halbzeit (Viertelstunden 1–3, Nachspielzeit) × 1,035
+    // und die 2. Halbzeit × 0,977 gegenüber dem Stand von #431 (ursprünglich 0,815 / 0,955 / 1,01 / 1,05 / 1,03 / 1,065,
+    // Nachspielzeit 1,0 / 1,3). Messreihe über 30 Seeds in #694.
+    private static readonly double[] _zeitprofil = [0.8435, 0.9884, 1.0454, 1.0259, 1.0063, 1.0405];
+    private const double NACHSPIELZEIT_ERSTE_HALBZEIT  = 1.035;
+    private const double NACHSPIELZEIT_ZWEITE_HALBZEIT = 1.2701;
     private const int ENDE_REGULAER = 90;
 
     /// <summary>Faktor auf die Chancenrate nach dem Zeitpunkt: in der regulären Spielzeit das Zeitprofil der

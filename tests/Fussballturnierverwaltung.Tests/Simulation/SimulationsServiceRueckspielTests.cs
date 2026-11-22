@@ -8,7 +8,7 @@ namespace Fussballturnierverwaltung.Tests.Simulation;
 
 /// <summary>Rückspiel der freien Hin-/Rückspiel-Simulation samt Entscheidungsverfahren (#509 Schnitt C, K3): bei festem
 /// Seed exakt dasselbe Ergebnis wie vor dem Verschieben in den Service. Die Erwartungen stammen vom unverändert
-/// verschobenen Code, seit #692 (eine Chance je Minute) mit Seeds derselben Lagen neu erzeugt (Hinspiel 1:1, Rückspiel-Heim = <c>GastTeam</c>, Rückspiel-Gast = <c>HeimTeam</c>).</summary>
+/// verschobenen Code, seit #692 (eine Chance je Minute) und #694 (Heimvorteil, Spreizung, Zeitprofil) mit Seeds derselben Lagen neu erzeugt (Hinspiel 1:1, Rückspiel-Heim = <c>GastTeam</c>, Rückspiel-Gast = <c>HeimTeam</c>).</summary>
 public class SimulationsServiceRueckspielTests
 {
     private static readonly SimulationsErgebnis _hinspielEinsZuEins =
@@ -80,15 +80,15 @@ public class SimulationsServiceRueckspielTests
     [Fact]
     public void GesamtstandNach90MinutenEntschieden_KeinVerfahren()
     {
-        Kennzahlen(Rueckspiel(5, _verlaengerungDannElfmeter))
-            .Should().Be((1, 0, null, null, null, null, EntscheidungArt.RegulaereSpielzeit, 7));
+        Kennzahlen(Rueckspiel(8, _verlaengerungDannElfmeter))
+            .Should().Be((1, 0, null, null, null, null, EntscheidungArt.RegulaereSpielzeit, 6));
     }
 
     [Fact]
     public void GesamtstandAusgeglichen_RueckspielGehtInDieVerlaengerung()
     {
-        Kennzahlen(Rueckspiel(2, _verlaengerungDannElfmeter))
-            .Should().Be((1, 1, 1, 0, null, null, EntscheidungArt.Verlaengerung, 19));
+        Kennzahlen(Rueckspiel(4, _verlaengerungDannElfmeter))
+            .Should().Be((1, 1, 1, 0, null, null, EntscheidungArt.Verlaengerung, 22));
     }
 
     [Fact]
@@ -101,7 +101,7 @@ public class SimulationsServiceRueckspielTests
     [Fact]
     public void GesamtstandAusgeglichen_OhneVerfahren_BleibtBeiDerRegulaerenSpielzeit()
     {
-        var ergebnis = Rueckspiel(2, []);
+        var ergebnis = Rueckspiel(3, []);
 
         (ergebnis.HeimToreRegulaer, ergebnis.AuswaertsToreRegulaer).Should().Be((1, 1));
         ergebnis.EntscheidungArt.Should().Be(EntscheidungArt.RegulaereSpielzeit);

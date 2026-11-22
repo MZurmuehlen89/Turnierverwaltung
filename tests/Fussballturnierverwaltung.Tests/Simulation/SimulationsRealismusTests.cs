@@ -109,7 +109,7 @@ public class SimulationsRealismusTests(RealismusStichprobe stichprobe) : IClassF
 
     // ── Heimanteil und Pausenstand (#694) ─────────────────────────────────
 
-    [Fact(Skip = "Heimanteil 53,1 % statt 54,7–56,7 %, 0:0 zur Pause 26,4 % statt höchstens 26,0 % (30 Seeds, #694) – der Heimfaktor in #694 schaltet den Test ein")]
+    [Fact(Skip = SKIP_MUTATION, SkipWhen = nameof(Mutationslauf.Aktiv), SkipType = typeof(Mutationslauf))]
     public void Heimanteil_ToreUndNullNullZurPause() =>
         Pruefen(Katalog.HeimanteilTore, Katalog.NullNullZurPause);
 

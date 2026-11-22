@@ -111,7 +111,7 @@ internal sealed class Realismuskennzahlen
 
     // ── K3 Zeitprofil ─────────────────────────────────────────────────────
 
-    public Realismuskennzahl ErsteHalbzeit { get; } = new("Anteil Tore 1. Halbzeit", 0.425, 0.465, "BL 44,6 %, LS 43,8 %", "P1",
+    public Realismuskennzahl ErsteHalbzeit { get; } = new("Anteil Tore 1. Halbzeit", 0.440, 0.465, "BL 44,6 %, LS 43,8 %", "P1", // untere Grenze 44,0 % seit #694 (K2)
         Realismusauswertung.AnteilErsteHalbzeit);
 
     public Realismuskennzahl Minute1Bis15 { get; } = new("Tore in Minute 1–15", 0.110, 0.136, "LS 12,3 %", "P1",
@@ -122,7 +122,7 @@ internal sealed class Realismuskennzahlen
 
     // ── K4 Führungssicherung ──────────────────────────────────────────────
 
-    public Realismuskennzahl Niederlage1Pause { get; } = new("+1 zur Pause: Niederlage", 0.085, 0.140, "BL 11,2 %", "P1",
+    public Realismuskennzahl Niederlage1Pause { get; } = new("+1 zur Pause: Niederlage", 0.100, 0.140, "BL 11,2 %", "P1", // untere Grenze 10,0 % seit #694 (K5)
         s => Realismusauswertung.FuehrungsAusgang(s, 45, 1).Niederlage);
 
     public Realismuskennzahl FavoritSieg { get; } = new("+1 zur Pause, Führender ist Favorit: Sieg", 0.695, 0.795, "BL 74,4 %", "P1",
