@@ -46,7 +46,9 @@ public sealed class EinzelspielWiederholungsspielTests(TurnierverwaltungApp app)
 
         Wait.Until(() => !_seite.WiederholungAusstehend, Wait.DefaultTimeout, "Platzhalter durch die Karte ersetzt");
         Spielstand.Tore(karte.Score).Should().NotBeNull();
-        _seite.GesamtLesen().Entscheidung.Should().Be("nach Wiederholungsspiel");
+        // Endet das Wiederholungsspiel torgleich, entscheidet das Los danach (Regelwerk „Wiederholungsspiel + Los“); mit festem
+        // Seed hängt es vom Spielverlauf ab, welcher der beiden Fälle fällt (#692).
+        _seite.GesamtLesen().Entscheidung.Should().BeOneOf("nach Wiederholungsspiel", "nach Losentscheid");
         _seite.SiegerzeileSichtbar.Should().BeTrue("das Wiederholungsspiel (bzw. das Los danach) entscheidet");
         _seite.WiederholungsspielKnopfAktiv.Should().BeFalse("das Wiederholungsspiel ist gespielt");
         _seite.Spielspalten.Should().Be(3);
