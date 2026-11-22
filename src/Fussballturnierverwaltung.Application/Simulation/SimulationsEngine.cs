@@ -264,7 +264,7 @@ public static class SimulationsEngine
     private const double TOR_GRUNDERWARTUNG = 1.95;
     // #694: 2,2 → 2,1 – der Heimvorteil allein vergrößert die Tordifferenzen (≥ 3 Tore Unterschied 22,79 %), die kleinere
     // Spreizung gleicht das aus (22,53 %); Messreihe über 30 Seeds im Issue. 2,0 bringt die Kalibrierung #404 zum Kippen.
-    private const double STAERKE_SPREIZUNG  = 2.1;
+    internal const double STAERKE_SPREIZUNG = 2.1;
     // #694: Der Heimanteil der Tore fehlte schon in der Start-Torerwartung (λ 53,2 % gegen real 55,7 %, Bundesliga
     // 2015/16–2024/25); die Heimstärke der Stammdaten bleibt unberührt, der Faktor schließt die Lücke: das Team
     // mit dem Ortsvorteil ×, sein Gegner ÷, auf neutralem Platz nicht.
