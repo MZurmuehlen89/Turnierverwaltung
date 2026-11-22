@@ -47,6 +47,7 @@ internal sealed class Realismuskennzahlen
             Rho, DcEinsEins, DcEinsNull, ErsteHalbzeit, Minute1Bis15, Minute76Bis90,
             Niederlage1Pause, FavoritSieg, AussenseiterSieg, Sieg1Pause, Sieg2Pause, Zuwachs, Remisklassen,
             Grosschancen, Verwertung, ElfmeterJeSpiel, ElfmeterQuote, ElfmeterAnteil, RoteKarten, Ueberzahl,
+            HeimanteilTore, NullNullZurPause,
         ];
     }
 
@@ -138,6 +139,16 @@ internal sealed class Realismuskennzahlen
 
     public Realismuskennzahl Zuwachs { get; } = new("Zuwachs der Siegquote bei +1 von 45′ auf 85′", 0.10, 0.21, "LS +15,4 Punkte", "P1",
         s => Realismusauswertung.FuehrungsAusgang(s, 85, 1).Sieg - Realismusauswertung.FuehrungsAusgang(s, 45, 1).Sieg);
+
+    // ── Heimanteil und Pausenstand (#694) ─────────────────────────────────
+
+    /// <summary>Anteil der Heimtore an allen Toren der regulären Spielzeit. Band: Realwert ± 1 Punkt (#694, K1).</summary>
+    public Realismuskennzahl HeimanteilTore { get; } = new("Heimanteil der Tore", 0.547, 0.567, "BL 55,7 %", "P1",
+        s => (double)s.Sum(x => x.HeimTore) / s.Sum(x => x.HeimTore + x.GastTore));
+
+    /// <summary>Anteil der Spiele, die zur Pause 0:0 stehen (Nachspielzeit der 1. Halbzeit zählt dazu). Höchstens 26 % (#694, K2).</summary>
+    public Realismuskennzahl NullNullZurPause { get; } = new("0:0 zur Pause", 0, 0.260, "BL 24,9 %", "P1",
+        s => Anteil(s, x => Realismusauswertung.Stand(x.Ergebnis.Ereignisse, 45) == (0, 0)));
 
     // ── K5 Struktur der Ausgangswahrscheinlichkeiten ──────────────────────
 
