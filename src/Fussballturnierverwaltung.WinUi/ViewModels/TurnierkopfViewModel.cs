@@ -91,6 +91,9 @@ public partial class TurnierkopfViewModel : ViewModelBase, IRibbonAware, IHatUng
 
     [ObservableProperty] private RegelwerkOption _standardRegelwerk = _keinStandardRegelwerk;
 
+    // ── Dynamische Teamstärke (#359) ──────────────────────────────────────────
+    [ObservableProperty] private bool _dynamischeTeamstaerke;
+
     public IReadOnlyList<RegelwerkOption> StandardRegelwerkOptionen =>
         [_keinStandardRegelwerk, .. Regelwerke.Select(r => new RegelwerkOption(r.Name, r))];
 
@@ -191,7 +194,8 @@ public partial class TurnierkopfViewModel : ViewModelBase, IRibbonAware, IHatUng
     private static readonly HashSet<string> _formFelder =
     [
         nameof(Name), nameof(Beschreibung), nameof(Variante), nameof(SaisonOderJahr), nameof(ZielMannschaftsanzahl),
-        nameof(Kategorie), nameof(Startdatum), nameof(Enddatum), nameof(LogoDaten), nameof(StandardRegelwerk)
+        nameof(Kategorie), nameof(Startdatum), nameof(Enddatum), nameof(LogoDaten), nameof(StandardRegelwerk),
+        nameof(DynamischeTeamstaerke)
     ];
 
     /// <summary>Feuert nach erfolgreichem Speichern (mit der neuen/aktualisierten Instanz), Statuswechsel
@@ -306,6 +310,7 @@ public partial class TurnierkopfViewModel : ViewModelBase, IRibbonAware, IHatUng
         Kategorie = TurnierKategorie.Benutzerdefiniert;
         Filter.Setzen(null, null, MannschaftsartFilter.Alle);
         StandardRegelwerk = _keinStandardRegelwerk;
+        DynamischeTeamstaerke = false;
         TitelGastgeber.TitelverteidigerSetzen(Filter.Wert, null);
         LogoDaten = null;
         Quoten.Leeren();
@@ -326,6 +331,7 @@ public partial class TurnierkopfViewModel : ViewModelBase, IRibbonAware, IHatUng
         Enddatum = instanz.Enddatum?.Year.ToString() ?? "";
         Filter.Setzen(instanz.VerbandId, instanz.LandId, instanz.MannschaftsartFilter);
         StandardRegelwerk = StandardRegelwerkOptionen.FirstOrDefault(o => o.Wert?.Id == instanz.StandardRegelwerkId) ?? _keinStandardRegelwerk;
+        DynamischeTeamstaerke = instanz.DynamischeTeamstaerkeAktiv;
         TitelGastgeber.TitelverteidigerSetzen(Filter.Wert, instanz.TitelverteidigerId);
         Status.GespeichertenSetzen(instanz.Status);
         LogoDaten = instanz.Logo;
@@ -434,7 +440,7 @@ public partial class TurnierkopfViewModel : ViewModelBase, IRibbonAware, IHatUng
         VerbandId: Filter.VerbandId, LandId: Filter.LandId, MannschaftsartFilter: Filter.Mannschaftsart,
         StandardRegelwerkId: StandardRegelwerk.Wert?.Id, Logo: LogoDaten,
         TitelverteidigerId: TitelGastgeber.TitelverteidigerId, Variante: Variante,
-        GastgeberIds: TitelGastgeber.GastgeberIds()));
+        GastgeberIds: TitelGastgeber.GastgeberIds(), DynamischeTeamstaerkeAktiv: DynamischeTeamstaerke));
 
     private async Task<TurnierInstanz?> AktualisierenAsync()
     {
@@ -450,7 +456,7 @@ public partial class TurnierkopfViewModel : ViewModelBase, IRibbonAware, IHatUng
             VerbandId: Filter.VerbandId, LandId: Filter.LandId, MannschaftsartFilter: Filter.Mannschaftsart,
             StandardRegelwerkId: StandardRegelwerk.Wert?.Id, Logo: LogoDaten,
             TitelverteidigerId: TitelGastgeber.TitelverteidigerId, Variante: Variante,
-            GastgeberIds: TitelGastgeber.GastgeberIds());
+            GastgeberIds: TitelGastgeber.GastgeberIds(), DynamischeTeamstaerkeAktiv: DynamischeTeamstaerke);
         await _service.VollAktualisierenAsync(instanz.Id, eingabe);
         await Quoten.ErsetzenAsync(instanz.Id, quoten);
         return instanz;

@@ -127,8 +127,13 @@
                 <TextBlock Text="Regelwerk-Standard" FontSize="12" Margin="0,0,0,3" />
                 <ComboBox ItemsSource="{Binding StandardRegelwerkOptionen}" AutomationProperties.AutomationId="Turnierkopf.StandardRegelwerk"
                           SelectedItem="{Binding StandardRegelwerk, Mode=TwoWay}"
-                          DisplayMemberPath="Anzeige" HorizontalAlignment="Stretch" Margin="0,0,0,24"
+                          DisplayMemberPath="Anzeige" HorizontalAlignment="Stretch" Margin="0,0,0,12"
                           ToolTipService.ToolTip="Wird automatisch für neue Runden im Runden-Editor vorbelegt." />
+
+                <CheckBox Content="Dynamische Teamstärke" IsChecked="{Binding DynamischeTeamstaerke, Mode=TwoWay}"
+                          AutomationProperties.AutomationId="Turnierkopf.DynamischeTeamstaerke"
+                          Margin="0,0,0,24"
+                          ToolTipService.ToolTip="Erfolge und Überraschungen verändern die Stärke der Teams im Turnierverlauf." />
 
                 <!-- ── Teilnehmer & Auslosung ──────────────────────────────────── -->
                 <TextBlock Text="TEILNEHMER &amp; AUSLOSUNG" FontWeight="SemiBold" FontSize="11" Opacity="0.6" Margin="0,0,0,12" />
