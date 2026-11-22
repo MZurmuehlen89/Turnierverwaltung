@@ -7,7 +7,7 @@ namespace Fussballturnierverwaltung.Application.Simulation;
 /// laufenden Abschnitts, Risikostufe und Platzverweise je Team, gespielte Minuten (Ermüdung). Je Minute wird die
 /// Chancenrate aus diesem Zustand neu berechnet (<see cref="Spielsituation"/>, dazu Spielstand und Spielkontrolle seit
 /// #674), jede Chance hat eine Art
-/// (<see cref="Chancenmodell"/>) und wird mit deren Quote zum Tor (#431); Je Minute fällt höchstens eine Chance
+/// (<see cref="Chancenmodell"/>) und wird mit deren Quote zum Tor (#431); je Minute fällt höchstens eine Chance
 /// (#692), ein Tor wirkt also ab der Folgeminute auf die Chancen. Karten werden ebenfalls je Minute gezogen und
 /// wirken ab der Folgeminute. Platzverweise und Ermüdung gelten bis zum Ende des Spiels, also auch in der
 /// Verlängerung.
@@ -187,7 +187,8 @@ internal sealed class Spielablauf
     /// <summary>Erst, ob überhaupt eine Chance entsteht (gemeinsame Chancenrate beider Teams), dann wessen (Anteil an
     /// der Chancenrate). Je Minute höchstens eine Chance, mit Wahrscheinlichkeit r (ab r ≥ 1 immer): mehrere Chancen
     /// je Minute (zuvor r / (1 + r) in einer Schleife) machten deren Zahl geometrisch verteilt und die Tore um rund
-    /// 3 % überstreut (Diagnose in #692). Spielstand und Spielkontrolle (#674) wirken auf die Menge, nicht auf die Güte der Chancen; der
+    /// 3 % überstreut (Diagnose in #692). Spielstand und Spielkontrolle (#674) wirken auf die Menge, nicht auf die Güte
+    /// der Chancen; der
     /// Spielstand zählt wie bei der Taktik im Rückspiel samt Hinspiel.</summary>
     private bool ChanceEntsteht(double zeitfaktor, bool verlaengerung, double heimRueckstand, double gastRueckstand, out bool heimAngriff)
     {
