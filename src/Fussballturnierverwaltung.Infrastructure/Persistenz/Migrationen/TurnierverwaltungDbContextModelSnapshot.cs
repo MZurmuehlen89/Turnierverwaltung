@@ -1031,6 +1031,11 @@ namespace Fussballturnierverwaltung.Infrastructure.Persistenz.Migrationen
                         .HasColumnType("character varying(2000)")
                         .UseCollation("deutsch");
 
+                    b.Property<bool>("DynamischeTeamstaerkeAktiv")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false);
+
                     b.Property<DateOnly?>("Enddatum")
                         .HasColumnType("date");
 

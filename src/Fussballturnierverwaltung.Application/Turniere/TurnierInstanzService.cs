@@ -70,7 +70,8 @@ public class TurnierInstanzService(
             LandId                = instanzEingabe.LandId,
             MannschaftsartFilter  = instanzEingabe.MannschaftsartFilter,
             StandardRegelwerkId   = instanzEingabe.StandardRegelwerkId,
-            TitelverteidigerId    = instanzEingabe.TitelverteidigerId
+            TitelverteidigerId    = instanzEingabe.TitelverteidigerId,
+            DynamischeTeamstaerkeAktiv = instanzEingabe.DynamischeTeamstaerkeAktiv
         };
         foreach (var gastgeberId in (instanzEingabe.GastgeberIds ?? []).Distinct())
             instanz.Gastgeber.Add(new TurnierGastgeber { MannschaftId = gastgeberId });
@@ -108,7 +109,8 @@ public class TurnierInstanzService(
             LandId                = instanzEingabe.LandId,
             MannschaftsartFilter  = instanzEingabe.MannschaftsartFilter,
             StandardRegelwerkId   = instanzEingabe.StandardRegelwerkId,
-            TitelverteidigerId    = instanzEingabe.TitelverteidigerId
+            TitelverteidigerId    = instanzEingabe.TitelverteidigerId,
+            DynamischeTeamstaerkeAktiv = instanzEingabe.DynamischeTeamstaerkeAktiv
         };
         foreach (var gastgeberId in (instanzEingabe.GastgeberIds ?? []).Distinct())
             instanz.Gastgeber.Add(new TurnierGastgeber { MannschaftId = gastgeberId });
@@ -146,6 +148,7 @@ public class TurnierInstanzService(
         instanz.MannschaftsartFilter = eingabe.MannschaftsartFilter;
         instanz.StandardRegelwerkId  = eingabe.StandardRegelwerkId;
         instanz.TitelverteidigerId   = eingabe.TitelverteidigerId;
+        instanz.DynamischeTeamstaerkeAktiv = eingabe.DynamischeTeamstaerkeAktiv;
         await repository.AktualisierenAsync(instanz, ct);
         if (eingabe.GastgeberIds is not null)
             await repository.GastgeberErsetzenAsync(id, eingabe.GastgeberIds, ct);

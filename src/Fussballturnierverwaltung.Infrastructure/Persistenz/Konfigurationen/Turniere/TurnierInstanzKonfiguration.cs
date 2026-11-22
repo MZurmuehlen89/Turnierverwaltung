@@ -17,6 +17,7 @@ public class TurnierInstanzKonfiguration : IEntityTypeConfiguration<TurnierInsta
         builder.Property(t => t.Kategorie).IsRequired();
         builder.Property(t => t.Status).IsRequired();
         builder.Property(t => t.StaerkeSeed);
+        builder.Property(t => t.DynamischeTeamstaerkeAktiv).IsRequired().HasDefaultValue(false);
         builder.Property(t => t.Startdatum);
         builder.Property(t => t.Enddatum);
 

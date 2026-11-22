@@ -43,7 +43,8 @@ public class TurnierKlonService(
             VerbandId             = quelle.VerbandId,
             LandId                = quelle.LandId,
             MannschaftsartFilter  = quelle.MannschaftsartFilter,
-            StandardRegelwerkId   = quelle.StandardRegelwerkId
+            StandardRegelwerkId   = quelle.StandardRegelwerkId,
+            DynamischeTeamstaerkeAktiv = quelle.DynamischeTeamstaerkeAktiv
         };
 
         var rundenNachQuellId = new Dictionary<int, TurnierRunde>();

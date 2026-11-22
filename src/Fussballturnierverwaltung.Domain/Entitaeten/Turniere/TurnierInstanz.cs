@@ -26,6 +26,11 @@ public class TurnierInstanz : BasisEntitaet
     /// und nicht in Klone kopiert.</summary>
     public int? StaerkeSeed { get; set; }
 
+    /// <summary>#359: Schalter „Dynamische Teamstärke“ – Erfolge und Überraschungen verändern die Stärke der Teams im
+    /// Turnierverlauf (Elo-Modell, <c>DynamischeTeamstaerke</c>). Standard aus; der Stand wird nicht gespeichert, sondern aus den
+    /// Ergebnissen berechnet. Wird in Klone kopiert.</summary>
+    public bool DynamischeTeamstaerkeAktiv { get; set; }
+
     public int? StandardRegelwerkId { get; set; }
     public Regelwerk? StandardRegelwerk { get; set; }
 

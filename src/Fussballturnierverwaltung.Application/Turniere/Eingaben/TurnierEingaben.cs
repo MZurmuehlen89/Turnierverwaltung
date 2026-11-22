@@ -20,7 +20,8 @@ public record TurnierInstanzVollAktualisierenEingabe(
     byte[]? Logo = null,
     int? TitelverteidigerId = null,
     string Variante = "",
-    IReadOnlyList<int>? GastgeberIds = null);
+    IReadOnlyList<int>? GastgeberIds = null,
+    bool DynamischeTeamstaerkeAktiv = false);
 
 public record TurnierInstanzErstellenEingabe(
     string Name,
@@ -38,7 +39,8 @@ public record TurnierInstanzErstellenEingabe(
     byte[]? Logo = null,
     int? TitelverteidigerId = null,
     string Variante = "",
-    IReadOnlyList<int>? GastgeberIds = null);
+    IReadOnlyList<int>? GastgeberIds = null,
+    bool DynamischeTeamstaerkeAktiv = false);
 
 public record TurnierAktualisierenEingabe(
     string Name,
