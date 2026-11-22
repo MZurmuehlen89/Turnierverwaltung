@@ -119,6 +119,17 @@ public sealed class StammdatenEditor(
     public void WertSetzen(string feld, string wert) =>
         fenster.FindById($"{praefix}.{feld}").Patterns.Value.Pattern.SetValue(wert);
 
+    /// <summary>Ob die Checkbox <c>&lt;Präfix&gt;.<paramref name="feld"/></c> gesetzt ist.</summary>
+    public bool Schalter(string feld) =>
+        fenster.FindById($"{praefix}.{feld}").Patterns.Toggle.Pattern.ToggleState.Value == FlaUI.Core.Definitions.ToggleState.On;
+
+    /// <summary>Setzt die Checkbox <c>&lt;Präfix&gt;.<paramref name="feld"/></c> auf <paramref name="aktiv"/>.</summary>
+    public void SchalterSetzen(string feld, bool aktiv)
+    {
+        if (Schalter(feld) != aktiv)
+            fenster.FindById($"{praefix}.{feld}").Patterns.Toggle.Pattern.Toggle();
+    }
+
     /// <summary>Wert des Schiebereglers <c>&lt;Präfix&gt;.<paramref name="feld"/></c>.</summary>
     public int Regler(string feld) => (int)fenster.FindById($"{praefix}.{feld}").Patterns.RangeValue.Pattern.Value.Value;
 
