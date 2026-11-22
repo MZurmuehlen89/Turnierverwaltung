@@ -23,19 +23,19 @@ public sealed class DynamischeTeamstaerkeTests(TurnierverwaltungApp app) : IClas
         kopf.SpeichernFreigabeAbwarten(true).Should().BeTrue("die Änderung macht das Formular ungespeichert");
         kopf.Speichern();
 
-        NeuOeffnen(kopf, name).Schalter("DynamischeTeamstaerke").Should().BeTrue("der Wert bleibt gespeichert");
+        NeuOeffnen(name).Schalter("DynamischeTeamstaerke").Should().BeTrue("der Wert bleibt gespeichert");
 
         kopf.SchalterSetzen("DynamischeTeamstaerke", false);
         kopf.SpeichernFreigabeAbwarten(true).Should().BeTrue();
         kopf.Speichern();
 
-        NeuOeffnen(kopf, name).Schalter("DynamischeTeamstaerke").Should().BeFalse();
+        NeuOeffnen(name).Schalter("DynamischeTeamstaerke").Should().BeFalse();
     }
 
-    private Seiten.StammdatenEditor NeuOeffnen(Seiten.StammdatenEditor kopf, string name)
+    private Seiten.StammdatenEditor NeuOeffnen(string name)
     {
         app.Hauptfenster.MannschaftenOeffnen();
-        kopf = app.Hauptfenster.TurniereOeffnen().Kopf();
+        var kopf = app.Hauptfenster.TurniereOeffnen().Kopf();
         kopf.Auswaehlen(name);
         return kopf;
     }
