@@ -92,13 +92,13 @@ public class SpielablaufTaktikTests
     }
 
     [Fact]
-    public void ZweiToreInEinerMinute_DasZweiteRechnetMitDemNeuenStand()
+    public void TorDerFolgeminute_RechnetMitDemNeuenStand()
     {
-        // Minute 86: Heimtor, beide Teams stellen sofort um (#673: ein Tor löst den Wechsel ohne Wurf aus), Ausgleich,
+        // Minute 86: Heimtor, beide Teams stellen sofort um (#673: ein Tor löst den Wechsel ohne Wurf aus), Ausgleich in der 87.,
         // beide kehren zur gewohnten Ordnung zurück. Der Gast als Außenseiter ist erst offensiv, nicht alles nach vorn.
         var zufall = new Ablauffolge()
             .Ruhig(45).Nachspielzeit(JA).Ruhig(1).Ruhig(40)
-            .Tor(heim: true).Tor(heim: false).KeinTor().Karten()
+            .MinuteMitTor(heim: true).MinuteMitTor(heim: false)
             .Zufall();
 
         var e = Simulieren(zufall);
@@ -107,9 +107,9 @@ public class SpielablaufTaktikTests
             (86, null, EreignisArt.Tor, true, KOPFBALL),
             (86, null, EreignisArt.Taktikwechsel, true, "Zieht sich zurück und verteidigt die Führung"),
             (86, null, EreignisArt.Taktikwechsel, false, "Stellt auf Offensive um"),
-            (86, null, EreignisArt.Tor, false, KOPFBALL),
-            (86, null, EreignisArt.Taktikwechsel, true, "Kehrt zur gewohnten Ordnung zurück"),
-            (86, null, EreignisArt.Taktikwechsel, false, "Kehrt zur gewohnten Ordnung zurück"));
+            (87, null, EreignisArt.Tor, false, KOPFBALL),
+            (87, null, EreignisArt.Taktikwechsel, true, "Kehrt zur gewohnten Ordnung zurück"),
+            (87, null, EreignisArt.Taktikwechsel, false, "Kehrt zur gewohnten Ordnung zurück"));
         (e.HeimToreRegulaer, e.AuswaertsToreRegulaer).Should().Be((1, 1));
     }
 
@@ -121,7 +121,7 @@ public class SpielablaufTaktikTests
     {
         var zufall = new Ablauffolge()
             .Ruhig(45).Nachspielzeit(JA).Ruhig(1).Ruhig(38)
-            .Tor(heim: true).KeinTor().Karten(rotHeim: true)    // 84.: 1:0, Rot gegen den Führenden
+            .Tor(heim: true).Karten(rotHeim: true)    // 84.: 1:0, Rot gegen den Führenden
             .Taktikwurf(JA).Ruhig(1)                            // 85.: der Gast in Überzahl legt nach (alles nach vorn)
             .MinuteMitTor(heim: false)                          // 86.: 1:1
             .Zufall();

@@ -8,7 +8,7 @@ namespace Fussballturnierverwaltung.Tests.Simulation;
 
 /// <summary>Rückspiel der freien Hin-/Rückspiel-Simulation samt Entscheidungsverfahren (#509 Schnitt C, K3): bei festem
 /// Seed exakt dasselbe Ergebnis wie vor dem Verschieben in den Service. Die Erwartungen stammen vom unverändert
-/// verschobenen Code (Hinspiel 1:1, Rückspiel-Heim = <c>GastTeam</c>, Rückspiel-Gast = <c>HeimTeam</c>).</summary>
+/// verschobenen Code, seit #692 (eine Chance je Minute) mit Seeds derselben Lagen neu erzeugt (Hinspiel 1:1, Rückspiel-Heim = <c>GastTeam</c>, Rückspiel-Gast = <c>HeimTeam</c>).</summary>
 public class SimulationsServiceRueckspielTests
 {
     private static readonly SimulationsErgebnis _hinspielEinsZuEins =
@@ -81,27 +81,27 @@ public class SimulationsServiceRueckspielTests
     public void GesamtstandNach90MinutenEntschieden_KeinVerfahren()
     {
         Kennzahlen(Rueckspiel(5, _verlaengerungDannElfmeter))
-            .Should().Be((2, 0, null, null, null, null, EntscheidungArt.RegulaereSpielzeit, 7));
+            .Should().Be((1, 0, null, null, null, null, EntscheidungArt.RegulaereSpielzeit, 7));
     }
 
     [Fact]
     public void GesamtstandAusgeglichen_RueckspielGehtInDieVerlaengerung()
     {
-        Kennzahlen(Rueckspiel(1, _verlaengerungDannElfmeter))
-            .Should().Be((1, 1, 1, 0, null, null, EntscheidungArt.Verlaengerung, 16));
+        Kennzahlen(Rueckspiel(2, _verlaengerungDannElfmeter))
+            .Should().Be((1, 1, 1, 0, null, null, EntscheidungArt.Verlaengerung, 19));
     }
 
     [Fact]
     public void GesamtstandAusgeglichen_NachVerlaengerungKeinSieger_Elfmeterschiessen()
     {
-        Kennzahlen(Rueckspiel(4, _verlaengerungDannElfmeter))
-            .Should().Be((0, 0, 0, 0, 5, 6, EntscheidungArt.Elfmeterschiessen, 21));
+        Kennzahlen(Rueckspiel(18, _verlaengerungDannElfmeter))
+            .Should().Be((0, 0, 0, 0, 3, 4, EntscheidungArt.Elfmeterschiessen, 18));
     }
 
     [Fact]
     public void GesamtstandAusgeglichen_OhneVerfahren_BleibtBeiDerRegulaerenSpielzeit()
     {
-        var ergebnis = Rueckspiel(1, []);
+        var ergebnis = Rueckspiel(2, []);
 
         (ergebnis.HeimToreRegulaer, ergebnis.AuswaertsToreRegulaer).Should().Be((1, 1));
         ergebnis.EntscheidungArt.Should().Be(EntscheidungArt.RegulaereSpielzeit);

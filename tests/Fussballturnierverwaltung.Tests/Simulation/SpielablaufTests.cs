@@ -53,6 +53,19 @@ public class SpielablaufTests
 
         zufall.Verbraucht.Should().Be((45 + erste + 45 + zweite) * 5 + 2);
     }
+    /// <summary>#692 K8: Nach einer Chance – auch nach einem Tor – folgt in derselben Minute keine weitere. Die Folge
+    /// hat je Minute genau einen Chancenwurf; fiele ein zweiter, läse die Folgeminute dessen Wert (Tor statt Karten).</summary>
+    [Fact]
+    public void EineChanceJeMinute_NachEinemTorFolgtInDerselbenMinuteKeineZweite()
+    {
+        var zufall = new Ablauffolge().MinuteMitTor(heim: true).MinuteMitTor(heim: false).Zufall();
+
+        var e = Simulieren(zufall);
+
+        Kurz(e.Ereignisse.Where(x => x.Art == EreignisArt.Tor)).Should().Equal(
+            (1, null, EreignisArt.Tor, true, KOPFBALL),
+            (2, null, EreignisArt.Tor, false, KOPFBALL));
+    }
 
     [Theory]
     [InlineData(JA, 0)]
@@ -115,7 +128,7 @@ public class SpielablaufTests
         double artWurf, double textWurf, string text, Chancenart art)
     {
         var e = Simulieren(new Ablauffolge()
-            .ChanceVergeben(heim: false, artWurf, textWurf).KeinTor().Karten()
+            .ChanceVergeben(heim: false, artWurf, textWurf).Karten()
             .Zufall());
 
         e.Ereignisse.Should().ContainSingle()
@@ -126,7 +139,7 @@ public class SpielablaufTests
     [Fact]
     public void VergebeneNormaleChance_ErzeugtKeinEreignis()
     {
-        var e = Simulieren(new Ablauffolge().ChanceVergeben(heim: true, NEIN).KeinTor().Karten().Zufall());
+        var e = Simulieren(new Ablauffolge().ChanceVergeben(heim: true, NEIN).Karten().Zufall());
 
         e.Ereignisse.Should().BeEmpty();
     }
@@ -135,7 +148,7 @@ public class SpielablaufTests
     public void VerwandelterElfmeter_IstEinTorMitChancenartElfmeter()
     {
         var e = Simulieren(new Ablauffolge()
-            .Hinzu(JA, JA, JA, JA, 0.0).KeinTor().Karten()
+            .Hinzu(JA, JA, JA, JA, 0.0).Karten()
             .Zufall());
 
         e.Ereignisse.Where(x => x.Art == EreignisArt.Tor).Should().ContainSingle()
@@ -179,7 +192,7 @@ public class SpielablaufTests
     {
         var e = Simulieren(new Ablauffolge()
             .KeinTor().Karten(rotHeim: karteInMinute1)
-            .Hinzu(JA, 0.6, NEIN, JA).Hinzu(TorstilOhneKonter).KeinTor().Karten()
+            .Hinzu(JA, 0.6, NEIN, JA).Hinzu(TorstilOhneKonter).Karten()
             .Zufall());
 
         e.Ereignisse.Single(x => x.Art == EreignisArt.Tor).Should().Be(
@@ -191,7 +204,7 @@ public class SpielablaufTests
     {
         // Die Tore einer Minute fallen vor ihren Karten: trotz Roter Karte in Minute 1 trifft das Heimteam dort mit 0,6.
         var e = Simulieren(new Ablauffolge()
-            .Hinzu(JA, 0.6, NEIN, JA).Hinzu(TorstilOhneKonter).KeinTor().Karten(rotHeim: true)
+            .Hinzu(JA, 0.6, NEIN, JA).Hinzu(TorstilOhneKonter).Karten(rotHeim: true)
             .Zufall());
 
         Kurz(e.Ereignisse.Where(x => x.Art is EreignisArt.Tor or EreignisArt.RoteKarte)).Should().Equal(

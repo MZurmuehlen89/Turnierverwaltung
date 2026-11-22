@@ -29,7 +29,7 @@ public class SpielablaufSchwungTests
     {
         foreach (bool heim in tore)
             folge.MinuteMitTor(heim);
-        folge.Hinzu(JA, wurf, NEIN, JA).Hinzu(TorstilOhneKonter).KeinTor().Karten();
+        folge.Hinzu(JA, wurf, NEIN, JA).Hinzu(TorstilOhneKonter).Karten();
 
         var e = SimulationsEngine.Simulieren(
             HeimTeam(), GastTeam(), VerfahrenKette(verfahren), ausfuehrlich: true, folge.Zufall(), hinspielstand: hinspielstand);
@@ -89,7 +89,7 @@ public class SpielablaufSchwungTests
         var folge = new Ablauffolge()
             .MinuteMitTor(true).MinuteMitTor(false).Ruhig(43).Nachspielzeit(NEIN).Ruhig(3)
             .Ruhig(45).Nachspielzeit(NEIN).Ruhig(6)
-            .Hinzu(JA, PROBE_HEIM_OHNE_SCHWUNG, NEIN, JA).Hinzu(TorstilOhneKonter).KeinTor().Karten();
+            .Hinzu(JA, PROBE_HEIM_OHNE_SCHWUNG, NEIN, JA).Hinzu(TorstilOhneKonter).Karten();
 
         var e = SimulationsEngine.Simulieren(
             HeimTeam(), GastTeam(), VerfahrenKette(VerfahrenArt.VerlaengerungKlassisch), ausfuehrlich: true, folge.Zufall());

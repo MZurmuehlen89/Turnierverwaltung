@@ -63,7 +63,7 @@ internal sealed class Ablauffolge
     }
 
     /// <summary>Eine Minute mit genau diesem Tor.</summary>
-    public Ablauffolge MinuteMitTor(bool heim) => Tor(heim).KeinTor().Karten();
+    public Ablauffolge MinuteMitTor(bool heim) => Tor(heim).Karten();
 
     /// <summary>Wert für die Nachspielzeit: <see cref="JA"/> = kürzeste, <see cref="NEIN"/> = längste.</summary>
     public Ablauffolge Nachspielzeit(double wert) => Hinzu(wert);

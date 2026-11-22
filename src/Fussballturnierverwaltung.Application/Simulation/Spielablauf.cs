@@ -7,8 +7,8 @@ namespace Fussballturnierverwaltung.Application.Simulation;
 /// laufenden Abschnitts, Risikostufe und Platzverweise je Team, gespielte Minuten (Ermüdung). Je Minute wird die
 /// Chancenrate aus diesem Zustand neu berechnet (<see cref="Spielsituation"/>, dazu Spielstand und Spielkontrolle seit
 /// #674), jede Chance hat eine Art
-/// (<see cref="Chancenmodell"/>) und wird mit deren Quote zum Tor (#431); Chancen fallen nacheinander, eine zweite
-/// Chance derselben Minute rechnet mit dem neuen Spielstand. Karten werden ebenfalls je Minute gezogen und
+/// (<see cref="Chancenmodell"/>) und wird mit deren Quote zum Tor (#431); Je Minute fällt höchstens eine Chance
+/// (#692), ein Tor wirkt also ab der Folgeminute auf die Chancen. Karten werden ebenfalls je Minute gezogen und
 /// wirken ab der Folgeminute. Platzverweise und Ermüdung gelten bis zum Ende des Spiels, also auch in der
 /// Verlängerung.
 /// </summary>
@@ -29,8 +29,6 @@ internal sealed class Spielablauf
     private const double KARTEN_KORREKTUR   = 0.9;
     // Ab dem fünften Platzverweis würde ein Spiel abgebrochen – so weit lässt die Simulation es nicht kommen.
     private const int MAX_PLATZVERWEISE = 4;
-    // Nur eine Sicherung gegen Endlosschleifen; mehr als zwei Chancen in einer Minute kommen praktisch nicht vor.
-    private const int MAX_CHANCEN_JE_MINUTE = 8;
 
     private static readonly string[] _grosschanceVergeben =
         ["Großchance vergeben – vom Torhüter pariert", "Großchance vergeben – Pfosten", "Großchance vergeben – knapp vorbei"];
@@ -169,13 +167,11 @@ internal sealed class Spielablauf
         double heimRueckstand = Spielsituation.Konditionsrueckstand(ermuedung, _profile.Heim.Ermuedungsfaktor);
         double gastRueckstand = Spielsituation.Konditionsrueckstand(ermuedung, _profile.Gast.Ermuedungsfaktor);
 
-        for (int chance = 0; chance < MAX_CHANCEN_JE_MINUTE && ChanceEntsteht(zeitfaktor, minute > ENDE_REGULAER, heimRueckstand, gastRueckstand, out bool heimAngriff); chance++)
+        if (ChanceEntsteht(zeitfaktor, minute > ENDE_REGULAER, heimRueckstand, gastRueckstand, out bool heimAngriff)
+            && ChanceSpielen(minute, nachspielminute, heimAngriff, goldenGoal))
         {
-            if (ChanceSpielen(minute, nachspielminute, heimAngriff, goldenGoal))
-            {
-                if (goldenGoal) return true;
-                TaktikAnpassen(minute, nachspielminute, verbleibend, nachTor: true);
-            }
+            if (goldenGoal) return true;
+            TaktikAnpassen(minute, nachspielminute, verbleibend, nachTor: true);
         }
 
         KartenZiehen(minute, nachspielminute, ermuedung);
@@ -189,8 +185,9 @@ internal sealed class Spielablauf
         _rng is IZufallsabzweigung abzweigung ? abzweigung.Abzweigen() : new Random(_rng.Next(int.MaxValue)));
 
     /// <summary>Erst, ob überhaupt eine Chance entsteht (gemeinsame Chancenrate beider Teams), dann wessen (Anteil an
-    /// der Chancenrate). Die Wahrscheinlichkeit r / (1 + r) macht die erwartete Zahl Chancen der Schleife je Minute
-    /// genau gleich r. Spielstand und Spielkontrolle (#674) wirken auf die Menge, nicht auf die Güte der Chancen; der
+    /// der Chancenrate). Je Minute höchstens eine Chance, mit Wahrscheinlichkeit r (ab r ≥ 1 immer): mehrere Chancen
+    /// je Minute (zuvor r / (1 + r) in einer Schleife) machten deren Zahl geometrisch verteilt und die Tore um rund
+    /// 3 % überstreut (Diagnose in #692). Spielstand und Spielkontrolle (#674) wirken auf die Menge, nicht auf die Güte der Chancen; der
     /// Spielstand zählt wie bei der Taktik im Rückspiel samt Hinspiel.</summary>
     private bool ChanceEntsteht(double zeitfaktor, bool verlaengerung, double heimRueckstand, double gastRueckstand, out bool heimAngriff)
     {
@@ -203,7 +200,7 @@ internal sealed class Spielablauf
                       * Spielsituation.Konditionsfaktor(gastRueckstand, heimRueckstand) * Spielsituation.Schwungfaktor(-_schwung, verlaengerung);
         double gesamt = heim + gast;
         heimAngriff = false;
-        if (_rng.NextDouble() >= gesamt / (1 + gesamt))
+        if (_rng.NextDouble() >= gesamt)
             return false;
 
         heimAngriff = _rng.NextDouble() < heim / gesamt;
