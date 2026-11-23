@@ -135,6 +135,7 @@ public partial class App : global::Microsoft.UI.Xaml.Application
         builder.Services.AddScoped<SpielErgebnisService>();
         builder.Services.AddScoped<TurnierBaumService>();
         builder.Services.AddScoped<BracketLeser>();
+        builder.Services.AddScoped<TabellenbedarfQuelle>();
         builder.Services.AddScoped<SimulationsService>();
         builder.Services.AddScoped<RanglisteService>();
         builder.Services.AddScoped<ImportExportService>();

@@ -27,7 +27,8 @@ internal static class SimulationsDienste
         var ergebnisService = new SpielErgebnisService(
             spielRepo, new SpielErgebnisValidator(), dienste.Aufloesung, dienste.Kaskade, NullLogger<SpielErgebnisService>.Instance);
         return new SimulationsService(
-            spielRepo, instanzRepo, ergebnisService,
-            new SimulationsLaufRepository(ctx), zufallsquelle, NullLogger<SimulationsService>.Instance);
+            spielRepo, instanzRepo, ergebnisService, new SimulationsLaufRepository(ctx),
+            new TabellenbedarfQuelle(new TurnierRundeRepository(ctx), new UebergangsregelRepository(ctx), new RegelwerkRepository(ctx)),
+            zufallsquelle, NullLogger<SimulationsService>.Instance);
     }
 }

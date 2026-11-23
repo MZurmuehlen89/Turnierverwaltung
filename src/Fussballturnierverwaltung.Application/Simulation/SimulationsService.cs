@@ -13,12 +13,13 @@ using Microsoft.Extensions.Logging;
 
 namespace Fussballturnierverwaltung.Application.Simulation;
 
-#pragma warning disable S107 // sechs Abhängigkeiten, eine Verantwortung (Spiele würfeln und speichern); Zufallsquelle und Logger sind Querschnitt (#503)
+#pragma warning disable S107 // sieben Abhängigkeiten, eine Verantwortung (Spiele würfeln und speichern); Zufallsquelle und Logger sind Querschnitt (#503), die Tabellenquelle liefert den Bedarf (#176)
 public class SimulationsService(
     ISpielRepository spielRepository,
     ITurnierInstanzRepository instanzRepository,
     SpielErgebnisService ergebnisService,
     ISimulationsLaufRepository laufRepository,
+    TabellenbedarfQuelle tabellenbedarfQuelle,
     Zufallsquelle zufallsquelle,
     ILogger<SimulationsService> logger)
 #pragma warning restore S107
@@ -160,16 +161,19 @@ public class SimulationsService(
         // #359: bei eingeschalteter dynamischer Teamstärke zusätzlich der Stand aus den Ergebnissen davor.
         var vorgang = await VorgangAsync(spiel, vorgaenge, ct);
         var turnierform = vorgang.Form(spiel);
+        // #176: in Liga und Gruppenphase braucht jedes Team nach der Tabellenlage vor dem Spieltag etwas anderes.
+        var tabellenbedarf = await TabellenbedarfAsync(spiel, runde, vorgang, ct);
         var ergebnis = SimulationsEngine.Simulieren(
             spiel.HeimMannschaft!, spiel.AuswaertsMannschaft!,
             istKoHinspiel || istKoRueckspiel ? [] : verfahren, ausfuehrlich: true, rng, spielortvorteil,
-            runde.Ueberraschungsfaktor, hinspielstand, runde.Spielbedeutung, runde.NeutralerSpielort, turnierform);
+            runde.Ueberraschungsfaktor, hinspielstand, runde.Spielbedeutung, runde.NeutralerSpielort, turnierform, tabellenbedarf);
 
         if (istKoRueckspiel && verfahren.Count > 0)
             ergebnis = RueckspielEntscheiden(ergebnis, spiel, verfahren, rng, spielortvorteil, turnierform);
 
         await SpeichernAsync(spiel, ergebnis, ct);
         vorgang.Verlauf?.Setzen(spiel, ergebnis);
+        vorgang.Tabellenbedarf?.Setzen(spiel, ergebnis);
 
         // Debug statt Information: je Spiel eine Zeile würde das Ablaufprotokoll (#413) bei einer
         // Massensimulation fluten — dort genügt die Zusammenfassung je Block.
@@ -202,8 +206,25 @@ public class SimulationsService(
         return vorgaenge[spiel.TurnierInstanzId] = new TurnierVorgang(seed, verlauf);
     }
 
-    private sealed record TurnierVorgang(int StaerkeSeed, DynamischeTeamstaerkeVerlauf? Verlauf)
+    /// <summary>Der Bedarf des Spiels (#176) aus dem Stand vor seinem Spieltag; nur für Runden mit Tabelle (Liga, Gruppenphase, Topf-Liga),
+    /// sonst <c>null</c>. Der Stand des Turniers wird je Vorgang einmal geladen, beim ersten solchen Spiel.</summary>
+    private async Task<TabellenbedarfJeTeam?> TabellenbedarfAsync(Spiel spiel, TurnierRunde runde, TurnierVorgang vorgang, CancellationToken ct)
     {
+        if (!TabellenbedarfQuelle.KenntBedarf(runde.Rundenart)) return null;
+
+        vorgang.Tabellenbedarf ??= await tabellenbedarfQuelle.AnlegenAsync(
+            await spielRepository.AlleNachInstanzAsync(spiel.TurnierInstanzId, ct), ct);
+        return vorgang.Tabellenbedarf.BedarfFuer(spiel);
+    }
+
+    private sealed class TurnierVorgang(int staerkeSeed, DynamischeTeamstaerkeVerlauf? verlauf)
+    {
+        public int StaerkeSeed { get; } = staerkeSeed;
+        public DynamischeTeamstaerkeVerlauf? Verlauf { get; } = verlauf;
+
+        /// <summary>#176 der Tabellenstand des Turniers, beim ersten Spiel einer Runde mit Tabelle geladen.</summary>
+        public TabellenbedarfVerlauf? Tabellenbedarf { get; set; }
+
         /// <summary>#679 die verborgene Turnierstärke beider Teams, bei aktivem Verlauf um die dynamische Teamstärke ergänzt.</summary>
         public Turnierform Form(Spiel spiel)
         {
