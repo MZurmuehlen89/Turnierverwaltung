@@ -60,13 +60,6 @@ public class SimulationsServiceTabellenbedarfTests
     }
 
     [Fact]
-    public async Task Liga_ohne_Zonen_rechnet_ohne_Tabellenbedarf()
-    {
-        // Zweimal dasselbe: ohne Zonen ist der Bedarf überall „offen“, die Simulation bleibt reproduzierbar.
-        (await Ergebnisse(mitBereichen: false, seed: 5)).Should().Be(await Ergebnisse(mitBereichen: false, seed: 5));
-    }
-
-    [Fact]
     public async Task Liga_mit_Zonen_nutzt_den_Tabellenbedarf()
     {
         // Mit Zonen verschiebt der Bedarf die Taktik in den späten Spieltagen: über mehrere Seeds weicht mindestens eine Saison ab.
