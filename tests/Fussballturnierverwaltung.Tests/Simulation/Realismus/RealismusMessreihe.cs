@@ -10,7 +10,7 @@ namespace Fussballturnierverwaltung.Tests.Simulation.Realismus;
 /// (Mittel, Streuung über die Seeds, mittlerer Jackknife-SE, Zahl roter Seeds ohne und mit Rauschzuschlag).
 /// Aufruf (PowerShell, ~13 s je Seed):
 /// <c>$env:REALISMUS_SEEDS='678,1,2,3'; dotnet test --project tests/Fussballturnierverwaltung.Tests -- --filter-class "*RealismusMessreihe" --explicit only</c>
-/// – <c>REALISMUS_DYNAMIK=1</c> schaltet die dynamische Teamstärke zu (#359), <c>REALISMUS_SEEDS</c> (Standard 678 und 1–29), <c>REALISMUS_AUSGABE</c> (CSV, Standard <c>realismus-messreihe.csv</c>
+/// – <c>REALISMUS_DYNAMIK=1</c> schaltet die dynamische Teamstärke zu (#359), <c>REALISMUS_LAGE=1</c> die Tabellenlage (#176), <c>REALISMUS_SEEDS</c> (Standard 678 und 1–29), <c>REALISMUS_AUSGABE</c> (CSV, Standard <c>realismus-messreihe.csv</c>
 /// im Temp-Ordner; die Zusammenfassung liegt daneben als <c>.zusammenfassung.txt</c>).
 /// </summary>
 public class RealismusMessreihe
@@ -26,13 +26,16 @@ public class RealismusMessreihe
 
         // #359: REALISMUS_DYNAMIK=1 spielt die Saisons mit dynamischer Teamstärke (K 20) in Spielplan-Reihenfolge.
         bool dynamik = Environment.GetEnvironmentVariable("REALISMUS_DYNAMIK") == "1";
+        // #176: REALISMUS_LAGE=1 wendet den Tabellenbedarf an (Bundesliga-Zonen 1 / 6 / 15, Spielplan-Reihenfolge).
+        var lage = Environment.GetEnvironmentVariable("REALISMUS_LAGE") == "1"
+            ? RealismusStichprobe.Tabellenlage.Anwenden : RealismusStichprobe.Tabellenlage.Ohne;
         var namen = new Realismuskennzahlen([]).Alle.Select(k => k.Name).ToList();
         var csv = new StringBuilder("Seed;" + string.Join(";", namen.SelectMany(n => new[] { n, n + " SE" })) + "\n");
         var werte = new List<(double Wert, double Se)[]>();
 
         foreach (int seed in seeds)
         {
-            var spiele = RealismusStichprobe.Erzeugen(seed, dynamik);
+            var spiele = RealismusStichprobe.Erzeugen(seed, dynamik, lage);
             var katalog = new Realismuskennzahlen(spiele);
             var zeile = katalog.Alle
                 .Select(k => (Wert: k.Messen(spiele), Se: Rauschschaetzung.Standardfehler(k, spiele)))
