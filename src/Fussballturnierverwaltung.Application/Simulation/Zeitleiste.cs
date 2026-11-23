@@ -1,3 +1,4 @@
+using Fussballturnierverwaltung.Domain.Entitaeten.Spiele;
 using Fussballturnierverwaltung.Domain.Enums;
 
 namespace Fussballturnierverwaltung.Application.Simulation;
@@ -39,6 +40,12 @@ public sealed record ZeitleistenEreignis(
 {
     public static ZeitleistenEreignis Aus(SimuliertesEreignis e) =>
         new(e.Minute, e.Nachspielminute, e.Art, e.IstHeim, e.Beschreibung, e.ImWiederholungsspiel);
+
+    /// <summary>Gespeicherte Ereignisse eines Spiels (#688). Sortiert nach Id (#361), damit Ereignisse derselben
+    /// Minute in der Reihenfolge ihrer Entstehung bleiben; Heimseite ist, wer die Mannschafts-Id des Heimteams trägt.</summary>
+    public static IReadOnlyList<ZeitleistenEreignis> Aus(IEnumerable<SpielEreignis> ereignisse, int? heimMannschaftId) =>
+        ereignisse.OrderBy(ev => ev.Id).Select(ev => new ZeitleistenEreignis(
+            ev.Minute, ev.Nachspielminute, ev.EreignisArt, ev.MannschaftId == heimMannschaftId, ev.Beschreibung, ev.ImWiederholungsspiel)).ToList();
 }
 
 /// <summary>Baut die Ereigniszeitleiste eines Spiels inkl. Abschnittstrenner (Halbzeit, 90 Minuten,

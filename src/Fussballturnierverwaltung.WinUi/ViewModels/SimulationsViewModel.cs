@@ -557,9 +557,7 @@ public partial class SimulationsViewModel : ViewModelBase, IRibbonAware
             var kopf = SpielKopf.Aus(
                 kontext, new SpielSeite(spiel.HeimMannschaft, heim), new SpielSeite(spiel.AuswaertsMannschaft, auswaerts), ergebnis, untertitel);
 
-            // #361: nach Id, damit Ereignisse derselben Minute in der Reihenfolge ihrer Entstehung bleiben.
-            var ereignisse = spiel.Ereignisse.OrderBy(ev => ev.Id).Select(ev => new ZeitleistenEreignis(
-                ev.Minute, ev.Nachspielminute, ev.EreignisArt, ev.MannschaftId == spiel.HeimMannschaftId, ev.Beschreibung, ev.ImWiederholungsspiel));
+            var ereignisse = ZeitleistenEreignis.Aus(spiel.Ereignisse, spiel.HeimMannschaftId);
             var heimSeite      = new SpielSeite(spiel.HeimMannschaft, heim);
             var auswaertsSeite = new SpielSeite(spiel.AuswaertsMannschaft, auswaerts);
             var zeilen = Zeitleiste.Erstellen(ergebnis, ereignisse, heimSeite, auswaertsSeite).ToList();

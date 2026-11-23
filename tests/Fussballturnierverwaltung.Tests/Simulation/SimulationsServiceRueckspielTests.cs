@@ -6,9 +6,10 @@ using Fussballturnierverwaltung.Domain.Enums;
 
 namespace Fussballturnierverwaltung.Tests.Simulation;
 
-/// <summary>Rückspiel der freien Hin-/Rückspiel-Simulation samt Entscheidungsverfahren (#509 Schnitt C, K3): bei festem
-/// Seed exakt dasselbe Ergebnis wie vor dem Verschieben in den Service. Die Erwartungen stammen vom unverändert
-/// verschobenen Code, seit #692 (eine Chance je Minute) und #694 (Heimvorteil, Spreizung, Zeitprofil) mit Seeds derselben Lagen neu erzeugt (Hinspiel 1:1, Rückspiel-Heim = <c>GastTeam</c>, Rückspiel-Gast = <c>HeimTeam</c>).</summary>
+/// <summary>Rückspiel der freien Hin-/Rückspiel-Simulation samt Entscheidungsverfahren (#509 Schnitt C, K3). Seit #688
+/// prüfen die Tests die Struktur des Ausgangs (Art, Gesamtstand, angehängte Zusatzereignisse) über mehrere Seeds und
+/// pinnen keinen Zufallsstrom mehr – eine Kalibrierung (#669, #679, …) macht sie nicht rot. Lage: Hinspiel 1:1,
+/// Rückspiel-Heim = <c>GastTeam</c>, Rückspiel-Gast = <c>HeimTeam</c>.</summary>
 public class SimulationsServiceRueckspielTests
 {
     private static readonly SimulationsErgebnis _hinspielEinsZuEins =
@@ -24,10 +25,6 @@ public class SimulationsServiceRueckspielTests
             SimulationsEngineTestdaten.GastTeam(), SimulationsEngineTestdaten.HeimTeam(),
             _hinspielEinsZuEins, verfahren, new Random(seed));
     }
-
-    private static (int, int, int?, int?, int?, int?, EntscheidungArt, int) Kennzahlen(SimulationsErgebnis e) =>
-        (e.HeimToreRegulaer, e.AuswaertsToreRegulaer, e.HeimToreVerlaengerung, e.AuswaertsToreVerlaengerung,
-         e.HeimElfmetertore, e.AuswaertsElfmetertore, e.EntscheidungArt, e.Ereignisse.Count);
 
     private static SimulationsErgebnis RueckspielMitRegel(int seed) =>
         SimulationsDienste.Service(SimulationsDienste.NeuerContext(), new Zufallsquelle()).RueckspielSimulieren(
@@ -77,25 +74,44 @@ public class SimulationsServiceRueckspielTests
             Rueckspiel(seed, _verlaengerungDannElfmeter).EntscheidungArt.Should().NotBe(EntscheidungArt.Auswaertstorregel, $"Seed {seed}");
     }
 
+    /// <summary>#688: prüft die Struktur des Ausgangs statt eines festgehaltenen Zufallsstroms, damit eine Kalibrierung
+    /// die Tests nicht rot macht. Hinspiel 1:1, Kette „Verlängerung, Elfmeterschießen“; der Gesamtstand nach 90 Minuten ist
+    /// gleich, wenn das Rückspiel torgleich endet. Jede der drei Lagen muss über die Seeds vorkommen.</summary>
     [Fact]
-    public void GesamtstandNach90MinutenEntschieden_KeinVerfahren()
+    public void Rueckspiel_EntscheidungsartFolgtDemGesamtstand_UndZusatzereignisseHaengenAn()
     {
-        Kennzahlen(Rueckspiel(8, _verlaengerungDannElfmeter))
-            .Should().Be((1, 0, null, null, null, null, EntscheidungArt.RegulaereSpielzeit, 6));
-    }
+        var lagen = new HashSet<EntscheidungArt>();
+        for (int seed = 0; seed < 100; seed++)
+        {
+            var e = Rueckspiel(seed, _verlaengerungDannElfmeter);
+            lagen.Add(e.EntscheidungArt);
+            string seedText = $"Seed {seed}";
 
-    [Fact]
-    public void GesamtstandAusgeglichen_RueckspielGehtInDieVerlaengerung()
-    {
-        Kennzahlen(Rueckspiel(4, _verlaengerungDannElfmeter))
-            .Should().Be((1, 1, 1, 0, null, null, EntscheidungArt.Verlaengerung, 22));
-    }
+            if (e.HeimToreRegulaer != e.AuswaertsToreRegulaer)
+            {
+                e.EntscheidungArt.Should().Be(EntscheidungArt.RegulaereSpielzeit, seedText);
+                e.HeimToreVerlaengerung.Should().BeNull(seedText);
+                e.HeimElfmetertore.Should().BeNull(seedText);
+                continue;
+            }
 
-    [Fact]
-    public void GesamtstandAusgeglichen_NachVerlaengerungKeinSieger_Elfmeterschiessen()
-    {
-        Kennzahlen(Rueckspiel(18, _verlaengerungDannElfmeter))
-            .Should().Be((0, 0, 0, 0, 3, 4, EntscheidungArt.Elfmeterschiessen, 18));
+            e.HeimToreVerlaengerung.Should().NotBeNull($"{seedText}: gleicher Gesamtstand → Verlängerung");
+            if (e.EntscheidungArt == EntscheidungArt.Verlaengerung)
+            {
+                e.HeimToreVerlaengerung.Should().NotBe(e.AuswaertsToreVerlaengerung, seedText);
+                e.HeimElfmetertore.Should().BeNull(seedText);
+            }
+            else
+            {
+                e.EntscheidungArt.Should().Be(EntscheidungArt.Elfmeterschiessen, seedText);
+                e.HeimToreVerlaengerung.Should().Be(e.AuswaertsToreVerlaengerung, seedText);
+                e.HeimElfmetertore.Should().NotBe(e.AuswaertsElfmetertore, seedText);
+                e.Ereignisse.Should().Contain(
+                    ev => ev.Art == EreignisArt.ElfmeterTor || ev.Art == EreignisArt.ElfmeterVerschossen, seedText);
+            }
+        }
+        lagen.Should().BeEquivalentTo(
+            [EntscheidungArt.RegulaereSpielzeit, EntscheidungArt.Verlaengerung, EntscheidungArt.Elfmeterschiessen]);
     }
 
     [Fact]
