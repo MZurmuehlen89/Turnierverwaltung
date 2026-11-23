@@ -11,22 +11,33 @@ internal static class Rauschschaetzung
     /// <summary>Jackknife-Standardfehler: θᵢ = Kennzahl ohne Block i, SE = √((k−1)/k · Σ(θᵢ − θ̄)²).
     /// <paramref name="block"/> liefert zu jedem Datum seinen Block (0 … <paramref name="bloecke"/> − 1).</summary>
     public static double JackknifeStandardfehler<T>(
-        IReadOnlyList<T> daten, Func<T, int> block, int bloecke, Func<IReadOnlyList<T>, double> messen)
+        IReadOnlyList<T> daten, Func<T, int> block, int bloecke, Func<IReadOnlyList<T>, double> messen) =>
+        JackknifeStandardfehler(daten, block, 0, bloecke, messen);
+
+    /// <summary>Wie oben, aber nur über die Blöcke <paramref name="ersterBlock"/> … <paramref name="bloecke"/> − 1 (k = Zahl dieser
+    /// Blöcke). Für eine Kennzahl, die nur einen Teil der Blöcke misst (Hälfte B, #685): ein Block ohne Wirkung
+    /// ließe θᵢ unverändert und gäbe der Formel ein zu großes k.</summary>
+    public static double JackknifeStandardfehler<T>(
+        IReadOnlyList<T> daten, Func<T, int> block, int ersterBlock, int bloecke, Func<IReadOnlyList<T>, double> messen)
     {
-        var ohneBlock = new double[bloecke];
+        int k = bloecke - ersterBlock;
+        var ohneBlock = new double[k];
         // Die Messfunktionen sind rein; jeder Block schreibt nur seinen eigenen Platz – parallel, Ergebnis unverändert.
-        Parallel.For(0, bloecke, i => ohneBlock[i] = messen([.. daten.Where(d => block(d) != i)]));
+        Parallel.For(0, k, i => ohneBlock[i] = messen([.. daten.Where(d => block(d) != ersterBlock + i)]));
         double mittel = ohneBlock.Average();
         double summe = ohneBlock.Sum(t => (t - mittel) * (t - mittel));
-        return Math.Sqrt((bloecke - 1.0) / bloecke * summe);
+        return Math.Sqrt((k - 1.0) / k * summe);
     }
 
-    /// <summary>Standardfehler einer Kennzahl für die Bandprüfung: Jackknife, oder 0 für eine Kennzahl ohne Rauschzuschlag.</summary>
-    public static double Standardfehler(Realismuskennzahl kennzahl, IReadOnlyList<SimuliertesSpiel> spiele) =>
-        kennzahl.MitRauschzuschlag ? JackknifeStandardfehler(spiele, kennzahl.Messen) : 0;
+    /// <summary>Standardfehler einer Kennzahl für die Bandprüfung: Jackknife über die Blöcke, die sie misst (alle oder nur
+    /// Hälfte B), oder 0 für eine Kennzahl ohne Rauschzuschlag.</summary>
+    public static double Standardfehler(Realismuskennzahl kennzahl, IReadOnlyList<SimuliertesSpiel> spiele)
+    {
+        if (!kennzahl.MitRauschzuschlag) return 0;
+        int ersterBlock = kennzahl.NurHaelfteB ? RealismusStichprobe.ENDE_HAELFTE_A / DURCHLAEUFE_JE_BLOCK : 0;
+        return JackknifeStandardfehler(spiele, s => s.Durchlauf / DURCHLAEUFE_JE_BLOCK, ersterBlock, BLOECKE, kennzahl.Messen);
+    }
 
-    /// <summary>Wie oben für die Realismus-Stichprobe: Block = Durchlauf / (Durchläufe je Block).</summary>
-    public static double JackknifeStandardfehler(
-        IReadOnlyList<SimuliertesSpiel> spiele, Func<IReadOnlyList<SimuliertesSpiel>, double> messen) =>
-        JackknifeStandardfehler(spiele, s => s.Durchlauf / (RealismusStichprobe.DURCHLAEUFE / BLOECKE), BLOECKE, messen);
+    // Block = Durchlauf / (Durchläufe je Block)
+    private const int DURCHLAEUFE_JE_BLOCK = RealismusStichprobe.DURCHLAEUFE / BLOECKE;
 }

@@ -5,10 +5,12 @@ namespace Fussballturnierverwaltung.Tests.Simulation.Realismus;
 /// Bänder mit ±∞), Zieltext und die Messung auf einer Spieleliste (voll oder ohne einen Jackknife-Block).
 /// <paramref name="MitRauschzuschlag"/> = false: die Kennzahl wird ohne Rauschzuschlag gegen ihr Band geprüft, weil der
 /// Jackknife ihr Rauschen nicht schätzen kann (Maximum über Klassen).
+/// <paramref name="NurHaelfteB"/> = true (#685): die Kennzahl misst nur Spiele der Hälfte B; der Jackknife läuft dann nur
+/// über deren Blöcke.
 /// </summary>
 internal sealed record Realismuskennzahl(
     string Name, double Von, double Bis, string Ziel, string Format, Func<IReadOnlyList<SimuliertesSpiel>, double> Messen,
-    bool MitRauschzuschlag = true);
+    bool MitRauschzuschlag = true, bool NurHaelfteB = false);
 
 /// <summary>
 /// #683: der Katalog aller Bänder der Realismus-Tests – jedes Band genau einmal definiert, damit die Tests
@@ -126,10 +128,10 @@ internal sealed class Realismuskennzahlen
         s => Realismusauswertung.FuehrungsAusgang(s, 45, 1).Niederlage);
 
     public Realismuskennzahl FavoritSieg { get; } = new("+1 zur Pause, Führender ist Favorit: Sieg", 0.695, 0.795, "BL 74,4 %", "P1",
-        s => Realismusauswertung.FuehrungsAusgang(HaelfteB(s), 45, 1, (x, heimFuehrt) => x.Paarung.HeimIstFavorit == heimFuehrt).Sieg);
+        s => Realismusauswertung.FuehrungsAusgang(HaelfteB(s), 45, 1, (x, heimFuehrt) => x.Paarung.HeimIstFavorit == heimFuehrt).Sieg, NurHaelfteB: true);
 
     public Realismuskennzahl AussenseiterSieg { get; } = new("+1 zur Pause, Führender ist Außenseiter: Sieg", 0.490, 0.615, "BL 55,2 %", "P1",
-        s => Realismusauswertung.FuehrungsAusgang(HaelfteB(s), 45, 1, (x, heimFuehrt) => x.Paarung.HeimIstFavorit != heimFuehrt).Sieg);
+        s => Realismusauswertung.FuehrungsAusgang(HaelfteB(s), 45, 1, (x, heimFuehrt) => x.Paarung.HeimIstFavorit != heimFuehrt).Sieg, NurHaelfteB: true);
 
     public Realismuskennzahl Sieg1Pause { get; } = new("+1 zur Pause: Sieg", 0.635, 0.710, "BL 67,3 %", "P1",
         s => Realismusauswertung.FuehrungsAusgang(s, 45, 1).Sieg);
@@ -220,7 +222,7 @@ internal sealed class Realismuskennzahlen
     /// <summary>Siegquote in Überzahl minus Siegchance ohne Rücksicht auf Karten; gemessen in Hälfte B, die Siegchance
     /// kommt aus Hälfte A – so steckt das gemessene Spiel nicht in seiner eigenen Referenz.</summary>
     public Realismuskennzahl Ueberzahl { get; } = new("Siegquote in Überzahl minus Siegchance vor dem Spiel", 0.10, 0.22,
-        "BL +16 Punkte", "P1", UeberzahlGewinn);
+        "BL +16 Punkte", "P1", UeberzahlGewinn, NurHaelfteB: true);
 
     private static double UeberzahlGewinn(IReadOnlyList<SimuliertesSpiel> spiele)
     {

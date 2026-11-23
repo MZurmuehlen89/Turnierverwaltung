@@ -65,6 +65,7 @@ are not meant to kill mutants. **Noise margin (#683):** every band lives once in
 scattered ±24 % and turned a seed red) and turns red only when the metric exceeds the band by more than 2 standard
 errors (`Bandpruefung`). Exception: the draw rate per favourite class is a maximum over classes, which the jackknife
 cannot estimate (it overstated the noise by 1.7×); it is checked against its band without margin (`MitRauschzuschlag: false`).
+**Block choice per metric (#685):** a metric that measures only half B (`Realismuskennzahl.NurHaelfteB`: win after a lead at half-time for favourite/underdog, win in numerical superiority) leaves out only the 50 blocks of half B; a block of half A would leave θᵢ unchanged and give the formula a k twice as large. All other metrics use all 100 blocks.
 The jackknife runs only for a metric outside its band (inside it is green anyway; for all metrics it would add ~8 s).
 Bands, target texts and skip rules are unchanged; the report line shows value ± SE where one was estimated.
 Reason: the noise is small (SD over seeds ≈ 0.2 points), a test went red because its mean sat *on* the band edge — more

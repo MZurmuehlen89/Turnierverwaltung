@@ -20,6 +20,35 @@ public class RauschschaetzungTests
         se.Should().BeApproximately(0.6455, 0.0001);
     }
 
+    /// <summary>#685, K1: Blöcke 0–4 (Hälfte A) liegen weit daneben, die Kennzahl misst nur Block 5–9 (Blockmittel 1 … 5).
+    /// k = 5: θᵢ = 3,5; 3,25; 3; 2,75; 2,5 → SE = √(4/5 · 0,625) = 0,7071. Mit k = 10 und fünf unveränderten θᵢ wären es 0,75.</summary>
+    [Fact]
+    public void Jackknife_NurHaelfteBBloecke_ZaehltNurDieseBloecke()
+    {
+        var daten = Enumerable.Range(0, 100)
+            .Select(i => new Beobachtung(i / 10, i / 10 < 5 ? 100 + i : i / 10 - 4))
+            .ToList();
+        static double MittelAbBlock5(IReadOnlyList<Beobachtung> d) => d.Where(x => x.Block >= 5).Average(x => x.Wert);
+
+        double se = Rauschschaetzung.JackknifeStandardfehler(daten, d => d.Block, 5, 10, MittelAbBlock5);
+
+        se.Should().BeApproximately(0.7071, 0.0001);
+    }
+
+    /// <summary>#685, K1: die Werte der Blöcke außerhalb ändern den SE nicht.</summary>
+    [Fact]
+    public void Jackknife_NurHaelfteBBloecke_WerteAusserhalbAendernDenStandardfehlerNicht()
+    {
+        List<Beobachtung> Daten(double aussen) => [.. Enumerable.Range(0, 100)
+            .Select(i => new Beobachtung(i / 10, i / 10 < 5 ? aussen : i / 10 - 4))];
+        static double MittelAbBlock5(IReadOnlyList<Beobachtung> d) => d.Where(x => x.Block >= 5).Average(x => x.Wert);
+
+        double a = Rauschschaetzung.JackknifeStandardfehler(Daten(0), d => d.Block, 5, 10, MittelAbBlock5);
+        double b = Rauschschaetzung.JackknifeStandardfehler(Daten(999), d => d.Block, 5, 10, MittelAbBlock5);
+
+        a.Should().Be(b);
+    }
+
     [Fact]
     public void Jackknife_KonstanteDaten_KeinRauschen()
     {
