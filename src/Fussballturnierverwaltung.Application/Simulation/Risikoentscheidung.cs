@@ -18,7 +18,9 @@ public readonly record struct FaelligeStufe(Risikostufe Stufe, int AbVerbleibend
 /// Favorit im Rückstand drückt früher, ein Außenseiter in Führung mauert früher, Unterzahl verschiebt Richtung Mauern;
 /// ebenso verschiebt die Grundausrichtung (#667) die Schwellen. Wann ein Team nach Erreichen der Schwelle tatsächlich umstellt,
 /// entscheidet der Zufall mit steigender Wahrscheinlichkeit (<see cref="Umstellwahrscheinlichkeit"/>). Rein und ohne
-/// Zufall; die Spielbedeutung (#668) setzt hier an.
+/// Zufall; die Spielbedeutung (#668) setzt hier an. Die Tabellenlage (#176) ändert den Plan so: Wer einen Sieg braucht, spielt
+/// bei Gleichstand nach dem Plan für ein Tor Rückstand, wem ein Remis reicht, nach dem Führungsplan; wer ohne sportliches
+/// Ziel spielt, schickt den Torwart nie mit nach vorn.
 /// </summary>
 public static class Risikoentscheidung
 {
@@ -49,11 +51,17 @@ public static class Risikoentscheidung
     {
         if (lage.Vorsprung > 0)
             return FuehrungsPlan(DEFENSIV_AB, MAUERN_AB, Drang(lage) - UNTERZAHL_MAUERN * lage.Unterzahl);
+        if (lage.Vorsprung == 0 && lage.Profil.Bedarf == Tabellenbedarf.RemisReicht)
+            return FuehrungsPlan(DEFENSIV_AB, MAUERN_AB, Drang(lage) - UNTERZAHL_MAUERN * lage.Unterzahl);
+        if (lage.Vorsprung == 0 && lage.Profil.Bedarf == Tabellenbedarf.SiegNoetig)
+            return RueckstandsPlan(1, Drang(lage) - UNTERZAHL_OFFENSIV * lage.Unterzahl, ohneBrechstange: false);
         if (lage.Vorsprung == 0)
             return lage.Unterzahl > 0
                 ? [new(Risikostufe.Mauern, UNTERZAHL_MAUERN_AB * lage.Unterzahl - lage.Profil.Offensivdrang)]
                 : [];
-        return RueckstandsPlan(-lage.Vorsprung, Drang(lage) - UNTERZAHL_OFFENSIV * lage.Unterzahl);
+        return RueckstandsPlan(
+            -lage.Vorsprung, Drang(lage) - UNTERZAHL_OFFENSIV * lage.Unterzahl,
+            ohneBrechstange: lage.Profil.Bedarf == Tabellenbedarf.OhneZiel);
     }
 
     /// <summary>Erst defensiv, dann mauern (#667) – beides um <paramref name="spaeter"/> Minuten verschoben.</summary>
@@ -63,7 +71,7 @@ public static class Risikoentscheidung
         new(Risikostufe.Mauern, Runden(mauernAb - spaeter))
     ];
 
-    private static List<FaelligeStufe> RueckstandsPlan(int rueckstand, double frueher)
+    private static List<FaelligeStufe> RueckstandsPlan(int rueckstand, double frueher, bool ohneBrechstange)
     {
         int weitereTore = rueckstand - 1;
         var plan = new List<FaelligeStufe>
@@ -71,7 +79,7 @@ public static class Risikoentscheidung
             new(Risikostufe.Offensiv, Runden(OFFENSIV_AB + FRUEHER_JE_TOR * weitereTore + frueher)),
             new(Risikostufe.AllesNachVorn, Runden(ALLES_NACH_VORN_AB + FRUEHER_JE_TOR * weitereTore + frueher))
         };
-        if (rueckstand == 1)
+        if (rueckstand == 1 && !ohneBrechstange)
             plan.Add(new(Risikostufe.Brechstange, BRECHSTANGE_AB));
         else if (rueckstand >= 3)
             plan.Add(new(Risikostufe.Neutral, AUSSICHTSLOS_JE_TOR * (rueckstand - 2) - 1));

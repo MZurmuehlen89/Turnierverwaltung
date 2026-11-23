@@ -297,4 +297,57 @@ public class RisikoentscheidungTests
         Risikoentscheidung.Umstellwahrscheinlichkeit(ohneSchwelle, 60).Should().Be(0);
         Risikoentscheidung.Umstellwahrscheinlichkeit(ohneSchwelle, -5).Should().Be(0);
     }
+
+    // ── Tabellenbedarf (#176, K7) ─────────────────────────────────────────
+
+    private static Spiellage MitBedarf(int vorsprung, Tabellenbedarf bedarf, int unterzahl = 0)
+        => new(vorsprung, 90, GLEICH_STARK, unterzahl,
+            new Teamprofil(Grundausrichtung.Ausgeglichen, Flexibilitaet.Normal, Bedarf: bedarf));
+
+    [Fact]
+    public void Plan_SiegNoetigBeiGleichstand_WieEinTorRueckstand()
+    {
+        Plan(MitBedarf(0, Tabellenbedarf.SiegNoetig)).Should().Equal(Plan(Lage(-1)));
+    }
+
+    [Fact]
+    public void Plan_RemisReichtBeiGleichstand_WieDerFuehrungsplan()
+    {
+        Plan(MitBedarf(0, Tabellenbedarf.RemisReicht)).Should().Equal(Plan(Lage(1)));
+    }
+
+    [Theory]
+    [InlineData(Tabellenbedarf.SiegNoetig)]
+    [InlineData(Tabellenbedarf.RemisReicht)]
+    [InlineData(Tabellenbedarf.Abstiegskampf)]
+    [InlineData(Tabellenbedarf.OhneZiel)]
+    public void Plan_BedarfAendertNichtsBeiFuehrungUndBeiZweiToreRueckstand(Tabellenbedarf bedarf)
+    {
+        Plan(MitBedarf(1, bedarf)).Should().Equal(Plan(Lage(1)));
+        Plan(MitBedarf(-2, bedarf)).Should().Equal(Plan(Lage(-2)));
+    }
+
+    [Theory]
+    [InlineData(Tabellenbedarf.Offen)]
+    [InlineData(Tabellenbedarf.Abstiegskampf)]
+    [InlineData(Tabellenbedarf.RemisReicht)]
+    [InlineData(Tabellenbedarf.SiegNoetig)]
+    public void Plan_EinTorRueckstand_HatTorwartVornAusserOhneZiel(Tabellenbedarf bedarf)
+    {
+        Plan(MitBedarf(-1, bedarf)).Should().Contain((Risikostufe.Brechstange, 2));
+    }
+
+    [Fact]
+    public void Plan_OhneZiel_EinTorRueckstand_KeineBrechstange()
+    {
+        Plan(MitBedarf(-1, Tabellenbedarf.OhneZiel)).Should().Equal((Risikostufe.Offensiv, 30), (Risikostufe.AllesNachVorn, 10));
+    }
+
+    [Fact]
+    public void Plan_OhneBedarf_BleibtBeiGleichstandOhneStufen()
+    {
+        Plan(MitBedarf(0, Tabellenbedarf.Offen)).Should().BeEmpty();
+        Plan(MitBedarf(0, Tabellenbedarf.Abstiegskampf)).Should().BeEmpty();
+        Plan(MitBedarf(0, Tabellenbedarf.OhneZiel)).Should().BeEmpty();
+    }
 }

@@ -101,6 +101,26 @@ public class TeamprofilTests
         Profil(grundausrichtung).Offensivdrang.Should().Be(minuten);
     }
 
+    // ── Tabellenbedarf (#176, K7) ─────────────────────────────────────────
+
+    [Theory]
+    [InlineData(Tabellenbedarf.Offen, 0.0)]
+    [InlineData(Tabellenbedarf.Abstiegskampf, -0.25)]
+    [InlineData(Tabellenbedarf.OhneZiel, 0.5)]
+    [InlineData(Tabellenbedarf.SiegNoetig, 0.0)]
+    [InlineData(Tabellenbedarf.RemisReicht, 0.0)]
+    public void Tabellenbedarf_VerschiebtDenStartpunkt(Tabellenbedarf bedarf, double startpunkt)
+    {
+        new Teamprofil(Grundausrichtung.Ausgeglichen, Flexibilitaet.Normal, Bedarf: bedarf).Startpunkt.Should().Be(startpunkt);
+    }
+
+    [Fact]
+    public void Tabellenbedarf_KommtZurSpielbedeutungHinzu()
+    {
+        new Teamprofil(Grundausrichtung.Ausgeglichen, Flexibilitaet.Normal, Spielbedeutung.Gering, Bedarf: Tabellenbedarf.OhneZiel)
+            .Startpunkt.Should().Be(1.0);
+    }
+
     // ── Spielbedeutung der Runde (#668, K2) ───────────────────────────────
 
     [Theory]

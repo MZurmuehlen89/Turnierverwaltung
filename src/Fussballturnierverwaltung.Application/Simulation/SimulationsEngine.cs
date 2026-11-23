@@ -26,11 +26,12 @@ public static class SimulationsEngine
         Hinspielstand hinspielstand = default,
         Spielbedeutung spielbedeutung = Spielbedeutung.Normal,
         bool neutralerSpielort = false,
-        Turnierform? turnierform = null)
+        Turnierform? turnierform = null,
+        TabellenbedarfJeTeam? tabellenbedarf = null)
     {
         var schritt = SimulierenBisWiederholung(
             heim, auswaerts, verfahren, ausfuehrlich, rng, spielortvorteil, ueberraschungsfaktor, hinspielstand,
-            spielbedeutung, neutralerSpielort, turnierform);
+            spielbedeutung, neutralerSpielort, turnierform, tabellenbedarf);
         return schritt.Ausstehend?.Austragen() ?? schritt.Ergebnis;
     }
 
@@ -48,11 +49,12 @@ public static class SimulationsEngine
         Hinspielstand hinspielstand = default,
         Spielbedeutung spielbedeutung = Spielbedeutung.Normal,
         bool neutralerSpielort = false,
-        Turnierform? turnierform = null)
+        Turnierform? turnierform = null,
+        TabellenbedarfJeTeam? tabellenbedarf = null)
 #pragma warning restore S107
     {
         var paarung = new Paarung(
-            heim, auswaerts, spielortvorteil, ueberraschungsfaktor, spielbedeutung, neutralerSpielort, turnierform);
+            heim, auswaerts, spielortvorteil, ueberraschungsfaktor, spielbedeutung, neutralerSpielort, turnierform, tabellenbedarf);
 
         // #361: ausführlich Minute für Minute mit Spielzustand, sonst reines Endergebnis per Poisson. Der
         // Hinspielstand (#671) und die Spielbedeutung (#668) wirken nur auf die Risikostufe und damit nur ausführlich.
@@ -288,7 +290,8 @@ public static class SimulationsEngine
     /// <summary>Die beiden Mannschaften samt Rahmen des Spiels — jedes Verfahren braucht alle Angaben.</summary>
     private readonly record struct Paarung(
         Mannschaft Heim, Mannschaft Auswaerts, Spielortvorteil Spielortvorteil, int Ueberraschungsfaktor,
-        Spielbedeutung Spielbedeutung, bool NeutralerSpielort = false, Turnierform? Form = null)
+        Spielbedeutung Spielbedeutung, bool NeutralerSpielort = false, Turnierform? Form = null,
+        TabellenbedarfJeTeam? Bedarf = null)
     {
         /// <summary>#547: Im Wiederholungsspiel tauschen die Teams das Heimrecht – außer auf neutralem Platz und wenn
         /// ein Gastgeber den Ortsvorteil hat; dort bleibt es wie im ersten Spiel. Die Turnierform wandert mit dem Team (#679).</summary>
@@ -296,7 +299,7 @@ public static class SimulationsEngine
 
         public Paarung FuerWiederholungsspiel() =>
             HeimrechtTauscht
-                ? this with { Heim = Auswaerts, Auswaerts = Heim, Form = Form?.Tauschen() }
+                ? this with { Heim = Auswaerts, Auswaerts = Heim, Form = Form?.Tauschen(), Bedarf = Bedarf?.Tauschen() }
                 : this;
 
         public double HeimTorerwartung =>
@@ -312,7 +315,9 @@ public static class SimulationsEngine
             Hinspielstand hinspielstand = default) =>
             new(Chancenprofil.Aus(HeimTorerwartung, Heim, Auswaerts), Chancenprofil.Aus(GastTorerwartung, Auswaerts, Heim),
                 rng, platzverweise, gespielteMinuten, hinspielstand,
-                new Teamprofile(Teamprofil.Von(Heim, Spielbedeutung), Teamprofil.Von(Auswaerts, Spielbedeutung)));
+                new Teamprofile(
+                    Teamprofil.Von(Heim, Spielbedeutung, Bedarf?.Heim ?? Tabellenbedarf.Offen),
+                    Teamprofil.Von(Auswaerts, Spielbedeutung, Bedarf?.Gast ?? Tabellenbedarf.Offen)));
     }
 
     /// <summary>Ausgang eines einzelnen Verfahrens. <see cref="Vorsprung"/> &gt; 0: Heimsieg, &lt; 0: Gastsieg,

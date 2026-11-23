@@ -9,23 +9,35 @@ namespace Fussballturnierverwaltung.Application.Simulation;
 /// <see cref="Flexibilitaet"/> f bestimmt, wie weit ein Team von g abweicht, wenn die Lage eine Stufe verlangt (Ziel
 /// S + (1 − f) · g), und wie schnell es umstellt. Ein ausgeglichenes, normal flexibles Team (der Standardwert)
 /// spielt genau wie vor #667. Die <see cref="Spielbedeutung"/> der Runde (#668) verschiebt den Startpunkt zusätzlich –
-/// im Finale vorsichtiger, im Spiel um Platz 3 offener; bei „normal“ wie vor #668.
+/// im Finale vorsichtiger, im Spiel um Platz 3 offener; bei „normal“ wie vor #668. Der <see cref="Tabellenbedarf"/> (#176)
+/// verschiebt ihn je Team nach der Tabellenlage; bei „offen“ wie vor #176.
 /// </summary>
 public readonly record struct Teamprofil(
     Grundausrichtung Grundausrichtung, Flexibilitaet Flexibilitaet, Spielbedeutung Spielbedeutung = Spielbedeutung.Normal,
-    Kondition Kondition = Kondition.Normal)
+    Kondition Kondition = Kondition.Normal, Tabellenbedarf Bedarf = Tabellenbedarf.Offen)
 {
     public const int NORMALES_UMSTELLFENSTER = 8;
 
     private const double SCHRITT_JE_STUFE  = 0.5; // auf der Risikoachse je Stufe der Grundausrichtung
     private const int    MINUTEN_JE_STUFE  = 5;   // Verschiebung der Umstellzeitpunkte je Stufe
 
-    public static Teamprofil Von(Mannschaft mannschaft, Spielbedeutung spielbedeutung = Spielbedeutung.Normal)
-        => new(mannschaft.Grundausrichtung, mannschaft.Flexibilitaet, spielbedeutung, mannschaft.Kondition);
+    public static Teamprofil Von(
+        Mannschaft mannschaft, Spielbedeutung spielbedeutung = Spielbedeutung.Normal, Tabellenbedarf bedarf = Tabellenbedarf.Offen)
+        => new(mannschaft.Grundausrichtung, mannschaft.Flexibilitaet, spielbedeutung, mannschaft.Kondition, bedarf);
 
     /// <summary>Platz auf der Risikoachse in der gewohnten Ordnung: −1 (sehr defensiv) bis +1 (sehr offensiv), dazu die
-    /// Verschiebung durch die Spielbedeutung.</summary>
-    public double Startpunkt => (int)Grundausrichtung * SCHRITT_JE_STUFE + Verschiebung(Spielbedeutung);
+    /// Verschiebung durch die Spielbedeutung und den Tabellenbedarf.</summary>
+    public double Startpunkt => (int)Grundausrichtung * SCHRITT_JE_STUFE + Verschiebung(Spielbedeutung) + Verschiebung(Bedarf);
+
+    /// <summary>Verschiebung des Startpunkts durch die Tabellenlage (#176): wer im Abstiegskampf steht, spielt etwas
+    /// vorsichtiger, wer ohne sportliches Ziel spielt, offener – die Realdaten zeigen dort mehr Tore (+0,41 ± 0,18), im
+    /// Abstiegskampf eher weniger. Sieg nötig und Remis reicht wirken über den Stufenplan, nicht über den Startpunkt.</summary>
+    private static double Verschiebung(Tabellenbedarf bedarf) => bedarf switch
+    {
+        Tabellenbedarf.Abstiegskampf => -0.25,
+        Tabellenbedarf.OhneZiel      => 0.5,
+        _                            => 0
+    };
 
     /// <summary>Verschiebung des Startpunkts durch die Spielbedeutung (#668, mit dem Nutzer abgestimmt): bewusst klein
     /// gehalten; offen stärker als vorsichtig, weil die Achse nach vorn mehr Abwehr kostet, als sie nach hinten an
