@@ -20,7 +20,7 @@
   <ItemGroup>
     <PackageReference Include="FluentAssertions" Version="8.11.0" />
     <!-- Testdatenbank anlegen, lesen und löschen (#49) -->
-    <PackageReference Include="Npgsql" Version="10.0.3" />
+    <PackageReference Include="Npgsql" Version="10.0.4" />
     <PackageReference Include="xunit.v3" Version="4.0.3" />
   </ItemGroup>
 

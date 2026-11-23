@@ -20,7 +20,7 @@
     <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="11.0.0" />
     <!-- Npgsql bringt nur eine ältere Relational-Version mit; ohne eigenen Verweis fehlt zur Laufzeit die Version, gegen die über das Design-Paket kompiliert wird (FileNotFoundException in den Tests, #49) -->
     <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" Version="10.0.15" />
-    <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="10.0.3" />
+    <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="10.0.4" />
     <!-- Datenbank-Kennwort in einstellungen.json (#49) -->
     <PackageReference Include="System.Security.Cryptography.ProtectedData" Version="10.0.15" />
   </ItemGroup>
