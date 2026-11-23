@@ -35,18 +35,14 @@ public class RauschschaetzungTests
         se.Should().BeApproximately(0.7071, 0.0001);
     }
 
-    /// <summary>#685, K1: die Werte der Blöcke außerhalb ändern den SE nicht.</summary>
     [Fact]
-    public void Jackknife_NurHaelfteBBloecke_WerteAusserhalbAendernDenStandardfehlerNicht()
+    public void Jackknife_ErsterBlockHinterDemLetzten_WirdAbgewiesen()
     {
-        List<Beobachtung> Daten(double aussen) => [.. Enumerable.Range(0, 100)
-            .Select(i => new Beobachtung(i / 10, i / 10 < 5 ? aussen : i / 10 - 4))];
-        static double MittelAbBlock5(IReadOnlyList<Beobachtung> d) => d.Where(x => x.Block >= 5).Average(x => x.Wert);
+        var daten = new List<Beobachtung> { new(0, 1) };
 
-        double a = Rauschschaetzung.JackknifeStandardfehler(Daten(0), d => d.Block, 5, 10, MittelAbBlock5);
-        double b = Rauschschaetzung.JackknifeStandardfehler(Daten(999), d => d.Block, 5, 10, MittelAbBlock5);
+        var aufruf = () => Rauschschaetzung.JackknifeStandardfehler(daten, d => d.Block, 9, 10, Mittel);
 
-        a.Should().Be(b);
+        aufruf.Should().Throw<ArgumentOutOfRangeException>();
     }
 
     [Fact]

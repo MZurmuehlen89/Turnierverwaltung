@@ -21,6 +21,7 @@ internal static class Rauschschaetzung
         IReadOnlyList<T> daten, Func<T, int> block, int ersterBlock, int bloecke, Func<IReadOnlyList<T>, double> messen)
     {
         int k = bloecke - ersterBlock;
+        ArgumentOutOfRangeException.ThrowIfLessThan(k, 2, nameof(ersterBlock)); // ein Block allein hat keine Streuung
         var ohneBlock = new double[k];
         // Die Messfunktionen sind rein; jeder Block schreibt nur seinen eigenen Platz – parallel, Ergebnis unverändert.
         Parallel.For(0, k, i => ohneBlock[i] = messen([.. daten.Where(d => block(d) != ersterBlock + i)]));
