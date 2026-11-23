@@ -52,6 +52,42 @@ public class RegelwerkValidatorTests
         ergebnis.Fehler.Should().ContainMatch("*Duplikat*");
     }
 
+    [Theory]
+    [InlineData(VerfahrenArt.Wiederholungsspiel)]
+    [InlineData(VerfahrenArt.VerlaengerungKlassisch, VerfahrenArt.Wiederholungsspiel)]
+    public void KetteEndetMitWiederholungsspiel_IstUngueltig(params VerfahrenArt[] kette)
+    {
+        // #687: ein torgleiches Wiederholungsspiel bliebe ohne Sieger
+        var eingabe = GueltigeEingabe(verfahren: kette);
+
+        var ergebnis = _validator.Validieren(eingabe);
+
+        ergebnis.IstUngueltig.Should().BeTrue();
+        ergebnis.Meldungen.Should().ContainSingle(m => m.Text.Contains("Wiederholungsspiel"))
+            .Which.Feld.Should().Be(nameof(eingabe.EntscheidungsVerfahrenReihenfolge));
+    }
+
+    [Theory]
+    [InlineData(VerfahrenArt.Losentscheid)]
+    [InlineData(VerfahrenArt.Elfmeterschiessen)]
+    [InlineData(VerfahrenArt.Muenzwurf)]
+    public void WiederholungsspielMitEntscheidendemFolgeverfahren_IstGueltig(VerfahrenArt folge) =>
+        _validator.Validieren(GueltigeEingabe(verfahren: [VerfahrenArt.Wiederholungsspiel, folge]))
+            .IstGueltig.Should().BeTrue();
+
+    [Fact]
+    public void LeereKette_IstGueltig() =>
+        _validator.Validieren(GueltigeEingabe(verfahren: [])).IstGueltig.Should().BeTrue();
+
+    [Fact]
+    public void Aktualisieren_PrueftDieselbeRegel()
+    {
+        var eingabe = new RegelwerkAktualisierenEingabe("Test", "", null, null, null, 3, 1, 0,
+            [VerfahrenArt.Wiederholungsspiel]);
+
+        _validator.Validieren(eingabe).IstUngueltig.Should().BeTrue();
+    }
+
     [Fact]
     public void ZweiPunkteRegel_IstGueltig()
     {

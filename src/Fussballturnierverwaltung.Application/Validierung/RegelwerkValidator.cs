@@ -1,6 +1,7 @@
 using Fussballturnierverwaltung.Application.Abstraktionen;
 using Fussballturnierverwaltung.Application.Turniere.Eingaben;
 using Fussballturnierverwaltung.Domain.Entitaeten.Regelwerke;
+using Fussballturnierverwaltung.Domain.Enums;
 
 namespace Fussballturnierverwaltung.Application.Validierung;
 
@@ -37,6 +38,12 @@ public class RegelwerkValidator
             .GroupBy(v => v).Where(g => g.Count() > 1).Select(g => g.Key.ToString()).ToList();
         if (doppelt.Any())
             fehler.Add(new($"Entscheidungsverfahren enthält Duplikate: {string.Join(", ", doppelt)}.",
+                nameof(eingabe.EntscheidungsVerfahrenReihenfolge)));
+
+        // #687: ein torgleiches Wiederholungsspiel braucht ein entscheidendes Verfahren dahinter
+        if (eingabe.EntscheidungsVerfahrenReihenfolge.LastOrDefault() == VerfahrenArt.Wiederholungsspiel)
+            fehler.Add(new("Nach dem Wiederholungsspiel muss ein weiteres Verfahren folgen (z. B. Elfmeterschießen " +
+                           "oder Los) – sonst bleibt ein torgleiches Wiederholungsspiel ohne Sieger.",
                 nameof(eingabe.EntscheidungsVerfahrenReihenfolge)));
 
         return ValidationErgebnis.Aus(fehler);
