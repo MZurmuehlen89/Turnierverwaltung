@@ -8,9 +8,6 @@ public enum PaarungSieger { Keiner, Heim, Auswaerts }
 
 /// <summary>Gesamtwertung der freien Hin-/Rückspiel-Simulation (#248, #509): Summenstand, Sieger und Zusatztext
 /// („nach 180 Minuten“ …) aus Sicht des Hinspiel-Heimteams. Zustandslos.</summary>
-/// <remarks>Bewusst nicht über <c>SiegerErmittlung</c> gelöst: bei torgleichem Wiederholungsspiel gibt diese keinen Sieger
-/// an, hier fällt er auf das Hinspiel-Heimteam. Im Spiel ist das nicht erreichbar (die Simulation wirft dort, #547),
-/// ein Angleichen wäre aber eine Verhaltensänderung und gehört nicht in #509.</remarks>
 public sealed record FreiePaarungGesamt(int HeimTore, int AuswaertsTore, PaarungSieger Sieger, string Zusatz)
 {
     /// <param name="hinspiel">Hinspiel aus Sicht seines Heimteams.</param>
@@ -44,7 +41,8 @@ public sealed record FreiePaarungGesamt(int HeimTore, int AuswaertsTore, Paarung
                 _   => PaarungSieger.Keiner
             };
         if (rueckspiel.EntscheidungArt == EntscheidungArt.Wiederholungsspiel && rueckspiel.Wiederholung is { } wdh)
-            return wdh.HeimGesamt > wdh.AuswaertsGesamt ? PaarungSieger.Auswaerts : PaarungSieger.Heim; // #547
+            return wdh.HeimGesamt == wdh.AuswaertsGesamt ? PaarungSieger.Keiner // #687 (wie SiegerErmittlung)
+                : wdh.HeimGesamt > wdh.AuswaertsGesamt ? PaarungSieger.Auswaerts : PaarungSieger.Heim; // #547
         if (rueckspiel is { EntscheidungArt: EntscheidungArt.Elfmeterschiessen, HeimElfmetertore: { } heimE, AuswaertsElfmetertore: { } auswaertsE })
             return heimE > auswaertsE ? PaarungSieger.Auswaerts : PaarungSieger.Heim;
         if (rueckspiel.LosGewinnerHeim is bool losFuerRueckspielHeim) // Losentscheid/Münzwurf (#383)

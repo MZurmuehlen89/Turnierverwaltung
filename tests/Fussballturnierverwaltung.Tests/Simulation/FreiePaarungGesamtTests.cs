@@ -73,7 +73,7 @@ public class FreiePaarungGesamtTests
     [Theory]
     [InlineData(2, 1, PaarungSieger.Auswaerts)]
     [InlineData(1, 2, PaarungSieger.Heim)]
-    [InlineData(1, 1, PaarungSieger.Heim)] // Gleichstand im Wiederholungsspiel fällt auf „Heim“ (Bestand)
+    [InlineData(1, 1, PaarungSieger.Keiner)] // #687: Gleichstand im Wiederholungsspiel – kein Sieger, wie in SiegerErmittlung
     public void Wiederholungsspiel_RueckspielHeimIstHinspielAuswaerts(int heimTore, int auswaertsTore, PaarungSieger sieger)
     {
         FreiePaarungGesamt.Bewerten(Hin(0, 0), Rueck(0, 0, EntscheidungArt.Wiederholungsspiel,
