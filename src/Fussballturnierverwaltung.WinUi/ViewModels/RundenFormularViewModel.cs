@@ -122,6 +122,7 @@ public partial class RundenFormularViewModel : ObservableObject
     [NotifyPropertyChangedFor(nameof(RundenartAuswahl))]
     [NotifyPropertyChangedFor(nameof(HatTabelle))]
     [NotifyPropertyChangedFor(nameof(IstTopfLiga))]
+    [NotifyPropertyChangedFor(nameof(RegelwerkOptionen))]
     private Rundenart _rundenart = Rundenart.Liga;
 
     [ObservableProperty]
@@ -197,7 +198,9 @@ public partial class RundenFormularViewModel : ObservableObject
         zeile.NeutralerSpielort = NeutralerSpielort;
         zeile.Ueberraschungsfaktor = Ueberraschungsfaktor;
         zeile.Spielbedeutung = Spielbedeutung;
-        zeile.Regelwerk = Regelwerk;
+        // null kommt nur transient aus der ComboBox, wenn die Optionsliste (K.-o.: nur mit Verfahren, #624) wechselt.
+        if (Regelwerk is not null)
+            zeile.Regelwerk = Regelwerk;
         zeile.PaarungFestVorgegeben = PaarungFestVorgegeben;
         // null kommt nur transient aus der ComboBox (Auswahl beim ItemsSource-Wechsel nicht gefunden) — nie übernehmen.
         if (VorgegebeneAuslosungsart is not null)
@@ -261,6 +264,7 @@ public partial class RundenFormularViewModel : ObservableObject
 
         if (_populiertGerade > 0) return;
         PaarungFestVorgabeBereinigen(value);
+        RegelwerkAnRundenartPassen(value);
         RegelVorgabenAnRundePassen();
         AuswaertstorRegelBereinigen();
         AusgangVorschlagen();
@@ -280,6 +284,14 @@ public partial class RundenFormularViewModel : ObservableObject
     {
         if (_populiertGerade > 0) return;
         AuswaertstorRegelBereinigen();
+    }
+
+    /// <summary>#624: Wechselt die Rundenart auf K.-o. und das gewählte Regelwerk hat kein Entscheidungsverfahren, fällt die
+    /// Auswahl auf „Turnierstandard“ zurück. Hat auch der Standard keins, bleibt die Runde mit Fehlermeldung gesperrt.</summary>
+    private void RegelwerkAnRundenartPassen(Rundenart rundenart)
+    {
+        if (Regelwerk?.Wert is { } gewaehlt && !KoRegelwerk.RundeGeeignet(rundenart, gewaehlt, StandardRegelwerk))
+            Regelwerk = RundeZeile.KeinRegelwerk;
     }
 
     private void AuswaertstorRegelBereinigen()
@@ -494,8 +506,17 @@ public partial class RundenFormularViewModel : ObservableObject
     [NotifyPropertyChangedFor(nameof(RegelwerkOptionen))]
     private ObservableCollection<Regelwerk> _regelwerke = [];
 
+    /// <summary>Standardregelwerk des Turniers (#624): „Turnierstandard“ ist bei K.-o. nur wählbar, wenn es ein
+    /// Entscheidungsverfahren hat; das Rundenregelwerk selbst wird bei K.-o. auf solche mit Verfahren eingeschränkt.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(RegelwerkOptionen))]
+    private Regelwerk? _standardRegelwerk;
+
     public IReadOnlyList<RegelwerkOption> RegelwerkOptionen =>
-        [RundeZeile.KeinRegelwerk, .. Regelwerke.Select(r => new RegelwerkOption(r.Name, r))];
+    [
+        .. KoRegelwerk.KeinRegelwerkErlaubt(Rundenart, StandardRegelwerk) ? [RundeZeile.KeinRegelwerk] : (IEnumerable<RegelwerkOption>)[],
+        .. KoRegelwerk.Auswahl(Rundenart, Regelwerke).Select(r => new RegelwerkOption(r.Name, r))
+    ];
 
     /// <summary>Einmal beim ersten Laden befüllt (analog <see cref="Regelwerke"/>), danach stabil — siehe
     /// <see cref="StandardRanglisteOptionFuer"/>.</summary>

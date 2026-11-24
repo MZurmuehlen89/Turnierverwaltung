@@ -199,6 +199,7 @@ public partial class RundenViewModel : ViewModelBase, IRibbonAware, IHatUngespei
         try
         {
             await Formular.StammdatenSicherstellenAsync();
+            Formular.StandardRegelwerk = Formular.Regelwerke.FirstOrDefault(r => r.Id == instanz.StandardRegelwerkId);
             var mitRunden = await _service.FindenNachIdMitRundenAsync(instanz.Id);
             var alleRegeln = await _uebergangsregelService.AlleNachTurnierInstanzIdAsync(instanz.Id);
             if (_ladevorgangLaufendFuer != meineId) return;
@@ -435,11 +436,17 @@ public partial class RundenViewModel : ViewModelBase, IRibbonAware, IHatUngespei
         _meldungen = Runden.Count == 0
             ? RundenMeldungen.Keine
             : RundenMeldungen.Verteilen(Runden,
-                _turnierValidator.RundenValidieren(RundenZuEingaben()).Meldungen,
+                [.. _turnierValidator.RundenValidieren(RundenZuEingaben()).Meldungen, .. KoRegelwerkFehler()],
                 _alleUebergaenge, regelZeilen,
                 _uebergangsregelValidator.Validieren(RundenFuerValidierung(), RegelEingaben(regelZeilen)).Meldungen);
         RundenFehler = _meldungen.Alle;
     }
+
+    /// <summary>#624: K.-o.-Runden brauchen ein wirksames Regelwerk (eigenes oder Turnierstandard) mit Entscheidungsverfahren.</summary>
+    private IEnumerable<Feldfehler> KoRegelwerkFehler() => Runden
+        .Select((z, index) => (Text: KoRegelwerk.Fehler(z.Name, z.Rundenart, z.Regelwerk.Wert, Formular.StandardRegelwerk), index))
+        .Where(x => x.Text is not null)
+        .Select(x => new Feldfehler(x.Text!, nameof(RundeZeile.Regelwerk), x.index));
 
     /// <summary>Nur für die Ganzgraph-Übergangsregel-Validierung nötig — bewusst rein transiente TurnierRunde-
     /// Objekte (nie persistiert), da neue, noch ungespeicherte Runden hier ebenfalls mitgeprüft werden

@@ -94,8 +94,18 @@ public partial class TurnierkopfViewModel : ViewModelBase, IRibbonAware, IHatUng
     // ── Dynamische Teamstärke (#359) ──────────────────────────────────────────
     [ObservableProperty] private bool _dynamischeTeamstaerke;
 
+    /// <summary>#624: Hat eine K.-o.-Runde des Turniers kein eigenes Regelwerk, gilt der Standard für sie – dann nur
+    /// Regelwerke mit Entscheidungsverfahren, und „Kein Standard“ entfällt.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(StandardRegelwerkOptionen))]
+    private bool _standardBrauchtVerfahren;
+
     public IReadOnlyList<RegelwerkOption> StandardRegelwerkOptionen =>
-        [_keinStandardRegelwerk, .. Regelwerke.Select(r => new RegelwerkOption(r.Name, r))];
+    [
+        .. StandardBrauchtVerfahren ? (IEnumerable<RegelwerkOption>)[] : [_keinStandardRegelwerk],
+        .. Regelwerke.Where(r => !StandardBrauchtVerfahren || KoRegelwerk.HatVerfahren(r))
+                     .Select(r => new RegelwerkOption(r.Name, r))
+    ];
 
     // ── Titelverteidiger & Gastgeber (Issue #349/#352) ───────────────────────
     public TitelGastgeberViewModel TitelGastgeber { get; }
@@ -340,11 +350,29 @@ public partial class TurnierkopfViewModel : ViewModelBase, IRibbonAware, IHatUng
     }
 
     // Gastgeber, Quoten und die Eingangskapazität der ersten Runde stehen nicht in der Turnierliste.
+    /// <summary>#624: Die Runden stehen erst im Detail – danach richtet sich, ob „Kein Standard“ und Regelwerke ohne
+    /// Verfahren noch wählbar sind. Die Auswahl bleibt dabei dieselbe, die Änderung gilt nicht als Nutzeränderung.</summary>
+    private void StandardOptionenAnRundenPassen(TurnierInstanz? detail)
+    {
+        bool braucht = detail?.Runden.Any(r => KoRegelwerk.IstKoRundenart(r.Rundenart) && r.RegelwerkId is null) ?? false;
+        if (braucht == StandardBrauchtVerfahren) return;
+
+        int? gewaehlt = StandardRegelwerk?.Wert?.Id;
+        _populiertGerade++;
+        try
+        {
+            StandardBrauchtVerfahren = braucht;
+            StandardRegelwerk = StandardRegelwerkOptionen.FirstOrDefault(o => o.Wert?.Id == gewaehlt) ?? StandardRegelwerkOptionen.FirstOrDefault() ?? _keinStandardRegelwerk;
+        }
+        finally { _populiertGerade--; }
+    }
+
     private async Task DetailLadenAsync(TurnierInstanz instanz, bool aufklappzustandSetzen)
     {
         try
         {
             var detail = await _service.FindenNachIdMitRundenAsync(instanz.Id);
+            StandardOptionenAnRundenPassen(detail);
             var ersteRundeEingang = detail?.Runden.OrderBy(r => r.Reihenfolge).FirstOrDefault()?.EingangsMannschaftsanzahl;
             TitelGastgeber.GastgeberSetzen(Filter.Wert, detail?.Gastgeber.Select(g => g.MannschaftId).ToList() ?? []);
             await Quoten.LadenAsync(instanz.Id, ersteRundeEingang);
