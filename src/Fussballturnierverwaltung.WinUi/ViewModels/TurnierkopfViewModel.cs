@@ -362,7 +362,10 @@ public partial class TurnierkopfViewModel : ViewModelBase, IRibbonAware, IHatUng
         try
         {
             StandardBrauchtVerfahren = braucht;
-            StandardRegelwerk = StandardRegelwerkOptionen.FirstOrDefault(o => o.Wert?.Id == gewaehlt) ?? StandardRegelwerkOptionen.FirstOrDefault() ?? _keinStandardRegelwerk;
+            // Gespeicherten Wert nie still gegen einen anderen tauschen (Bestand mit ungeeignetem Standard): fehlt er
+            // in der engeren Liste, bleibt die Auswahl unverändert – der Service lehnt das Speichern dann ab.
+            if (StandardRegelwerkOptionen.FirstOrDefault(o => o.Wert?.Id == gewaehlt) is { } passend)
+                StandardRegelwerk = passend;
         }
         finally { _populiertGerade--; }
     }
