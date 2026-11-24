@@ -53,6 +53,7 @@
             <conv:BoolToVisibilityConverter x:Key="BoolToVisibility" />
             <conv:InverseBoolToVisibilityConverter x:Key="InverseBoolToVisibility" />
             <conv:NullToCollapsedConverter x:Key="NullToCollapsed" />
+            <conv:TrennerSichtbarkeitConverter x:Key="TrennerSichtbarkeit" />
             <conv:NullToVisibleConverter x:Key="NullToVisible" />
             <conv:BildDatenZuBildquelleConverter x:Key="BildDatenZuBildquelle" />
             <conv:RatingRundenConverter x:Key="RatingRunden" />

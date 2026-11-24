@@ -151,25 +151,25 @@
 
                                             <!-- Abschnittstrenner mit Linie (HALBZEIT, 90 MINUTEN, VERLÄNGERUNG, ELFMETERSCHIESSEN) —
                                                  Gelb nur bei Elfmeterschießen (zwei überlagerte Border/TextBlock-Paare) -->
-                                            <Grid Margin="0,12" Visibility="{Binding ZeigtAlsAbschnittMitLinie, Converter={StaticResource BoolToVisibility}}">
+                                            <Grid Margin="0,12" Visibility="{Binding Converter={StaticResource TrennerSichtbarkeit}, ConverterParameter='Abschnitt,Elfmeter'}">
                                                 <Border VerticalAlignment="Center" Height="1" Background="{ThemeResource CardStrokeColorDefaultBrush}" />
                                                 <Border HorizontalAlignment="Center" CornerRadius="999" Padding="10,3" BorderThickness="1"
                                                         Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
                                                         BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
-                                                        Visibility="{Binding IstElfmeterTrenner, Converter={StaticResource InverseBoolToVisibility}}">
+                                                        Visibility="{Binding Converter={StaticResource TrennerSichtbarkeit}, ConverterParameter=Abschnitt}">
                                                     <TextBlock Text="{Binding TrennerText}" Opacity="0.6" Style="{StaticResource TrennerPillText}" />
                                                 </Border>
                                                 <Border HorizontalAlignment="Center" CornerRadius="999" Padding="10,3" BorderThickness="1"
                                                         Background="{ThemeResource SystemFillColorCautionBackgroundBrush}"
                                                         BorderBrush="{ThemeResource SystemFillColorCautionBrush}"
-                                                        Visibility="{Binding IstElfmeterTrenner, Converter={StaticResource BoolToVisibility}}">
+                                                        Visibility="{Binding Converter={StaticResource TrennerSichtbarkeit}, ConverterParameter=Elfmeter}">
                                                     <TextBlock Text="{Binding TrennerText}" Foreground="{ThemeResource SystemFillColorCautionBrush}"
                                                                Style="{StaticResource TrennerPillText}" />
                                                 </Border>
                                             </Grid>
 
                                             <!-- Eigenständige Marke ohne Linie (Anpfiff/Abpfiff/Beinabschnitt) -->
-                                            <Grid Margin="0,6" Visibility="{Binding ZeigtAlsEigenstaendigeMarke, Converter={StaticResource BoolToVisibility}}">
+                                            <Grid Margin="0,6" Visibility="{Binding Converter={StaticResource TrennerSichtbarkeit}, ConverterParameter='Start,Ende,Beinabschnitt'}">
                                                 <Border HorizontalAlignment="Center" CornerRadius="999" Padding="10,3"
                                                         Background="{ThemeResource TextFillColorSecondaryBrush}">
                                                     <TextBlock Text="{Binding TrennerText}" Foreground="{ThemeResource TextOnAccentFillColorPrimaryBrush}"

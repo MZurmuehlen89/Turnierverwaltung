@@ -3,9 +3,8 @@ using Fussballturnierverwaltung.Domain.Enums;
 
 namespace Fussballturnierverwaltung.Application.Simulation;
 
-/// <summary>Issue #237: Trenner-Untertyp fürs Rendering der Zeitleisten-Grafik — Abschnitt/Elfmeter
-/// durchbrechen die Mittelachse mit einer Linie, Start/Ende/Beinabschnitt stehen als eigenständige
-/// Marke ohne Linie (Anpfiff/Abpfiff bzw. HINSPIEL/RÜCKSPIEL-Kopf bei Hin- und Rückspiel).</summary>
+/// <summary>Issue #237: Art eines Trenners in der Zeitleiste — Abschnitt (Halbzeit, 90 Minuten, Verlängerung),
+/// Elfmeter (Elfmeterschießen), Start/Ende (Anpfiff/Abpfiff) und Beinabschnitt (HINSPIEL/RÜCKSPIEL bei Hin- und Rückspiel).</summary>
 public enum TrennerArt { Abschnitt, Elfmeter, Start, Ende, Beinabschnitt }
 
 public record EinzelspielEreignisZeile(
@@ -16,17 +15,7 @@ public record EinzelspielEreignisZeile(
     string? Detail = null, int MinuteWert = 0, bool IstElfmeterschuss = false, bool IstTaktikwechsel = false,
     bool IstGrosschance = false)
 {
-    // Nur fuer IstTrenner==true aussagekräftig — die beiden Properties kombinieren beides, damit die
-    // Zeitleisten-DataTemplate-Grids nicht zusätzlich auf IstTrenner prüfen müssen (sonst würde bei
-    // TrennerArt-Default=Abschnitt jede normale Ereignis-Zeile fälschlich als Abschnittstrenner gelten).
-    public bool ZeigtAlsAbschnittMitLinie   => IstTrenner && TrennerArt is TrennerArt.Abschnitt or TrennerArt.Elfmeter;
-    public bool ZeigtAlsEigenstaendigeMarke => IstTrenner && TrennerArt is TrennerArt.Start or TrennerArt.Ende or TrennerArt.Beinabschnitt;
-
-    // WinUI3 kennt kein Style.Triggers/DataTrigger (anders als das WPF-Original) — die Abschnitt-Pille
-    // wechselt bei Elfmeterschießen die Farbe daher über eine eigene Bool-Property statt eines
-    // TrennerArt-DataTriggers im XAML (siehe SpielberichtControl.xaml).
-    public bool IstElfmeterTrenner => TrennerArt == TrennerArt.Elfmeter;
-
+    // TrennerArt ist nur für IstTrenner==true aussagekräftig (Default Abschnitt bei normalen Ereigniszeilen).
     // Issue #341: minuteWert = Zeitpunkt des Abschnittsendes (45/90/105/120) — der kompakte Zeitstrahl
     // (SpielZeitstrahlControl) erkennt eine gespielte Verlängerung an Trennern jenseits der 90. Minute.
     public static EinzelspielEreignisZeile Trenner(string text, TrennerArt art = TrennerArt.Abschnitt, int minuteWert = 0) =>

@@ -84,6 +84,8 @@ is computed (#310).
 
 **Mehrere Spielbericht-Karten nebeneinander = `SpaltenPanel`** (#247, `Views/SpaltenPanel.cs`): ordnet die sichtbaren Kinder als gleich breite Spalten in voller Höhe an (eigener Bildlauf je Karte) und stellt sie bei weniger als 380 px je Spalte untereinander. Es misst seine Breite selbst (ein `AdaptiveTrigger` kennt nur die Fensterbreite) und schaltet dafür den **umgebenden `ScrollViewer`** um – nebeneinander `Disabled`, damit die Karten die Fensterhöhe bekommen, untereinander `Auto`. Immer in einen `ScrollViewer` stellen. Jede Karte steckt in einem Wrapper-`Grid`, der die `Visibility` trägt: am Element mit eigenem `DataContext` (`SpielBeinAnsicht`) liefe die Bindung gegen die Ansicht statt gegen das ViewModel.
 
+**Application-Anzeigemodelle tragen keine Sichtbarkeits-Flags** (#689, Blazor ist zweiter Client): WinUi leitet die Sichtbarkeit per Konverter aus den neutralen Daten ab – `NullToCollapsed` (Text vorhanden, z. B. `SpielKopf.Kontext`) und `TrennerSichtbarkeit` (Zeile + kommagetrennte `TrennerArt`-Namen als Parameter, `SpielberichtKarte`). Kein `ZeigtAls…`/`Hat…` in `Application/Simulation` einführen.
+
 ## AutomationIds für GUI-Tests (#494, #521)
 
 Elements a GUI test needs get an **explicit** `AutomationProperties.AutomationId` in the schema `View.Element`
