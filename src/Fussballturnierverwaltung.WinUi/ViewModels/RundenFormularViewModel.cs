@@ -294,6 +294,14 @@ public partial class RundenFormularViewModel : ObservableObject
             Regelwerk = RundeZeile.KeinRegelwerk;
     }
 
+    /// <summary>Siehe RundenartAuswahl: null kommt nur transient aus der ComboBox, wenn die Optionsliste wechselt
+    /// (K.-o. zeigt nur Regelwerke mit Verfahren, #624) – die Zeile hält den richtigen Wert.</summary>
+    partial void OnRegelwerkChanged(RegelwerkOption value)
+    {
+        if (_populiertGerade > 0) return;
+        if (value is null) AusZeileWiederherstellen(zeile => Regelwerk ??= zeile.Regelwerk);
+    }
+
     private void AuswaertstorRegelBereinigen()
     {
         if (!AuswaertstorAktivierbar) AuswaertstorRegelAktiv = false;
@@ -526,8 +534,9 @@ public partial class RundenFormularViewModel : ObservableObject
     /// <summary>Lädt die Auswahllisten für Regelwerk und Standard-Rangliste, sofern noch nicht geschehen.</summary>
     public async Task StammdatenSicherstellenAsync()
     {
-        if (Regelwerke.Count == 0)
-            Regelwerke = new ObservableCollection<Regelwerk>(await _regelwerkService.AlleAbrufenAsync());
+        // Bei jedem Setzen eines Turniers frisch (#624): ob ein Regelwerk ein Entscheidungsverfahren hat, entscheidet über
+        // die Auswahl bei K.-o. und ändert sich in der Regelwerkpflege.
+        Regelwerke = new ObservableCollection<Regelwerk>(await _regelwerkService.AlleAbrufenAsync());
         if (StandardRanglistenOptionen.Count == 1)
             StandardRanglistenOptionen =
             [
