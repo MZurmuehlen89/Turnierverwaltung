@@ -106,6 +106,14 @@ public class SpielKopfTests
             .Entscheidung.Should().Be(erwartet);
     }
 
+    // #690: ein Los-Gewinner ohne Los-/Münz-Art ergab „ für Alpha“ (null += Zusatz, führendes Leerzeichen).
+    [Fact]
+    public void LosGewinner_OhneLosArt_HatKeinenEntscheidungstext()
+    {
+        Kopf(Ergebnis(1, 0, EntscheidungArt.RegulaereSpielzeit, losGewinnerHeim: true))
+            .Entscheidung.Should().BeNull();
+    }
+
     [Fact]
     public void LosGewinner_NutztDieUebergebenenNamen_NichtDieMannschaftsnamen()
     {

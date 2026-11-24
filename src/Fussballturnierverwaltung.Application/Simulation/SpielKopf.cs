@@ -75,7 +75,7 @@ public sealed record SpielKopf(
         };
 
         // Issue #383: bei Los/Münze zeigt der (ausgeglichene) Spielstand keinen Sieger — daher ausschreiben.
-        if (e.LosGewinnerHeim is bool losFuerHeim)
+        if (entscheidung is not null && e.LosGewinnerHeim is bool losFuerHeim)
             entscheidung += $" für {(losFuerHeim ? heim.Name : auswaerts.Name)}";
         return entscheidung;
     }
