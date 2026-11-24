@@ -237,7 +237,7 @@
                         <Grid Margin="0,0,0,24" ColumnDefinitions="*,16,*">
                             <StackPanel HorizontalAlignment="Stretch">
                                 <TextBlock Text="Regelwerk" FontSize="12" Margin="0,0,0,3" />
-                                <ComboBox ItemsSource="{Binding Formular.RegelwerkOptionen}"
+                                <ComboBox ItemsSource="{Binding Formular.RegelwerkOptionen}" AutomationProperties.AutomationId="Runden.Regelwerk"
                                           SelectedItem="{Binding Formular.Regelwerk, Mode=TwoWay}"
                                           DisplayMemberPath="Anzeige" HorizontalAlignment="Stretch" />
                                 <!-- Issue #360 -->

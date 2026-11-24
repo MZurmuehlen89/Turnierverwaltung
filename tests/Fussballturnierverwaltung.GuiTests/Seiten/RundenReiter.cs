@@ -94,6 +94,35 @@ public sealed class RundenReiter(Window fenster, Hauptfenster hauptfenster)
         return Spielbedeutung;
     }
 
+    /// <summary>Angezeigtes Regelwerk der gezeigten Runde (#624), z. B. „— Turnierstandard —“.</summary>
+    public string Regelwerk =>
+        fenster.FindById("Runden.Regelwerk").AsComboBox().SelectedItem?.DisplayedTexts().FirstOrDefault() ?? string.Empty;
+
+    /// <summary>Wartet, bis das Regelwerk <paramref name="erwartet"/> anzeigt, und liefert das angezeigte.</summary>
+    public string RegelwerkAbwarten(string erwartet)
+    {
+        Wait.Within(() => Regelwerk == erwartet, Wait.DefaultTimeout);
+        return Regelwerk;
+    }
+
+    public void RegelwerkWaehlen(string regelwerk) =>
+        fenster.FindById("Runden.Regelwerk").AsComboBox().SelectItem(regelwerk);
+
+    /// <summary>Die Einträge, die die Regelwerk-Auswahl der gezeigten Runde anbietet.</summary>
+    public IReadOnlyList<string> RegelwerkAngebot()
+    {
+        var auswahl = fenster.FindById("Runden.Regelwerk").AsComboBox();
+        auswahl.Expand();
+        try
+        {
+            return auswahl.ReadAllItems(i => i.DisplayedTexts().FirstOrDefault());
+        }
+        finally
+        {
+            auswahl.Collapse();
+        }
+    }
+
     public void SpielbedeutungWaehlen(string spielbedeutung) =>
         fenster.FindById("Runden.Spielbedeutung").AsComboBox().SelectItem(spielbedeutung);
 
