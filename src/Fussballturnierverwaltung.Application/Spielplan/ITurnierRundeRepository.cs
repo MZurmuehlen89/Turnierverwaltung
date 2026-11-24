@@ -11,6 +11,10 @@ public interface ITurnierRundeRepository : IRepository<TurnierRunde>
     /// <summary>Standard-Regelwerk der Instanz — Rückfall für Runden ohne eigenes Regelwerk (AD-026).</summary>
     Task<int?> StandardRegelwerkIdDerInstanzAsync(int turnierInstanzId, CancellationToken ct = default);
 
+    /// <summary>#624: K.-o.-Runden (mit ihrem Turnier), für die das Regelwerk wirksam ist: als eigenes oder – ohne
+    /// eigenes – als Standardregelwerk ihres Turniers.</summary>
+    Task<IReadOnlyList<TurnierRunde>> KoRundenMitWirksamemRegelwerkAsync(int regelwerkId, CancellationToken ct = default);
+
     /// <summary>Tabellenbereiche der Runde, nach Platz sortiert (Issue #420).</summary>
     Task<IReadOnlyList<TabellenBereich>> TabellenBereicheAsync(int turnierRundeId, CancellationToken ct = default);
 }

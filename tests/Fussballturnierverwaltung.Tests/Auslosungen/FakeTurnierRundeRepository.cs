@@ -34,6 +34,9 @@ public class FakeTurnierRundeRepository : ITurnierRundeRepository
     public Task<IReadOnlyList<TurnierRunde>> AlleNachInstanzAsync(int turnierInstanzId, CancellationToken ct = default) =>
         Task.FromResult<IReadOnlyList<TurnierRunde>>([.. _runden.Where(r => r.TurnierInstanzId == turnierInstanzId)]);
 
+    public Task<IReadOnlyList<TurnierRunde>> KoRundenMitWirksamemRegelwerkAsync(int regelwerkId, CancellationToken ct = default) =>
+        Task.FromResult<IReadOnlyList<TurnierRunde>>([]);
+
     public Task<IReadOnlyList<TabellenBereich>> TabellenBereicheAsync(int turnierRundeId, CancellationToken ct = default) =>
         Task.FromResult<IReadOnlyList<TabellenBereich>>(
             [.. _runden.Where(r => r.Id == turnierRundeId).SelectMany(r => r.TabellenBereiche).OrderBy(b => b.PlatzVon)]);

@@ -104,6 +104,7 @@ public partial class App : global::Microsoft.UI.Xaml.Application
         builder.Services.AddScoped<MannschaftService>();
         builder.Services.AddScoped<LandService>();
         builder.Services.AddScoped<VerbandService>();
+        builder.Services.AddScoped<KoRegelwerkPruefung>();
         builder.Services.AddScoped<RegelwerkService>();
         builder.Services.AddScoped<TurnierInstanzService>();
         builder.Services.AddScoped<TurnierKlonService>();

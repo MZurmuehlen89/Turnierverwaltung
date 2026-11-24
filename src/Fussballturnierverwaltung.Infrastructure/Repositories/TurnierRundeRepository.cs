@@ -1,5 +1,6 @@
 using Fussballturnierverwaltung.Application.Spielplan;
 using Fussballturnierverwaltung.Domain.Entitaeten.Turniere;
+using Fussballturnierverwaltung.Domain.Enums;
 using Fussballturnierverwaltung.Infrastructure.Persistenz;
 using Microsoft.EntityFrameworkCore;
 
@@ -19,6 +20,17 @@ public class TurnierRundeRepository(TurnierverwaltungDbContext context)
             .Where(i => i.Id == turnierInstanzId)
             .Select(i => i.StandardRegelwerkId)
             .FirstOrDefaultAsync(ct);
+
+    public async Task<IReadOnlyList<TurnierRunde>> KoRundenMitWirksamemRegelwerkAsync(
+        int regelwerkId, CancellationToken ct = default)
+        => await Context.TurnierRunden
+            .Include(r => r.TurnierInstanz)
+            .Where(r => (r.Rundenart == Rundenart.KoRunde || r.Rundenart == Rundenart.Finale
+                         || r.Rundenart == Rundenart.SpielUmPlatzDrei)
+                        && (r.RegelwerkId == regelwerkId
+                            || (r.RegelwerkId == null && r.TurnierInstanz.StandardRegelwerkId == regelwerkId)))
+            .OrderBy(r => r.TurnierInstanzId).ThenBy(r => r.Reihenfolge)
+            .ToListAsync(ct);
 
     public async Task<IReadOnlyList<TurnierRunde>> AlleNachInstanzAsync(int turnierInstanzId, CancellationToken ct = default)
         => await Context.TurnierRunden

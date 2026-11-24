@@ -18,6 +18,7 @@ public class SpielErgebnisValidator
             .. WiederholungsspielPruefen(eingabe),
             .. SiegerBeteiligtPruefen(eingabe),
             .. KoHinspielPruefen(eingabe),
+            .. SiegerErforderlichPruefen(eingabe),
             .. SiegerZumTorverhaeltnisPruefen(eingabe),
         ];
 
@@ -137,6 +138,14 @@ public class SpielErgebnisValidator
     {
         if (eingabe.IstKoHinspiel && eingabe.EntscheidungArt != EntscheidungArt.RegulaereSpielzeit)
             yield return "Im Hinspiel gibt es keine Verlängerung und kein Elfmeterschießen – die Entscheidung fällt erst im Rückspiel.";
+    }
+
+    /// <summary>#624: Ein K.-o.-Einzel- oder -Rückspiel braucht einen Sieger – sonst bliebe die Folgerunde für immer offen
+    /// (Bestand: Regelwerk ohne Entscheidungsverfahren, das die Konfigurationsprüfung nicht mehr nachträglich trifft).</summary>
+    private static IEnumerable<string> SiegerErforderlichPruefen(SpielErgebnisEingabe eingabe)
+    {
+        if (eingabe.SiegerErforderlich && eingabe.SiegerMannschaftId is null)
+            yield return "Ein K.-o.-Spiel braucht einen Sieger. Das Regelwerk hat kein Entscheidungsverfahren, das ein Remis entscheidet – bitte dem Regelwerk eines hinzufügen.";
     }
 
     /// <summary>Bei regulärer Spielzeit muss ein angegebener Sieger zum Torverhältnis passen — nicht bei einem

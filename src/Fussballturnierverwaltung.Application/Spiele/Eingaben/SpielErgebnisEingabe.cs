@@ -18,4 +18,5 @@ public record SpielErgebnisEingabe(
     int? HalbzeitAuswaertsTore = null,
     bool IstGesamtwertung = false,
     bool IstKoHinspiel = false,
-    Wiederholungsergebnis? Wiederholung = null);
+    Wiederholungsergebnis? Wiederholung = null,
+    bool SiegerErforderlich = false);

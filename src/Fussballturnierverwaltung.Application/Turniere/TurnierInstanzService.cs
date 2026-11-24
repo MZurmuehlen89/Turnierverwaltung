@@ -15,6 +15,7 @@ public class TurnierInstanzService(
     ISpielRepository spielRepository,
     TurnierValidator validator,
     UebergangsregelService uebergangsregelService,
+    KoRegelwerkPruefung koRegelwerkPruefung, // #624: Konfigurationspruefung K.-o.-Runde ↔ Regelwerk
     ILogger<TurnierInstanzService> logger)
 {
     public Task<IReadOnlyList<TurnierInstanz>> AlleAbrufenAsync(CancellationToken ct = default)
@@ -92,6 +93,7 @@ public class TurnierInstanzService(
             instanzEingabe.Startdatum, instanzEingabe.Enddatum, instanzEingabe.Logo));
         await VorlagenEindeutigkeitPruefenAsync(instanzEingabe.Name, instanzEingabe.Variante, instanzEingabe.Status, null, ct);
         ValidationException.WerfenWennUngueltig(validator.RundenValidieren(rundenEingaben));
+        await koRegelwerkPruefung.RundenPruefenAsync(rundenEingaben, instanzEingabe.StandardRegelwerkId, ct);
 
         var instanz = new TurnierInstanz
         {
@@ -132,6 +134,8 @@ public class TurnierInstanzService(
             eingabe.Name, eingabe.SaisonOderJahr, eingabe.ZielMannschaftsanzahl,
             eingabe.Startdatum, eingabe.Enddatum, eingabe.Logo));
         await VorlagenEindeutigkeitPruefenAsync(eingabe.Name, eingabe.Variante, eingabe.Status, id, ct);
+        if (eingabe.StandardRegelwerkId != instanz.StandardRegelwerkId)
+            await koRegelwerkPruefung.StandardPruefenAsync(id, eingabe.StandardRegelwerkId, ct);
 
         instanz.Name                 = eingabe.Name.Trim();
         instanz.Beschreibung         = eingabe.Beschreibung.Trim();
@@ -169,6 +173,7 @@ public class TurnierInstanzService(
     {
         var runde = await rundeRepository.FindenNachIdAsync(rundeId, ct)
             ?? throw new InvalidOperationException($"TurnierRunde mit ID {rundeId} nicht gefunden.");
+        await koRegelwerkPruefung.RundePruefenAsync(runde, eingabe.RegelwerkId, ct);
         runde.Name                   = eingabe.Name.Trim();
         runde.RegelwerkId            = eingabe.RegelwerkId;
         runde.AuswaertstorRegelAktiv = eingabe.AuswaertstorRegelAktiv;
@@ -179,6 +184,7 @@ public class TurnierInstanzService(
     public async Task<IReadOnlyList<TurnierRunde>> RundenErsetzenAsync(int id, IReadOnlyList<TurnierRundeEingabe> eingaben, CancellationToken ct = default)
     {
         ValidationException.WerfenWennUngueltig(validator.RundenValidieren(eingaben));
+        await StandardRundenPruefenAsync(id, eingaben, ct);
 
         var neueRunden = eingaben.Select((e, i) => RundeAusEingabe(e, i + 1, id)).ToList();
 
@@ -198,6 +204,7 @@ public class TurnierInstanzService(
         CancellationToken ct = default)
     {
         ValidationException.WerfenWennUngueltig(validator.RundenValidieren(rundenEingaben));
+        await StandardRundenPruefenAsync(id, rundenEingaben, ct);
 
         var neueRunden = rundenEingaben.Select((e, i) => RundeAusEingabe(e, i + 1, id)).ToList();
 
@@ -208,6 +215,12 @@ public class TurnierInstanzService(
             "TurnierInstanz {Id}: {Anzahl} Runde(n), {AnzahlRegeln} Übergangsregel(n) vollständig ersetzt.",
             id, runden.Count, uebergangsregelEingaben.Count);
         return runden;
+    }
+
+    private async Task StandardRundenPruefenAsync(int id, IReadOnlyList<TurnierRundeEingabe> eingaben, CancellationToken ct)
+    {
+        var instanz = await repository.FindenNachIdAsync(id, ct);
+        await koRegelwerkPruefung.RundenPruefenAsync(eingaben, instanz?.StandardRegelwerkId, ct);
     }
 
     // turnierInstanzId bleibt beim Anlegen einer neuen Instanz 0 — EF setzt ihn über die Navigation.

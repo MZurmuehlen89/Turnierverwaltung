@@ -99,7 +99,8 @@ public class SpielErgebnisService(
             eingabe.HalbzeitHeimTore, eingabe.HalbzeitAuswaertsTore,
             IstGesamtwertung: istKoRueckspiel,
             IstKoHinspiel: istKoHinspiel,
-            Wiederholung: eingabe.Wiederholung)));
+            Wiederholung: eingabe.Wiederholung,
+            SiegerErforderlich: HinRueckspielWertung.IstKoRunde(spiel.TurnierRunde) && !istKoHinspiel)));
 
         return NeuesErgebnis(eingabe, sieger, entscheidungArt);
     }

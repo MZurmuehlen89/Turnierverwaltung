@@ -195,7 +195,7 @@ public class SpielErgebnisServiceTests
     }
 
     [Fact]
-    public async Task Rueckspiel_OhneAuswaertstorRegel_GesamtGleich_KeinSiegerOhneEntscheidungsverfahren()
+    public async Task Rueckspiel_OhneAuswaertstorRegel_GesamtGleich_OhneEntscheidungsverfahren_WirdAbgelehnt()
     {
         // Gleiche Konstellation, aber AuswaertstorRegel ist deaktiviert (Issue #346: früher entschied hier
         // fälschlich das Einzelspiel-Ergebnis des Rückspiels).
@@ -206,11 +206,11 @@ public class SpielErgebnisServiceTests
         RueckspielAnlegen(ctx, spielId: 2, rundeId: 1, heimId: 2, auswaertsId: 1, hinspielId: 1);
 
         var service = ServiceFuer(ctx);
-        await service.ErgebnisErfassenAsync(2, new ErgebnisErfassenEingabe(1, 2, EntscheidungArt.RegulaereSpielzeit));
+        // #624: ohne Sieger bliebe die Folgerunde offen – das Ergebnis wird abgelehnt (Bestand ohne Verfahren).
+        var akt = () => service.ErgebnisErfassenAsync(2, new ErgebnisErfassenEingabe(1, 2, EntscheidungArt.RegulaereSpielzeit));
 
-        var erg = await ErgebnisFuer(ctx, 2);
-        erg!.SiegerMannschaftId.Should().BeNull("das Gesamtergebnis ist ausgeglichen, die Auswärtstorregel greift nicht");
-        erg.EntscheidungArt.Should().Be(EntscheidungArt.RegulaereSpielzeit);
+        await akt.Should().ThrowAsync<ValidationException>("das Gesamtergebnis ist ausgeglichen, die Auswärtstorregel greift nicht");
+        (await ErgebnisFuer(ctx, 2)).Should().BeNull();
     }
 
     // ── Tests: Gesamtwertung Hin-/Rückspiel (Issue #346) ────────────────────

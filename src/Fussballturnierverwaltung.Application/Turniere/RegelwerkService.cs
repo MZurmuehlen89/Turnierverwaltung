@@ -9,6 +9,7 @@ public class RegelwerkService(
     IRegelwerkRepository repository,
     IRankingRegelSetRepository rankingRegelSetRepository,
     RegelwerkValidator validator,
+    KoRegelwerkPruefung koRegelwerkPruefung, // #624
     ILogger<RegelwerkService> logger)
 {
     public Task<IReadOnlyList<Regelwerk>> AlleAbrufenAsync(CancellationToken ct = default)
@@ -60,6 +61,7 @@ public class RegelwerkService(
             ?? throw new InvalidOperationException($"Regelwerk mit ID {id} nicht gefunden.");
 
         ValidationException.WerfenWennUngueltig(validator.Validieren(eingabe));
+        await koRegelwerkPruefung.RegelwerkAenderungPruefenAsync(id, eingabe.EntscheidungsVerfahrenReihenfolge.Count, ct);
 
         regelwerk.Name            = eingabe.Name.Trim();
         regelwerk.Beschreibung    = eingabe.Beschreibung.Trim();

@@ -17,7 +17,6 @@ public class SpielplanService(
     ISpielRepository spielRepository,
     IMannschaftRepository mannschaftRepository,
     SpielplanGeneratorFactory generatorFactory,
-    TurnierValidator turnierValidator,
     PlatzhalterAufloesung aufloesung,
     ILogger<SpielplanService> logger)
 #pragma warning restore S107
@@ -138,13 +137,11 @@ public class SpielplanService(
     // ── Generator-Wege: Startnummer → Generator → Speichern ─────────────────
 
     /// <summary>Gemeinsamer Ablauf der Wege über einen <see cref="ISpielplanGenerator"/> (Mannschaftsliste, TopfLiga,
-    /// Schweizer System): Regelwerk prüfen, an die Spielnummern der vorigen Runden anschließen, generieren, speichern.
+    /// Schweizer System): an die Spielnummern der vorigen Runden anschließen, generieren, speichern.
     /// <paramref name="kontextAb"/> bekommt die erste freie Spielnummer.</summary>
     private async Task<SpielplanErgebnis> MitGeneratorErzeugenAsync(
         TurnierRunde runde, Func<int, SpielplanKontext> kontextAb, CancellationToken ct)
     {
-        RegelwerkPruefen(runde);
-
         int startNr  = await spielRepository.NaechsteSpielNummerAsync(runde.TurnierInstanzId, runde.Id, runde.Reihenfolge, ct);
         var ergebnis = generatorFactory.ErstellenFuerRundenart(runde.Rundenart).Generieren(kontextAb(startNr));
         await SpielplanSpeicherung.ErgebnisSpeichernAsync(spielRepository, ergebnis, ct);
@@ -153,21 +150,6 @@ public class SpielplanService(
             "Spielplan ({Rundenart}) für Runde '{Runde}' generiert: {Anzahl} Spiele.",
             runde.Rundenart, runde.Name, ergebnis.Spiele.Count);
         return ergebnis;
-    }
-
-    /// <summary>K.-o.-Runden brauchen ein Entscheidungsverfahren im Regelwerk; andere Rundenarten lässt
-    /// <see cref="TurnierValidator.RundeUndRegelwerkKompatibel"/> durch. Platzhalter-Spielpläne laufen bewusst nicht
-    /// hier durch: Sie sind nur eine Vorstufe, das Regelwerk zählt erst mit festen Mannschaften (Nutzer, #620).</summary>
-    private void RegelwerkPruefen(TurnierRunde runde)
-    {
-        if (runde.Regelwerk is null) return;
-
-        var rundeEingabe = new TurnierRundeEingabe(
-            runde.Name, runde.Rundenart,
-            runde.EingangsMannschaftsanzahl, runde.AusgangsMannschaftsanzahl,
-            runde.RegelwerkId, runde.AuswaertstorRegelAktiv);
-        ValidationException.WerfenWennUngueltig(
-            turnierValidator.RundeUndRegelwerkKompatibel(rundeEingabe, runde.Regelwerk));
     }
 
     public Task<IReadOnlyList<Spiel>> SpielplanAbrufenAsync(int turnierRundeId, CancellationToken ct = default)

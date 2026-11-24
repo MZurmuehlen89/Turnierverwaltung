@@ -1,3 +1,4 @@
+using Fussballturnierverwaltung.Application.Turniere;
 using Fussballturnierverwaltung.Application.Abstraktionen;
 using Fussballturnierverwaltung.Application.Auslosungen;
 using Fussballturnierverwaltung.Application.Turniere.Eingaben;
@@ -53,7 +54,7 @@ public class TurnierValidator
 
         // Liga-Runden können mehr Ausgangsteams als erwartet haben (alle spielen alle). K.-o.-Rundenarten
         // prüft KoAnzahlenPruefen (dort auch der Split-Sonderfall, Issue #334).
-        if (r.Rundenart != Rundenart.Liga && !IstKoRundenart(r.Rundenart) &&
+        if (r.Rundenart != Rundenart.Liga && !KoRegelwerk.IstKoRundenart(r.Rundenart) &&
             r.AusgangsMannschaftsanzahl >= r.EingangsMannschaftsanzahl)
             yield return new($"Runde '{r.Name}': Ausgangsteams ({r.AusgangsMannschaftsanzahl}) " +
                              $"müssen kleiner als Eingangsteams ({r.EingangsMannschaftsanzahl}) sein.",
@@ -69,7 +70,7 @@ public class TurnierValidator
     /// Ganzgraph-Summenprüfung in UebergangsregelValidator.</summary>
     private static IEnumerable<Feldfehler> KoAnzahlenPruefen(TurnierRundeEingabe r, int index)
     {
-        if (!IstKoRundenart(r.Rundenart))
+        if (!KoRegelwerk.IstKoRundenart(r.Rundenart))
             yield break;
 
         int eingang = r.EingangsMannschaftsanzahl;
@@ -188,22 +189,6 @@ public class TurnierValidator
     private static bool IstKoGeschwisterPaar(Rundenart a, Rundenart b) =>
         (a == Rundenart.Finale && b == Rundenart.SpielUmPlatzDrei) ||
         (a == Rundenart.SpielUmPlatzDrei && b == Rundenart.Finale);
-
-    /// <summary>Rundenarten, die von KoRundeGenerator bedient werden — strikte n/2-Paarung, ein Sieger pro Spiel.</summary>
-    private static bool IstKoRundenart(Rundenart rundenart) =>
-        rundenart is Rundenart.KoRunde or Rundenart.Finale or Rundenart.SpielUmPlatzDrei;
-
-    /// <summary>Prüft ob eine Rundenart mit dem verknüpften Regelwerk kompatibel ist.</summary>
-    public ValidationErgebnis RundeUndRegelwerkKompatibel(TurnierRundeEingabe runde, Regelwerk regelwerk)
-    {
-        var fehler = new List<string>();
-
-        if (IstKoRundenart(runde.Rundenart) && !regelwerk.Entscheidungsverfahren.Any())
-            fehler.Add($"K.-o.-Runde '{runde.Name}' benötigt einen Sieger, aber Regelwerk '{regelwerk.Name}' " +
-                       $"hat kein Entscheidungsverfahren definiert (z.B. Verlängerung, Elfmeter).");
-
-        return fehler.Count == 0 ? ValidationErgebnis.Ok() : ValidationErgebnis.MitFehlern([.. fehler]);
-    }
 
     /// <summary>Validiert Basisdaten einer TurnierInstanz (Issue #294 — vereinheitlicht die frühere
     /// entitätsbasierte <c>TurnierInstanzValidieren</c> mit dem primitiv-basierten
