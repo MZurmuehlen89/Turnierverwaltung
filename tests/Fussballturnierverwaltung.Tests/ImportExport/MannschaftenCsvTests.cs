@@ -1,6 +1,7 @@
 using FluentAssertions;
 using Fussballturnierverwaltung.Application.ImportExport;
 using Fussballturnierverwaltung.Application.Stammdaten;
+using Fussballturnierverwaltung.Application.Stammdaten.Eingaben;
 using Fussballturnierverwaltung.Application.Validierung;
 using Fussballturnierverwaltung.Domain.Entitaeten.Stammdaten;
 using Fussballturnierverwaltung.Domain.Enums;
@@ -198,7 +199,7 @@ public sealed class MannschaftenCsvTests : IDisposable
         var mannschaftRepo = new MannschaftRepository(_ctx);
         var service = new MannschaftService(mannschaftRepo, new MannschaftValidator(), NullLogger<MannschaftService>.Instance);
 
-        await service.AktualisierenAsync(team.Id, new Application.Stammdaten.Eingaben.MannschaftAktualisierenEingabe(
+        await service.AktualisierenAsync(team.Id, new MannschaftAktualisierenEingabe(
             "Testelf", "TE", team.LandId, 80, 78, 76, 75, 65, Wappen: null));
 
         (await Neugeladen(team.Id)).Wappen.Should().BeNull();
