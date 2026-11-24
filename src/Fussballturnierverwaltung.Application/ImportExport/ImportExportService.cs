@@ -94,6 +94,8 @@ public class ImportExportService(
                         DefensivRating:   ParseInt(zeile, "DefensivRating",   70),
                         Heimstaerke:      ParseInt(zeile, "Heimstaerke",      75),
                         Auswaertsstaerke: ParseInt(zeile, "Auswaertsstaerke", 65),
+                        // Die CSV kennt kein Wappen; null hieße „entfernen“ (so übergibt es die Mannschaftspflege), #681.
+                        Wappen:           vorhanden.Wappen,
                         Grundausrichtung: ParseEnum<Grundausrichtung>(zeile, "Grundausrichtung"),
                         Flexibilitaet:    ParseEnum<Flexibilitaet>(zeile, "Flexibilitaet"),
                         Kondition:        ParseEnum<Kondition>(zeile, "Kondition"),

@@ -164,4 +164,43 @@ public sealed class MannschaftenCsvTests : IDisposable
         neu.OffensivRating.Should().Be(81, "der Import hat die Mannschaft aktualisiert");
         (neu.Grundausrichtung, neu.Flexibilitaet).Should().Be((Grundausrichtung.Defensiv, Flexibilitaet.Flexibel));
     }
+
+    // ── Wappen (#681) ─────────────────────────────────────────────────────
+
+    private static readonly byte[] _wappen = [1, 2, 3, 4];
+
+    [Fact]
+    public async Task ImportAktualisiertVorhandene_LaesstIhrWappenUnveraendert()
+    {
+        var team = TeamAnlegen(Grundausrichtung.Ausgeglichen, Flexibilitaet.Normal);
+        team.Wappen = _wappen;
+        _ctx.SaveChanges();
+        File.WriteAllLines(_datei,
+        [
+            "Name;Kurzname;Mannschaftsart;LandFifaCode;OffensivRating;MittelfeldRating;DefensivRating;Heimstaerke;Auswaertsstaerke",
+            "Testelf;TE;Verein;TST;81;78;76;75;65"
+        ]);
+
+        await Service().MannschaftenImportierenAsync(_datei);
+
+        var neu = await Neugeladen(team.Id);
+        neu.OffensivRating.Should().Be(81, "der Import hat die Mannschaft aktualisiert");
+        neu.Wappen.Should().Equal(_wappen);
+    }
+
+    /// <summary>Die Mannschaftspflege übergibt <c>null</c> als „Wappen entfernen“ – das darf nie zu „unverändert“ werden.</summary>
+    [Fact]
+    public async Task AktualisierenOhneWappen_EntferntDasWappen()
+    {
+        var team = TeamAnlegen(Grundausrichtung.Ausgeglichen, Flexibilitaet.Normal);
+        team.Wappen = _wappen;
+        _ctx.SaveChanges();
+        var mannschaftRepo = new MannschaftRepository(_ctx);
+        var service = new MannschaftService(mannschaftRepo, new MannschaftValidator(), NullLogger<MannschaftService>.Instance);
+
+        await service.AktualisierenAsync(team.Id, new Application.Stammdaten.Eingaben.MannschaftAktualisierenEingabe(
+            "Testelf", "TE", team.LandId, 80, 78, 76, 75, 65, Wappen: null));
+
+        (await Neugeladen(team.Id)).Wappen.Should().BeNull();
+    }
 }
