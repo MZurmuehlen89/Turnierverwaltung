@@ -248,20 +248,25 @@ public class AuslosungsValidator
                          $"({alleEintraege.Count % gruppenAnzahl} Team(s) übrig).";
 
         if (auslosung.Auslosungsart == Auslosungsart.NachToepfen)
-            foreach (var meldung in GruppentoepfePruefen(lostoepfe, gruppenAnzahl))
+            foreach (var meldung in GruppentoepfePruefen(lostoepfe, gruppenAnzahl, alleEintraege.Count))
                 yield return meldung;
     }
 
-    /// <summary>Gruppenphase mit 'Nach Töpfen': jeder Topf liefert genau ein Team je Gruppe.</summary>
-    private static IEnumerable<string> GruppentoepfePruefen(List<Lostopf> lostoepfe, int gruppenAnzahl)
+    /// <summary>Gruppenphase mit 'Nach Töpfen': jeder Topf liefert genau ein Team je Gruppe. Teilen sich die Teams
+    /// gleichmäßig auf die Gruppen auf, nennt die Meldung die erwartete Struktur („4 Töpfe zu je 6 Teams“, #543) –
+    /// „jeder Topf genau 6 Teams“ allein liest sich leicht als „mindestens 6 Töpfe“.</summary>
+    private static IEnumerable<string> GruppentoepfePruefen(List<Lostopf> lostoepfe, int gruppenAnzahl, int teamAnzahl)
     {
         var falscheToepfe = lostoepfe
             .Where(t => t.Eintraege.Count != gruppenAnzahl)
             .Select(t => $"'{t.Name}' ({t.Eintraege.Count})")
             .ToList();
-        if (falscheToepfe.Count > 0)
-            yield return $"Gruppenphase mit 'Nach Töpfen': Jeder Topf muss genau {gruppenAnzahl} Team(s) enthalten " +
-                         $"(je eines pro Gruppe). Abweichung bei: {string.Join(", ", falscheToepfe)}.";
+        if (falscheToepfe.Count == 0) yield break;
+
+        string erwartet = teamAnzahl > 0 && teamAnzahl % gruppenAnzahl == 0
+            ? $"Erwartet werden {teamAnzahl / gruppenAnzahl} Töpfe zu je {gruppenAnzahl} Teams (ein Team je Gruppe)."
+            : $"Jeder Topf muss genau {gruppenAnzahl} Team(s) enthalten (je eines pro Gruppe).";
+        yield return $"Gruppenphase mit 'Nach Töpfen': {erwartet} Abweichung bei: {string.Join(", ", falscheToepfe)}.";
     }
 
     // ── Regeln ──────────────────────────────────────────────────────────────

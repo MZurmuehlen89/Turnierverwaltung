@@ -84,6 +84,35 @@ public class AuslosungsValidatorTests
         _validator.Validieren(a, AlleEintraege(a)).IstGueltig.Should().BeTrue();
     }
 
+    // #543: Die Meldung nennt die erwartete Struktur (Töpfe × Teams je Topf), statt nur „jeder Topf genau n Teams“,
+    // das sich leicht als „mindestens n Töpfe“ liest.
+    [Fact]
+    public void Gruppenphase_NachToepfen_EinTopfFuerAlleTeams_NenntErwarteteStruktur()
+    {
+        // 24 Teams, 6 Gruppen → erwartet 4 Töpfe zu je 6 Teams
+        var topf = Topf(1, 1, Enumerable.Range(1, 24).Select(Eintrag).ToArray());
+        var a    = Auslosung(Rundenart.Gruppenphase, Auslosungsart.NachToepfen, gruppenAnzahl: 6, lostoepfe: [topf]);
+
+        var ergebnis = _validator.Validieren(a, AlleEintraege(a));
+
+        ergebnis.IstUngueltig.Should().BeTrue();
+        ergebnis.Fehler.Should().ContainSingle()
+            .Which.Should().Contain("4 Töpfe zu je 6 Teams (ein Team je Gruppe)").And.Contain("'Topf 1' (24)");
+    }
+
+    [Fact]
+    public void Gruppenphase_NachToepfen_NichtTeilbar_BehaeltDieBisherigeMeldungOhneTopfanzahl()
+    {
+        // 7 Teams, 2 Gruppen → keine gleichmäßige Verteilung, also keine erwartete Topfanzahl nennbar
+        var topf = Topf(1, 1, Enumerable.Range(1, 7).Select(Eintrag).ToArray());
+        var a    = Auslosung(Rundenart.Gruppenphase, Auslosungsart.NachToepfen, gruppenAnzahl: 2, lostoepfe: [topf]);
+
+        var ergebnis = _validator.Validieren(a, AlleEintraege(a));
+
+        ergebnis.Fehler.Should().Contain(f => f.Contains("nicht gleichmäßig"));
+        ergebnis.Fehler.Should().Contain(f => f.Contains("genau 2 Team(s)") && !f.Contains("Töpfe zu je"));
+    }
+
     [Fact]
     public void Gruppenphase_NachSetzliste_IstGueltig()
     {
