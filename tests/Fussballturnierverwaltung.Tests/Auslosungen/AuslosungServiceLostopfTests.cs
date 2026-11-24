@@ -125,6 +125,18 @@ public class AuslosungServiceLostopfTests
 
     [Theory]
     [MemberData(nameof(LostopfAenderungen))]
+    public async Task LostopfAenderung_AbgebrocheneAuslosung_Fehler(string _, Func<AuslosungService, int, int, Task> aendern)
+    {
+        _auslosung.Status = AuslosungsStatus.Abgebrochen;
+
+        var aenderung = () => aendern(_service, _auslosung.Id, 1);
+
+        await aenderung.Should().ThrowAsync<InvalidOperationException>().WithMessage("*abgebrochene Auslosung*");
+        MannschaftenInTopf(1).Should().Equal(1, 2);
+    }
+
+    [Theory]
+    [MemberData(nameof(LostopfAenderungen))]
     public async Task LostopfAenderung_UnbekannteAuslosung_Fehler(string _, Func<AuslosungService, int, int, Task> aendern)
     {
         var aenderung = () => aendern(_service, 123, 1);

@@ -250,9 +250,8 @@ public class AuslosungService(
         CancellationToken ct = default)
     {
         var auslosung = await OhneDetailsLadenOderFehler(auslosungId, ct);
-        if (auslosung.Status == AuslosungsStatus.Abgeschlossen)
-            throw new InvalidOperationException("Eine abgeschlossene Auslosung kann nicht bearbeitet werden. Bitte zuerst zurücksetzen.");
-        auslosung.Name            = name.Trim();
+        NurBearbeitbar(auslosung, "bearbeitet");
+        auslosung.Name           = name.Trim();
         auslosung.Auslosungsart   = auslosungsart;
         auslosung.Gruppenposition = gruppenposition;
         await repository.AktualisierenAsync(auslosung, ct);
@@ -306,9 +305,18 @@ public class AuslosungService(
     private async Task<Auslosung> BearbeitbareLadenAsync(int auslosungId, CancellationToken ct)
     {
         var auslosung = await LadenOderFehler(auslosungId, ct);
-        if (auslosung.Status == AuslosungsStatus.Abgeschlossen)
-            throw new InvalidOperationException("Eine abgeschlossene Auslosung kann nicht geändert werden. Bitte zuerst zurücksetzen.");
+        NurBearbeitbar(auslosung, "geändert");
         return auslosung;
+    }
+
+    /// <summary>Eine abgeschlossene oder abgebrochene Auslosung lässt keine Änderung zu — dieselbe Regel wie in der
+    /// Oberfläche (<c>AuslosungViewModel.IstBearbeitbar</c>, #706).</summary>
+    private static void NurBearbeitbar(Auslosung auslosung, string tat)
+    {
+        if (auslosung.Status == AuslosungsStatus.Abgeschlossen)
+            throw new InvalidOperationException($"Eine abgeschlossene Auslosung kann nicht {tat} werden. Bitte zuerst zurücksetzen.");
+        if (auslosung.Status == AuslosungsStatus.Abgebrochen)
+            throw new InvalidOperationException($"Eine abgebrochene Auslosung kann nicht {tat} werden.");
     }
 
     private async Task<(Auslosung Auslosung, Lostopf Lostopf)> BearbeitbareMitLostopfLadenAsync(

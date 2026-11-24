@@ -55,6 +55,29 @@ public class AuslosungServiceRegelTests
     }
 
     [Fact]
+    public async Task RegelDeaktivieren_AbgebrocheneAuslosung_FehlerUndRegelBleibtAktiv()
+    {
+        _auslosung.Status = AuslosungsStatus.Abgebrochen;
+
+        var abhaken = () => _service.RegelDeaktivierenAsync(_auslosung.Id, REGEL);
+
+        await abhaken.Should().ThrowAsync<InvalidOperationException>().WithMessage("*nicht geändert*");
+        RegelAktiv().Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task Bearbeiten_AbgebrocheneAuslosung_Fehler()
+    {
+        _auslosung.Status = AuslosungsStatus.Abgebrochen;
+
+        var bearbeiten = () => _service.BearbeitenAsync(
+            _auslosung.Id, "neu", _auslosung.Auslosungsart, _auslosung.Gruppenposition);
+
+        await bearbeiten.Should().ThrowAsync<InvalidOperationException>().WithMessage("*abgebrochene Auslosung*");
+        _auslosung.Name.Should().NotBe("neu");
+    }
+
+    [Fact]
     public async Task RegelAktivieren_AbgeschlosseneAuslosung_Fehler()
     {
         _auslosung.Status = AuslosungsStatus.Abgeschlossen;
