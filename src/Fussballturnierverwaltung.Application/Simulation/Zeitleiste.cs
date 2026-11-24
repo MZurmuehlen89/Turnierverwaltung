@@ -16,6 +16,7 @@ public record EinzelspielEreignisZeile(
     bool IstGrosschance = false)
 {
     // TrennerArt ist nur für IstTrenner==true aussagekräftig (Default Abschnitt bei normalen Ereigniszeilen).
+
     // Issue #341: minuteWert = Zeitpunkt des Abschnittsendes (45/90/105/120) — der kompakte Zeitstrahl
     // (SpielZeitstrahlControl) erkennt eine gespielte Verlängerung an Trennern jenseits der 90. Minute.
     public static EinzelspielEreignisZeile Trenner(string text, TrennerArt art = TrennerArt.Abschnitt, int minuteWert = 0) =>
