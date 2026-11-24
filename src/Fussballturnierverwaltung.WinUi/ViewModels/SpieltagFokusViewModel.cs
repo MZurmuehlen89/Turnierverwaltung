@@ -1,5 +1,6 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Fussballturnierverwaltung.Application.Auslosungen;
 using Fussballturnierverwaltung.Application.Spielplan;
 using Fussballturnierverwaltung.Domain.Enums;
 using System.Collections.ObjectModel;
@@ -196,7 +197,7 @@ public partial class SpieltagFokusViewModel : ObservableObject
         {
             var zeile = liste[i];
             zeile.GruppenKopf = _nachGruppeGegliedert && (i == 0 || zeile.GruppeNummer != vorigeGruppe)
-                ? (zeile.GruppeNummer is { } nr ? $"Gruppe {nr}" : "Ohne Gruppe")
+                ? (zeile.GruppeNummer is { } nr ? $"Gruppe {GruppenHerkunft.Buchstabe(nr)}" : "Ohne Gruppe")
                 : null;
             vorigeGruppe = zeile.GruppeNummer;
         }

@@ -1,3 +1,4 @@
+using Fussballturnierverwaltung.Application.Auslosungen;
 using Fussballturnierverwaltung.Application.Spiele;
 using Fussballturnierverwaltung.Application.Spielplan;
 using Fussballturnierverwaltung.Application.Stammdaten;
@@ -124,7 +125,7 @@ internal static class SpielZeilenMapper
         : s.IstRueckspiel ? "Rückspiel" : "Hinspiel";
 
     private static string RundeAnzeige(TurnierRunde? runde, int? gruppenNummer) =>
-        (runde?.Name ?? "") + (gruppenNummer is int nr ? $" · Gr.{nr}" : "");
+        (runde?.Name ?? "") + (gruppenNummer is int nr ? $" · Gr.{GruppenHerkunft.Buchstabe(nr)}" : "");
 
     /// <summary>Zusatz zum Ergebnis: wie es entschieden wurde (n.V., i.E.), sonst der Halbzeitstand.</summary>
     private static string ErgebnisDetail(SpielErgebnis? ergebnis)

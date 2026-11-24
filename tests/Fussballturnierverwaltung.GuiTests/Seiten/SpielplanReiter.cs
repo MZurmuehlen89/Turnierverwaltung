@@ -147,7 +147,7 @@ public sealed class SpielplanReiter(Window fenster, Hauptfenster hauptfenster)
         hauptfenster.WarteBisRuhig();
     }
 
-    /// <summary>Die Gruppentabellen der gewählten Runde, wie sie neben dem Spielplan stehen: Kopf („Gruppe 1“) →
+    /// <summary>Die Gruppentabellen der gewählten Runde, wie sie neben dem Spielplan stehen: Kopf („Gruppe A“) →
     /// Mannschaften in Tabellenreihenfolge. Gelesen wird in Baumreihenfolge; Rangfolgen über Gruppen hinweg (beste
     /// Dritte) würden der letzten Gruppe zugeschlagen, darum nur für Runden ohne solche Rangfolge.</summary>
     public IReadOnlyDictionary<string, IReadOnlyList<string>> GruppenTabellen()
@@ -163,6 +163,36 @@ public sealed class SpielplanReiter(Window fenster, Hauptfenster hauptfenster)
                 aktuelle?.Add(element.NameOrEmpty());
         }
         return tabellen.ToDictionary(t => t.Key, t => (IReadOnlyList<string>)t.Value);
+    }
+
+    // ── Zwischen Gruppen blättern (#544) ──────────────────────────────────────
+
+    /// <summary>Filtert den Spielplan auf die Gruppe, deren Tabellenkopf <paramref name="bezeichnung"/> trägt
+    /// („Gruppe A“), und wartet, bis die Gruppenleiste sie zeigt.</summary>
+    public void GruppeFiltern(string bezeichnung)
+    {
+        fenster.FindAllById("Tabelle.Gruppe").First(k => k.NameOrEmpty() == bezeichnung).Click();
+        Wait.Until(() => GewaehlteGruppe == bezeichnung, Wait.DefaultTimeout, $"Spielplan auf {bezeichnung} gefiltert");
+        hauptfenster.WarteBisRuhig();
+    }
+
+    /// <summary>Die Gruppe in der Leiste „‹ Gruppe A ›“ der gefilterten Ansicht.</summary>
+    public string GewaehlteGruppe => fenster.TryFindById("Spielplan.Gruppe")?.NameOrEmpty() ?? "";
+
+    public bool VorigeGruppeMoeglich => fenster.FindById("Spielplan.VorigeGruppe").IsEnabled;
+
+    public bool NaechsteGruppeMoeglich => fenster.FindById("Spielplan.NaechsteGruppe").IsEnabled;
+
+    public void NaechsteGruppe() => GruppeBlaettern("Spielplan.NaechsteGruppe");
+
+    public void VorigeGruppe() => GruppeBlaettern("Spielplan.VorigeGruppe");
+
+    private void GruppeBlaettern(string knopf)
+    {
+        string vorher = GewaehlteGruppe;
+        fenster.ActivateById(knopf);
+        Wait.Until(() => GewaehlteGruppe != vorher, Wait.DefaultTimeout, "Gruppe gewechselt");
+        hauptfenster.WarteBisRuhig();
     }
 
     // ── Ergebnis von Hand ─────────────────────────────────────────────────────

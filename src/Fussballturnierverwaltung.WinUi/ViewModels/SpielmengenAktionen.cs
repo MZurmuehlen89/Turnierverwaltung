@@ -267,14 +267,14 @@ public sealed class SpielmengenAktionen
 
     private Task GruppeZuruecksetzenAsync() => ZuruecksetzenAsync(
         "Gruppe", GruppenSpiele,
-        ids => $"Alle {ids.Count} Ergebnis(se) der Gruppe {_kontext.EffektiveGruppe?.GruppenNummer} zurücksetzen?",
+        ids => $"Alle {ids.Count} Ergebnis(se) der {_kontext.EffektiveGruppe?.Bezeichnung} zurücksetzen?",
         AuswahlDanach.Wiederherstellen);
 
     private Task SpieltagZuruecksetzenAsync() => ZuruecksetzenAsync(
         "Spieltag", SpieltagSpiele,
         ids =>
         {
-            var gruppenHinweis = _kontext.AusgewaehlteGruppe is { } gruppe ? $" (Gruppe {gruppe.GruppenNummer})" : "";
+            var gruppenHinweis = _kontext.AusgewaehlteGruppe is { } gruppe ? $" ({gruppe.Bezeichnung})" : "";
             return $"Alle {ids.Count} Ergebnis(se) von Spieltag {_kontext.EffektiverSpieltag}{gruppenHinweis} zurücksetzen?";
         },
         AuswahlDanach.Wiederherstellen);

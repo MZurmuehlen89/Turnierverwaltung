@@ -1,3 +1,4 @@
+using Fussballturnierverwaltung.Application.Auslosungen;
 using Fussballturnierverwaltung.Application.Spiele;
 using Fussballturnierverwaltung.Application.Statistiken;
 using Fussballturnierverwaltung.Domain.Entitaeten.Stammdaten;
@@ -208,7 +209,7 @@ public static class MannschaftsSeitenBuilder
     {
         var s = spiel.Spiel;
         var teile = new List<string> { s.TurnierRunde.Name };
-        if (s.GruppenNummer is int gruppe) teile.Add($"Gr.{gruppe}");
+        if (s.GruppenNummer is int gruppe) teile.Add($"Gr.{GruppenHerkunft.Buchstabe(gruppe)}");
         if (spiel.IstWiederholungsspiel) teile.Add("Wiederholungsspiel");
 
         if (HinRueckspielWertung.IstKoRunde(s.TurnierRunde))

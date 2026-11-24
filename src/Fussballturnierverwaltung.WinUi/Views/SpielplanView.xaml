@@ -148,10 +148,16 @@
                             <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="8"
                                         Visibility="{Binding IstGefiltertAufGruppe, Converter={StaticResource BoolToVisibility}}">
                                 <Button Content="✕ Filter aufheben" Command="{Binding ZurueckZurUebersichtBefehl}" FontSize="11" Padding="8,4" />
-                                <TextBlock VerticalAlignment="Center" FontWeight="Bold" FontSize="13">
-                                    <Run Text="Gruppe " />
-                                    <Run Text="{Binding AusgewaehlteGruppe.GruppenNummer}" />
-                                </TextBlock>
+                                <!-- #544: ‹ Gruppe A › – an den Enden gesperrt. -->
+                                <Button Content="&#x2039;" Command="{Binding VorigeGruppeBefehl}" FontSize="16" Padding="10,0,10,2"
+                                        AutomationProperties.AutomationId="Spielplan.VorigeGruppe"
+                                        ToolTipService.ToolTip="Vorige Gruppe" />
+                                <TextBlock VerticalAlignment="Center" FontWeight="Bold" FontSize="13"
+                                           AutomationProperties.AutomationId="Spielplan.Gruppe"
+                                           Text="{Binding AusgewaehlteGruppe.Bezeichnung}" />
+                                <Button Content="&#x203A;" Command="{Binding NaechsteGruppeBefehl}" FontSize="16" Padding="10,0,10,2"
+                                        AutomationProperties.AutomationId="Spielplan.NaechsteGruppe"
+                                        ToolTipService.ToolTip="Nächste Gruppe" />
                             </StackPanel>
                             <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center"
                                         Visibility="{Binding Fokus.HatMehrereSpieltage, Converter={StaticResource BoolToVisibility}}">

@@ -171,6 +171,30 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
 
     public ICommand ZurueckZurUebersichtBefehl => _zurueckZurUebersichtBefehl;
 
+    // ── Zwischen Gruppen blättern (#544) ──────────────────────────────────────
+    // An den Enden hört das Blättern auf (kein Sprung von der letzten zur ersten Gruppe). Der Spieltag bleibt
+    // beim Wechsel stehen, das leistet BeiGruppeFokusAenderung (#363).
+
+    private readonly RelayCommand _vorigeGruppeBefehl;
+    private readonly RelayCommand _naechsteGruppeBefehl;
+
+    public ICommand VorigeGruppeBefehl => _vorigeGruppeBefehl;
+    public ICommand NaechsteGruppeBefehl => _naechsteGruppeBefehl;
+
+    private int? NachbarGruppe(int richtung)
+    {
+        if (AusgewaehlteGruppe is not { } aktuelle) return null;
+        var nummern = _kontext.GruppenTabellen.Select(g => g.GruppenNummer).Order().ToList();
+        int index = nummern.IndexOf(aktuelle.GruppenNummer) + richtung;
+        return index >= 0 && index < nummern.Count ? nummern[index] : null;
+    }
+
+    private void GruppeWechseln(int richtung)
+    {
+        if (NachbarGruppe(richtung) is { } nummer && _kontext.Gruppe(nummer) is { } gruppe)
+            AusgewaehlteGruppe = gruppe;
+    }
+
     // ── Mannschaftsansicht (#479) ─────────────────────────────────────────────
     // Ist eine Mannschaft gewählt, zeigt die Liste ihre Spiele über alle Runden; Rundenauswahl und Spieltag-
     // Blättern treten zurück. AusgewaehlteRunde folgt dann still dem gewählten Spiel — Formular (Regelwerk,
@@ -584,6 +608,8 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
         _loeschenBefehl = new AsyncRelayCommand(ErgebnisLoeschenAsync, CanErgebnisLoeschen);
 
         _zurueckZurUebersichtBefehl = new RelayCommand(() => AusgewaehlteGruppe = null, () => AusgewaehlteGruppe is not null);
+        _vorigeGruppeBefehl = new RelayCommand(() => GruppeWechseln(-1), () => NachbarGruppe(-1) is not null);
+        _naechsteGruppeBefehl = new RelayCommand(() => GruppeWechseln(1), () => NachbarGruppe(1) is not null);
 
         Mengen = new SpielmengenAktionen(this, simulationsService, spielService, dialogService);
 
@@ -1131,6 +1157,8 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
 
         Mengen.BefehleMelden();
         _zurueckZurUebersichtBefehl.NotifyCanExecuteChanged();
+        _vorigeGruppeBefehl.NotifyCanExecuteChanged();
+        _naechsteGruppeBefehl.NotifyCanExecuteChanged();
 
         // Beim Gruppenwechsel bleibt der angezeigte Spieltag stehen, sofern die Gruppe ihn hat (Issue #363).
         if (istEchterGruppenwechsel)

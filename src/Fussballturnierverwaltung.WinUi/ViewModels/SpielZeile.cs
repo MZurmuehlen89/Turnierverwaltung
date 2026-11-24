@@ -1,4 +1,5 @@
 using CommunityToolkit.Mvvm.ComponentModel;
+using Fussballturnierverwaltung.Application.Auslosungen;
 using Fussballturnierverwaltung.Domain.Enums;
 
 namespace Fussballturnierverwaltung.WinUi.ViewModels;
@@ -53,7 +54,7 @@ public partial class SpielZeile : ObservableObject
     /// damit Paarungen wie in der kicker-Paarungsansicht als Block erkennbar sind.</summary>
     public bool IstPaarungsStart { get; init; }
     public Microsoft.UI.Xaml.Thickness PaarungsAbstand => IstPaarungsStart ? new(0, 10, 0, 0) : new(0);
-    public string GruppeAnzeige => GruppeNummer.HasValue ? $"Gr.{GruppeNummer}" : "";
+    public string GruppeAnzeige => GruppeNummer.HasValue ? $"Gr.{GruppenHerkunft.Buchstabe(GruppeNummer.Value)}" : "";
 
     /// <summary>Zwischenüberschrift über der ersten Zeile einer Gruppe in der Spieltag-Ansicht der Gruppenphase
     /// (Issue #363) — hängt von der gerade angezeigten Auswahl ab, deshalb veränderlich statt init.</summary>

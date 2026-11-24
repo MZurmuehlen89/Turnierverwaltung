@@ -63,7 +63,7 @@
             <StackPanel>
                 <Border Background="{ThemeResource AccentFillColorDefaultBrush}" CornerRadius="8,8,0,0" Padding="12,8">
                     <TextBlock Foreground="White" FontWeight="Bold" FontSize="13" AutomationProperties.AutomationId="Tabelle.Gruppe">
-                        <Run Text="Gruppe " /><Run Text="{Binding GruppenNummer}" />
+                        <Run Text="{Binding Bezeichnung}" />
                     </TextBlock>
                 </Border>
                 <views:TabellenKopfZeile ZeigtBuchholz="{Binding DataContext.ZeigtBuchholzSpalte, ElementName=Wurzel}" />
