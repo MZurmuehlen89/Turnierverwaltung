@@ -251,7 +251,7 @@ public class AuslosungService(
     {
         var auslosung = await OhneDetailsLadenOderFehler(auslosungId, ct);
         NurBearbeitbar(auslosung, "bearbeitet");
-        auslosung.Name           = name.Trim();
+        auslosung.Name            = name.Trim();
         auslosung.Auslosungsart   = auslosungsart;
         auslosung.Gruppenposition = gruppenposition;
         await repository.AktualisierenAsync(auslosung, ct);
