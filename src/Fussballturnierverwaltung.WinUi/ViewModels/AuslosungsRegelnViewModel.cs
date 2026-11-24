@@ -18,6 +18,10 @@ public class AuslosungsRegelnViewModel
     private IReadOnlyList<RegelViewModel> _regeln = [];
     private Rundenart? _regelRundenart;
     private bool _regelFolgtAufGruppenphase;
+    private bool _auslosungAbgeschlossen;
+
+    // Eine abgeschlossene Auslosung lässt keine Regeländerung zu (Service, #626) – die Schalter bieten sie gar nicht an.
+    private const string ABGESCHLOSSEN_HINWEIS = "Auslosung ist abgeschlossen – zum Ändern zurücksetzen";
 
     /// <summary>Schalter oder ihre Sperren haben sich geändert.</summary>
     public event Action? Geaendert;
@@ -35,6 +39,7 @@ public class AuslosungsRegelnViewModel
     public void Zeigen(Auslosung detail, IReadOnlyList<TurnierRunde> instanzRunden)
     {
         RegelRundeMerken(detail, instanzRunden);
+        _auslosungAbgeschlossen = detail.Status == AuslosungsStatus.Abgeschlossen;
         _regeln = AuslosungsRegelKompatibilitaet.AngeboteneRegeln.Select(art => RegelSchalterErstellen(detail, art)).ToList();
         SperrenAktualisieren(detail.Auslosungsart);
     }
@@ -99,7 +104,7 @@ public class AuslosungsRegelnViewModel
             .Select(r => new RibbonToggleAktion(
                 r.Anzeige, r.ImmerAktivHinweis is not null || r.IstAktiv, aktiv => r.IstAktiv = aktiv,
                 r.Beschreibung,
-                SperrHinweis: r.ImmerAktivHinweis ?? r.SperrHinweis,
+                SperrHinweis: _auslosungAbgeschlossen ? ABGESCHLOSSEN_HINWEIS : r.ImmerAktivHinweis ?? r.SperrHinweis,
                 // Die Heimrecht-Regeln schließen sich aus: Anhaken der einen hakt die andere ab (#331).
                 ExklusivGruppe: AuslosungsRegelKompatibilitaet.IstHeimrechtRegel(r.Regelart) ? "Heimrecht" : null,
                 AutomationId: $"Befehlsleiste.Regel.{r.Regelart}"))

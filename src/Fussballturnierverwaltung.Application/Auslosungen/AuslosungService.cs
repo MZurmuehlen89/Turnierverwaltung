@@ -159,7 +159,7 @@ public class AuslosungService(
 
     public async Task RegelDeaktivierenAsync(int auslosungId, AuslosungsRegelArt regelart, CancellationToken ct = default)
     {
-        var auslosung = await LadenOderFehler(auslosungId, ct);
+        var auslosung = await BearbeitbareLadenAsync(auslosungId, ct);
         var regel = auslosung.Regeln.FirstOrDefault(r => r.Regelart == regelart);
         if (regel is not null)
         {

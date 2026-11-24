@@ -242,6 +242,29 @@ public sealed class AuslosungReiter(Window fenster, Hauptfenster hauptfenster)
         hauptfenster.WarteBisRuhig();
     }
 
+    /// <summary>Ob sich die Regel im Flyout der Befehlsleiste bedienen lässt – bei einer abgeschlossenen Auslosung
+    /// ist der Schalter ausgegraut (#626). Öffnet das Flyout nur zum Lesen und schließt es wieder.</summary>
+    public bool RegelBedienbar(string regelart)
+    {
+        string id = $"Befehlsleiste.Regel.{regelart}";
+        hauptfenster.WarteBisRuhig();
+        var umschalter = Wait.UntilFound(
+            () =>
+            {
+                var gefunden = fenster.TryFindById(id);
+                if (gefunden is null && !FlyoutOffen())
+                    fenster.ActivateById("Befehlsleiste.AuslosungsRegeln");
+                return gefunden;
+            },
+            Wait.DefaultTimeout,
+            $"Umschalter '{id}'");
+        bool bedienbar = umschalter.IsEnabled;
+        FlaUI.Core.Input.Keyboard.Type(FlaUI.Core.WindowsAPI.VirtualKeyShort.ESCAPE);
+        Wait.Until(() => fenster.TryFindById(id) is null, Wait.DefaultTimeout, "Regel-Flyout geschlossen");
+        hauptfenster.WarteBisRuhig();
+        return bedienbar;
+    }
+
     private bool FlyoutOffen() => fenster.FindFirstDescendant(cf => cf.ByClassName("FlyoutPresenter")) is not null;
 
     // ── TV-Modus ──────────────────────────────────────────────────────────────

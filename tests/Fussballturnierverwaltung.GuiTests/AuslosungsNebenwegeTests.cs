@@ -91,6 +91,21 @@ public sealed class AuslosungsNebenwegeTests(TurnierverwaltungApp app, TestDaten
             (s.Heim == "Brasilien" && s.Auswaerts == "Argentinien"));
     }
 
+    /// <summary>Eine abgeschlossene Auslosung lässt keine Regeländerung zu (#626): die Schalter sind gesperrt und
+    /// werden nach dem Zurücksetzen wieder frei – davor und danach, nicht nur dazwischen.</summary>
+    [Fact]
+    public void Regelschalter_AbgeschlosseneAuslosung_Gesperrt_NachZuruecksetzenFrei()
+    {
+        var (_, auslosung) = GruppenauslosungVorbereiten(app.Hauptfenster);
+        auslosung.RegelBedienbar("KeinGleichesLand").Should().BeTrue("die Auslosung ist noch in Vorbereitung");
+
+        auslosung.Durchfuehren();
+        auslosung.RegelBedienbar("KeinGleichesLand").Should().BeFalse("eine abgeschlossene Auslosung ist nicht änderbar");
+
+        auslosung.Zuruecksetzen();
+        auslosung.RegelBedienbar("KeinGleichesLand").Should().BeTrue("nach dem Zurücksetzen ist sie wieder offen");
+    }
+
     public void Dispose() => app.BeiFehlschlagBelegeSichern();
 
     /// <summary>Acht Nationalmannschaften aus drei Konföderationen: fünf UEFA-Teams, Argentinien und Brasilien
