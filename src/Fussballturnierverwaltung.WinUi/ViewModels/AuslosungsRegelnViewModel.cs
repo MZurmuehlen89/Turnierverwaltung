@@ -18,10 +18,19 @@ public class AuslosungsRegelnViewModel
     private IReadOnlyList<RegelViewModel> _regeln = [];
     private Rundenart? _regelRundenart;
     private bool _regelFolgtAufGruppenphase;
-    private bool _auslosungAbgeschlossen;
+    private AuslosungsStatus _status;
 
-    // Eine abgeschlossene Auslosung lässt keine Regeländerung zu (Service, #626) – die Schalter bieten sie gar nicht an.
+    // Eine abgeschlossene oder abgebrochene Auslosung lässt keine Regeländerung zu (Service, #626/#706) – die Schalter
+    // bieten sie gar nicht an.
     private const string ABGESCHLOSSEN_HINWEIS = "Auslosung ist abgeschlossen – zum Ändern zurücksetzen";
+    private const string ABGEBROCHEN_HINWEIS   = "Auslosung ist abgebrochen – Regeln sind nicht mehr änderbar";
+
+    private string? StatusSperrHinweis => _status switch
+    {
+        AuslosungsStatus.Abgeschlossen => ABGESCHLOSSEN_HINWEIS,
+        AuslosungsStatus.Abgebrochen   => ABGEBROCHEN_HINWEIS,
+        _                              => null
+    };
 
     /// <summary>Schalter oder ihre Sperren haben sich geändert.</summary>
     public event Action? Geaendert;
@@ -39,7 +48,7 @@ public class AuslosungsRegelnViewModel
     public void Zeigen(Auslosung detail, IReadOnlyList<TurnierRunde> instanzRunden)
     {
         RegelRundeMerken(detail, instanzRunden);
-        _auslosungAbgeschlossen = detail.Status == AuslosungsStatus.Abgeschlossen;
+        _status = detail.Status;
         _regeln = AuslosungsRegelKompatibilitaet.AngeboteneRegeln.Select(art => RegelSchalterErstellen(detail, art)).ToList();
         SperrenAktualisieren(detail.Auslosungsart);
     }
@@ -71,7 +80,15 @@ public class AuslosungsRegelnViewModel
             if (aktiv) await RegelAktivierenAsync(auslosungId, art);
             else await _auslosungService.RegelDeaktivierenAsync(auslosungId, art);
         }
-        catch (Exception ex) { _fehlerMelden(ex.Message); }
+        catch (Exception ex)
+        {
+            // Der Schalter zeigt wieder den gespeicherten Stand (#705): Gegenregeln werden erst nach erfolgreichem
+            // Speichern abgehakt, also steht nur der angeklickte Schalter auf dem ungespeicherten Wert. Neu laden
+            // brächte nichts — der DbContext hält die fehlgeschlagene Änderung weiter nachverfolgt (Identity Resolution).
+            _regeln.FirstOrDefault(r => r.Regelart == art)?.OhneSpeichernSetzen(!aktiv);
+            Geaendert?.Invoke();
+            _fehlerMelden(ex.Message);
+        }
     }
 
     private async Task RegelAktivierenAsync(int auslosungId, AuslosungsRegelArt art)
@@ -80,8 +97,8 @@ public class AuslosungsRegelnViewModel
         foreach (var andere in _regeln.Where(r =>
                      r.IstAktiv && AuslosungsRegelKompatibilitaet.SchliessenSichAus(art, r.Regelart)).ToList())
         {
-            andere.OhneSpeichernSetzen(false);
             await _auslosungService.RegelDeaktivierenAsync(auslosungId, andere.Regelart);
+            andere.OhneSpeichernSetzen(false);
         }
         await _auslosungService.RegelHinzufuegenOderAktivierenAsync(auslosungId, art, AuslosungsRegelKompatibilitaet.AnzeigeName(art));
     }
@@ -104,7 +121,7 @@ public class AuslosungsRegelnViewModel
             .Select(r => new RibbonToggleAktion(
                 r.Anzeige, r.ImmerAktivHinweis is not null || r.IstAktiv, aktiv => r.IstAktiv = aktiv,
                 r.Beschreibung,
-                SperrHinweis: _auslosungAbgeschlossen ? ABGESCHLOSSEN_HINWEIS : r.ImmerAktivHinweis ?? r.SperrHinweis,
+                SperrHinweis: StatusSperrHinweis ?? r.ImmerAktivHinweis ?? r.SperrHinweis,
                 // Die Heimrecht-Regeln schließen sich aus: Anhaken der einen hakt die andere ab (#331).
                 ExklusivGruppe: AuslosungsRegelKompatibilitaet.IstHeimrechtRegel(r.Regelart) ? "Heimrecht" : null,
                 AutomationId: $"Befehlsleiste.Regel.{r.Regelart}"))
