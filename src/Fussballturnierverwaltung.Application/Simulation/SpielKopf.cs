@@ -14,12 +14,6 @@ public sealed record SpielKopf(
     string AuswaertsName, byte[]? AuswaertsWappen, string? AuswaertsUntertitel, string AuswaertsKuerzel,
     string Score, string? Entscheidung, string? Zwischenstaende)
 {
-    public bool HatKontext             => Kontext is not null;
-    public bool HatHeimUntertitel      => HeimUntertitel is not null;
-    public bool HatAuswaertsUntertitel => AuswaertsUntertitel is not null;
-    public bool HatEntscheidung        => Entscheidung is not null;
-    public bool HatZwischenstaende     => Zwischenstaende is not null;
-
     /// <summary>Baut den Spielkopf aus einem Ergebnis; <paramref name="untertitel"/> liefert Verband und Liga für die
     /// Untertitel (#384).</summary>
     public static SpielKopf Aus(string? kontext, SpielSeite heim, SpielSeite auswaerts, SimulationsErgebnis ergebnis, UntertitelQuellen untertitel)
