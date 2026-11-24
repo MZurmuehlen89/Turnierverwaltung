@@ -44,7 +44,7 @@ public partial class SpielZeile : ObservableObject
     public int RundeId { get; init; }
     public int? HeimMannschaftId { get; init; }
     public int? AuswaertsMannschaftId { get; init; }
-    /// <summary>Runde samt Gruppe, z.B. „Gruppenphase · Gr.1“ — nur in der Mannschaftsansicht gesetzt.</summary>
+    /// <summary>Runde samt Gruppe, z.B. „Gruppenphase · Gr.A“ — nur in der Mannschaftsansicht gesetzt.</summary>
     public string RundeAnzeige { get; init; } = "";
     /// <summary>Eine noch offene Seite (Platzhalter) wird blasser gezeigt.</summary>
     public double HeimDeckkraft => HeimMannschaftId is null ? 0.6 : 1.0;
