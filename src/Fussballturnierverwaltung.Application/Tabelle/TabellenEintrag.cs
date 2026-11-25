@@ -15,6 +15,16 @@ public sealed class TabellenEintrag
     public int Tordifferenz => Tore - Gegentore;
     public int Rang { get; set; }
 
+    /// <summary>Der übernommene Startwert aus der Quellrunde (#355); <c>null</c> ohne Punkteübernahme oder solange das Team noch
+    /// nicht feststeht. Die Punkte stecken schon in <see cref="Punkte"/>.</summary>
+    public Vortragswert? Vortrag { get; init; }
+
+    /// <summary>Text der Spalte „Vortrag“: die Punkte (↓/↑ bei gerundetem Wert), „–“ solange das Team nicht feststeht.</summary>
+    public string VortragAnzeige => Vortrag?.Anzeige ?? "–";
+
+    /// <summary>Herleitung für den Tooltip der Spalte „Vortrag“; <c>null</c> ohne Vortrag.</summary>
+    public string? VortragBeschreibung => Vortrag?.Beschreibung;
+
     /// <summary>Buchholz-Zahl (Schweizer System): Summe der aktuellen Punkte aller bisherigen Gegner —
     /// Standard-Tiebreaker bei Punktgleichheit, höherer Wert deutet auf eine stärkere Gegnerschaft hin.</summary>
     public int Buchholz { get; set; }

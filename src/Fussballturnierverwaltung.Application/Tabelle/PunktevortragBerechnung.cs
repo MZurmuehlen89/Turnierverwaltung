@@ -7,7 +7,8 @@ namespace Fussballturnierverwaltung.Application.Tabelle;
 /// vor allen Kriterien des Regelsets.</summary>
 /// <param name="Punkte">Ganze Punkte, mit denen die Tabelle startet.</param>
 /// <param name="Ungerundet">Der Wert vor dem Runden (bei halbierten Modi in halben Punkten).</param>
-public readonly record struct Vortragswert(int Punkte, decimal Ungerundet)
+/// <param name="QuellPunkte">Die Punkte des Teams in der Quellrunde, aus denen der Vortrag entstand.</param>
+public readonly record struct Vortragswert(int Punkte, decimal Ungerundet, int QuellPunkte = 0)
 {
     public static readonly Vortragswert Keiner = new(0, 0m);
 
@@ -19,6 +20,16 @@ public readonly record struct Vortragswert(int Punkte, decimal Ungerundet)
 
     /// <summary>Wurde aufgerundet – dann liegt der ganze Wert über dem ungerundeten.</summary>
     public bool IstAufgerundet => Punkte > Ungerundet;
+
+    /// <summary>Der Wert für die Spalte „Vortrag“: die Punkte, bei gerundetem Wert mit Pfeil (↓ abgerundet, ↑ aufgerundet).</summary>
+    public string Anzeige => $"{Punkte}{(IstAbgerundet ? "↓" : IstAufgerundet ? "↑" : "")}";
+
+    /// <summary>Die Herleitung für den Tooltip, etwa „31 Punkte in der Quellrunde, halbiert 15,5 → 15“.</summary>
+    public string Beschreibung => IstHalbiert
+        ? $"{QuellPunkte} Punkte in der Quellrunde, halbiert {Ungerundet.ToString("0.#", System.Globalization.CultureInfo.GetCultureInfo("de-DE"))} → {Punkte}"
+        : $"{QuellPunkte} Punkte in der Quellrunde, voll übernommen";
+
+    private bool IstHalbiert => QuellPunkte != Punkte;
 }
 
 /// <summary>Reine Funktion: Vortrag aus den Punkten der Quellrunde und dem Modus der Zielrunde (#355).</summary>
@@ -26,9 +37,9 @@ public static class PunktevortragBerechnung
 {
     public static Vortragswert Berechnen(int quellPunkte, Punktevortrag modus) => modus switch
     {
-        Punktevortrag.Voll                => new Vortragswert(quellPunkte, quellPunkte),
-        Punktevortrag.HalbiertAbgerundet  => new Vortragswert(quellPunkte / 2, quellPunkte / 2m),
-        Punktevortrag.HalbiertAufgerundet => new Vortragswert((quellPunkte + 1) / 2, quellPunkte / 2m),
+        Punktevortrag.Voll                => new Vortragswert(quellPunkte, quellPunkte, quellPunkte),
+        Punktevortrag.HalbiertAbgerundet  => new Vortragswert(quellPunkte / 2, quellPunkte / 2m, quellPunkte),
+        Punktevortrag.HalbiertAufgerundet => new Vortragswert((quellPunkte + 1) / 2, quellPunkte / 2m, quellPunkte),
         _                                 => Vortragswert.Keiner
     };
 }

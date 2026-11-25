@@ -45,4 +45,24 @@ public class PunktevortragTests
     [InlineData(Punktevortrag.HalbiertAufgerundet, 30)]
     public void Berechnen_GeradeOderUngehalbiert_IstNichtGerundet(Punktevortrag modus, int quellPunkte) =>
         PunktevortragBerechnung.Berechnen(quellPunkte, modus).IstGerundet.Should().BeFalse();
+
+    // ── K10: Anzeige in der Spalte „Vortrag“ ─────────────────────────────
+
+    [Theory]
+    [InlineData(Punktevortrag.HalbiertAbgerundet, 31, "15↓")]
+    [InlineData(Punktevortrag.HalbiertAufgerundet, 31, "16↑")]
+    [InlineData(Punktevortrag.HalbiertAbgerundet, 30, "15")]
+    [InlineData(Punktevortrag.Voll, 31, "31")]
+    public void Anzeige_ZeigtPunkteUndPfeilBeiGerundetemWert(Punktevortrag modus, int quellPunkte, string erwartet) =>
+        PunktevortragBerechnung.Berechnen(quellPunkte, modus).Anzeige.Should().Be(erwartet);
+
+    [Fact]
+    public void Beschreibung_NenntQuellpunkteUndHalbierung() =>
+        PunktevortragBerechnung.Berechnen(31, Punktevortrag.HalbiertAbgerundet).Beschreibung
+            .Should().Be("31 Punkte in der Quellrunde, halbiert 15,5 → 15");
+
+    [Fact]
+    public void Beschreibung_BeiVollerUebernahme() =>
+        PunktevortragBerechnung.Berechnen(31, Punktevortrag.Voll).Beschreibung
+            .Should().Be("31 Punkte in der Quellrunde, voll übernommen");
 }

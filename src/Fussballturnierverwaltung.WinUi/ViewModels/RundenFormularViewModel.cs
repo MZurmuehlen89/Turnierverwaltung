@@ -107,7 +107,7 @@ public partial class RundenFormularViewModel : ObservableObject
     [
         nameof(Name), nameof(Rundenart), nameof(EingangsMannschaftsanzahl), nameof(AusgangsMannschaftsanzahl),
         nameof(GruppenAnzahl), nameof(AnzahlSpieltage), nameof(MitRueckspiel), nameof(AuswaertstorRegelAktiv), nameof(NeutralerSpielort),
-        nameof(Ueberraschungsfaktor), nameof(Spielbedeutung),
+        nameof(Ueberraschungsfaktor), nameof(Spielbedeutung), nameof(Punktevortrag),
         nameof(Regelwerk), nameof(PaarungFestVorgegeben), nameof(VorgegebeneAuslosungsart),
         nameof(StandardRangliste), nameof(TitelverteidigerInTopf1), nameof(EinGegnerJeTopf)
     ];
@@ -149,6 +149,14 @@ public partial class RundenFormularViewModel : ObservableObject
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(SpielbedeutungAuswahl))]
     private Spielbedeutung _spielbedeutung;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(PunktevortragAuswahl))]
+    private Punktevortrag _punktevortrag;
+
+    /// <summary>Ob die Runde Punkte übernehmen kann (#355): Tabelle, Übergangsregeln aus genau einer Runde mit Tabelle. Setzt die
+    /// Runden-Übersicht; nur dann ist die Auswahl „Punkteübernahme“ sichtbar.</summary>
+    [ObservableProperty] private bool _punkteuebernahmeMoeglich;
     [ObservableProperty] private RegelwerkOption _regelwerk = RundeZeile.KeinRegelwerk;
     [ObservableProperty] private bool _paarungFestVorgegeben;
     [ObservableProperty] private VorgegebeneAuslosungsartOption _vorgegebeneAuslosungsart = RundeZeile.KeineAuslosungsartVorgabe;
@@ -173,6 +181,7 @@ public partial class RundenFormularViewModel : ObservableObject
         NeutralerSpielort = zeile?.NeutralerSpielort ?? false;
         Ueberraschungsfaktor = zeile?.Ueberraschungsfaktor ?? 0;
         Spielbedeutung = zeile?.Spielbedeutung ?? Spielbedeutung.Normal;
+        Punktevortrag = zeile?.Punktevortrag ?? Punktevortrag.Keine;
         Regelwerk = zeile?.Regelwerk ?? RundeZeile.KeinRegelwerk;
         PaarungFestVorgegeben = zeile?.PaarungFestVorgegeben ?? false;
         VorgegebeneAuslosungsart = zeile?.VorgegebeneAuslosungsart ?? RundeZeile.KeineAuslosungsartVorgabe;
@@ -198,6 +207,7 @@ public partial class RundenFormularViewModel : ObservableObject
         zeile.NeutralerSpielort = NeutralerSpielort;
         zeile.Ueberraschungsfaktor = Ueberraschungsfaktor;
         zeile.Spielbedeutung = Spielbedeutung;
+        zeile.Punktevortrag = Punktevortrag;
         // null kommt nur transient aus der ComboBox, wenn die Optionsliste (K.-o.: nur mit Verfahren, #624) wechselt.
         if (Regelwerk is not null)
             zeile.Regelwerk = Regelwerk;
@@ -509,6 +519,7 @@ public partial class RundenFormularViewModel : ObservableObject
 
     /// <summary>Als Instanz-Property, weil {Binding} keine statischen Properties findet.</summary>
     public IReadOnlyList<SpielbedeutungOption> SpielbedeutungOptionen => SpielbedeutungOption.Alle;
+    public IReadOnlyList<PunktevortragOption> PunktevortragOptionen => PunktevortragOption.Alle;
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(RegelwerkOptionen))]
@@ -574,6 +585,25 @@ public partial class RundenFormularViewModel : ObservableObject
             if (value is not null) Spielbedeutung = value.Wert;
             else NachComboBoxResetWiederherstellen(() => OnPropertyChanged(nameof(SpielbedeutungAuswahl)));
         }
+    }
+
+    /// <summary>Wie <see cref="SpielbedeutungAuswahl"/>: null aus dem ComboBox-Reset wird verworfen (#355).</summary>
+    public PunktevortragOption? PunktevortragAuswahl
+    {
+        get => PunktevortragOption.Fuer(Punktevortrag);
+        set
+        {
+            if (value is not null) Punktevortrag = value.Wert;
+            else NachComboBoxResetWiederherstellen(() => OnPropertyChanged(nameof(PunktevortragAuswahl)));
+        }
+    }
+
+    /// <summary>Die Runden-Übersicht meldet, ob die Runde Punkte übernehmen kann, und hat den Modus der Runde bei Bedarf schon
+    /// auf „keine“ gesetzt (#355 K9): das Formular zeigt dann den Stand der Runde.</summary>
+    public void PunkteuebernahmeZeigen(bool moeglich)
+    {
+        PunkteuebernahmeMoeglich = moeglich;
+        OhneRueckschreiben(() => Punktevortrag = _zeile?.Punktevortrag ?? Punktevortrag.Keine);
     }
 
     /// <summary>Stellt eine vom ComboBox-Reset verworfene Auswahl nach dem Laden wieder her — auf niedriger

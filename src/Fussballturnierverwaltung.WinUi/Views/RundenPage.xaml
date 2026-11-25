@@ -257,6 +257,15 @@
                                           DisplayMemberPath="Anzeige" HorizontalAlignment="Stretch" />
                                 <TextBlock Text="Wie riskant beide Teams in der Simulation ins Spiel gehen. Vorbelegt nach der Rundenart: Finale hoch, Spiel um Platz 3 gering."
                                            FontSize="11" Opacity="0.6" TextWrapping="Wrap" />
+                                <!-- Issue #355: nur bei einer Runde mit Tabelle, die aus genau einer Runde mit Tabelle gespeist wird -->
+                                <StackPanel Visibility="{Binding Formular.PunkteuebernahmeMoeglich, Converter={StaticResource BoolToVisibility}}">
+                                    <TextBlock Text="Punkteübernahme" FontSize="12" Margin="0,12,0,3" />
+                                    <ComboBox ItemsSource="{Binding Formular.PunktevortragOptionen}" AutomationProperties.AutomationId="Runden.Punkteuebernahme"
+                                              SelectedItem="{Binding Formular.PunktevortragAuswahl, Mode=TwoWay}"
+                                              DisplayMemberPath="Anzeige" HorizontalAlignment="Stretch" />
+                                    <TextBlock Text="Wie viele Punkte die Tabelle dieser Runde aus der Tabelle der Quellrunde mitnimmt – etwa die Meister- oder Qualifikationsgruppe nach dem Grunddurchgang."
+                                               FontSize="11" Opacity="0.6" TextWrapping="Wrap" />
+                                </StackPanel>
                             </StackPanel>
                             <StackPanel Grid.Column="2" Margin="0,22,0,0">
                                 <CheckBox Content="Mit Rückspiel" AutomationProperties.AutomationId="Runden.MitRueckspiel" IsChecked="{Binding Formular.MitRueckspiel, Mode=TwoWay}" Margin="0,0,0,4"

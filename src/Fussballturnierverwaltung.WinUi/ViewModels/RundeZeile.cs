@@ -29,6 +29,7 @@ public partial class RundeZeile : ObservableObject
     [ObservableProperty] private bool _neutralerSpielort;
     [ObservableProperty] private int _ueberraschungsfaktor;
     [ObservableProperty] private Spielbedeutung _spielbedeutung;
+    [ObservableProperty] private Punktevortrag _punktevortrag;
     [ObservableProperty] private RegelwerkOption _regelwerk = KeinRegelwerk;
     [ObservableProperty] private bool _paarungFestVorgegeben;
     [ObservableProperty] private VorgegebeneAuslosungsartOption _vorgegebeneAuslosungsart = KeineAuslosungsartVorgabe;

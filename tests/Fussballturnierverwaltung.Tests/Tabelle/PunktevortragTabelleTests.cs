@@ -235,4 +235,25 @@ public class PunktevortragTabelleTests
 
         Reihenfolge(tabelle).Should().Equal(2, 1);
     }
+
+    // ── K10: Vortrag im Eintrag ───────────────────────────────────────────
+
+    [Fact]
+    public void Eintrag_TraegtDenVortrag_TeamsOhneVortragZeigenStrich()
+    {
+        var regeln = MitVortrag(_punkteTordifferenzLos, new()
+        {
+            [1] = PunktevortragBerechnung.Berechnen(31, Punktevortrag.HalbiertAbgerundet)
+        });
+
+        var tabelle = TabellenRechner.TabelleBerechnen([], regeln, teilnehmer: [_teams[1], _teams[2]]);
+
+        var mit = tabelle.Single(e => e.Mannschaft.Id == 1);
+        mit.VortragAnzeige.Should().Be("15↓");
+        mit.VortragBeschreibung.Should().Be("31 Punkte in der Quellrunde, halbiert 15,5 → 15");
+        var ohne = tabelle.Single(e => e.Mannschaft.Id == 2);
+        ohne.Vortrag.Should().BeNull();
+        ohne.VortragAnzeige.Should().Be("–");
+        ohne.VortragBeschreibung.Should().BeNull();
+    }
 }

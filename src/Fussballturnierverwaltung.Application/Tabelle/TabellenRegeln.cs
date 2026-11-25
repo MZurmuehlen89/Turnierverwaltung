@@ -21,4 +21,8 @@ public sealed record TabellenRegeln(
     /// <summary>Der Vortrag eines Teams; ohne Eintrag <see cref="Vortragswert.Keiner"/>.</summary>
     public Vortragswert VortragVon(int mannschaftId) =>
         Vortraege is not null && Vortraege.TryGetValue(mannschaftId, out var wert) ? wert : Vortragswert.Keiner;
+
+    /// <summary>Der Vortrag eines Teams, <c>null</c> wenn es keinen hat – für die Anzeige („–“ statt 0).</summary>
+    public Vortragswert? VortragOderNull(int mannschaftId) =>
+        Vortraege is not null && Vortraege.TryGetValue(mannschaftId, out var wert) ? wert : null;
 }

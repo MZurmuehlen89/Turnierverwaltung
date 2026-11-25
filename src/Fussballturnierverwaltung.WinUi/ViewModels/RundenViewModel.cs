@@ -5,6 +5,7 @@ using Fussballturnierverwaltung.Application.Auslosungen;
 using Fussballturnierverwaltung.Application.Diagnose;
 using Fussballturnierverwaltung.Application.Spielplan;
 using Fussballturnierverwaltung.Application.Spielplan.Eingaben;
+using Fussballturnierverwaltung.Application.Tabelle;
 using Fussballturnierverwaltung.Application.Turniere;
 using Fussballturnierverwaltung.Application.Turniere.Eingaben;
 using Fussballturnierverwaltung.Application.Validierung;
@@ -90,7 +91,31 @@ public partial class RundenViewModel : ViewModelBase, IRibbonAware, IHatUngespei
     partial void OnAusgewaehlteRundeChanged(RundeZeile? value)
     {
         Formular.Zeigen(value, FolgtAufGruppenphase(value));
+        Formular.PunkteuebernahmeZeigen(PunkteuebernahmeMoeglich(value));
         PaarungFestVorgabeMelden();
+    }
+
+    /// <summary>Ob die Runde Punkte aus einer Quellrunde übernehmen kann (#355 K9): sie hat eine Tabelle und wird über
+    /// Übergangsregeln aus genau einer Runde mit Tabelle gespeist. Wie der Validator, aber schon im Formular – widersprüchliche
+    /// Angaben werden gar nicht erst angeboten.</summary>
+    private bool PunkteuebernahmeMoeglich(RundeZeile? zeile)
+    {
+        if (zeile is null || !TabellenZonen.HatTabelle(zeile.Rundenart)) return false;
+
+        var quellen = _alleUebergaenge
+            .Where(b => b.ZielRunde == zeile && b.QuellRunde is not null && b.QuellRunde != zeile)
+            .Select(b => b.QuellRunde!)
+            .Distinct()
+            .ToList();
+        return quellen.Count == 1 && TabellenZonen.HatTabelle(quellen[0].Rundenart);
+    }
+
+    /// <summary>Verletzt eine Änderung die Bedingung der Punkteübernahme, springt der Modus der Runde auf „keine“.</summary>
+    private void PunkteuebernahmeAbgleichen()
+    {
+        foreach (var runde in Runden.Where(r => r.Punktevortrag != Punktevortrag.Keine && !PunkteuebernahmeMoeglich(r)))
+            runde.Punktevortrag = Punktevortrag.Keine;
+        Formular.PunkteuebernahmeZeigen(PunkteuebernahmeMoeglich(AusgewaehlteRunde));
     }
 
     public bool FormularSichtbar => AusgewaehlteRunde is not null;
@@ -113,6 +138,7 @@ public partial class RundenViewModel : ViewModelBase, IRibbonAware, IHatUngespei
     /// Unstimmigkeits-Hinweise und die Regelanzeige des Editors (auch Name/Ausgang einer Runde betreffen sie).</summary>
     private void PruefenUndMelden()
     {
+        PunkteuebernahmeAbgleichen();
         AktualisiereRundenFehler();
         UebergaengeGeaendertMelden();
     }
@@ -288,6 +314,7 @@ public partial class RundenViewModel : ViewModelBase, IRibbonAware, IHatUngespei
         NeutralerSpielort = r.NeutralerSpielort,
         Ueberraschungsfaktor = r.Ueberraschungsfaktor,
         Spielbedeutung = r.Spielbedeutung,
+        Punktevortrag = r.Punktevortrag,
         Regelwerk = r.Regelwerk is not null ? new RegelwerkOption(r.Regelwerk.Name, r.Regelwerk) : RundeZeile.KeinRegelwerk,
         PaarungFestVorgegeben = r.PaarungFestVorgegeben,
         VorgegebeneAuslosungsart = RundenFormularViewModel.AuslosungsartVorgabeOptionFuer(r.VorgegebeneAuslosungsart),
@@ -407,6 +434,7 @@ public partial class RundenViewModel : ViewModelBase, IRibbonAware, IHatUngespei
         NeutralerSpielort: z.NeutralerSpielort,
         Ueberraschungsfaktor: z.Ueberraschungsfaktor,
         Spielbedeutung: z.Spielbedeutung,
+        Punktevortrag: z.Punktevortrag,
         VorgegebeneAuslosungsregeln: z.VorgegebeneAuslosungsregeln,
         TabellenBereiche: z.TabellenBereiche,
         VorgegebeneGruppenposition: z.VorgegebeneGruppenposition,
@@ -457,7 +485,8 @@ public partial class RundenViewModel : ViewModelBase, IRibbonAware, IHatUngespei
         Rundenart = z.Rundenart,
         EingangsMannschaftsanzahl = z.EingangsMannschaftsanzahl,
         AusgangsMannschaftsanzahl = z.AusgangsMannschaftsanzahl,
-        GruppenAnzahl = z.GruppenAnzahl
+        GruppenAnzahl = z.GruppenAnzahl,
+        Punktevortrag = z.Punktevortrag
     })];
 
     /// <summary>Klick auf einen Fehler in der Meldungsleiste (#601): wählt die betroffene Runde und öffnet bei einem

@@ -1,5 +1,6 @@
 using Fussballturnierverwaltung.Application.Abstraktionen;
 using Fussballturnierverwaltung.Application.Spielplan.Eingaben;
+using Fussballturnierverwaltung.Application.Tabelle;
 using Fussballturnierverwaltung.Domain.Entitaeten.Turniere;
 using Fussballturnierverwaltung.Domain.Enums;
 
@@ -110,6 +111,7 @@ public class UebergangsregelValidator
             .. ZyklusPruefen(gueltigeRegeln),
             .. EingehendeSummenPruefen(runden, gueltigeRegeln),
             .. AusgehendeSummenPruefen(runden, gueltigeRegeln),
+            .. PunktevortragPruefen(runden, gueltigeRegeln),
         ];
 
         return ValidationErgebnis.Aus(fehler);
@@ -180,6 +182,38 @@ public class UebergangsregelValidator
             r => r.AusgangsMannschaftsanzahl,
             (quelle, summe) => $"Ausgehende Übergangsregeln von '{quelle.Name}' verteilen zusammen {summe} Mannschaften, " +
                                $"erwartet werden aber {quelle.AusgangsMannschaftsanzahl}.");
+
+    /// <summary>Punkteübernahme (#355): Eine Runde mit Punktevortrag braucht eine Tabelle und wird über Übergangsregeln aus
+    /// genau einer Runde mit Tabelle gespeist – sonst gäbe es keine Abschlusstabelle, aus der Punkte kämen.</summary>
+    private static IEnumerable<Feldfehler> PunktevortragPruefen(
+        IReadOnlyList<TurnierRunde> runden, IReadOnlyList<UebergangsregelPositionsEingabe> gueltigeRegeln)
+    {
+        for (var i = 0; i < runden.Count; i++)
+        {
+            var runde = runden[i];
+            if (runde.Punktevortrag == Punktevortrag.Keine) continue;
+
+            string? text = PunktevortragFehler(runde, i + 1, runden, gueltigeRegeln);
+            if (text is not null)
+                yield return new Feldfehler(text, nameof(TurnierRunde.Punktevortrag), Zeile: i);
+        }
+    }
+
+    private static string? PunktevortragFehler(
+        TurnierRunde runde, int reihenfolge, IReadOnlyList<TurnierRunde> runden, IReadOnlyList<UebergangsregelPositionsEingabe> gueltigeRegeln)
+    {
+        if (!TabellenZonen.HatTabelle(runde.Rundenart))
+            return $"Runde '{runde.Name}': Die Punkteübernahme setzt eine Runde mit Tabelle voraus.";
+
+        var quellen = gueltigeRegeln.Where(r => r.ZielReihenfolge == reihenfolge).Select(r => r.QuellReihenfolge).Distinct().ToList();
+        if (quellen.Count != 1)
+            return $"Runde '{runde.Name}': Die Punkteübernahme setzt Übergangsregeln aus genau einer Runde voraus.";
+
+        var quelle = runden[quellen[0] - 1];
+        return TabellenZonen.HatTabelle(quelle.Rundenart)
+            ? null
+            : $"Runde '{runde.Name}': Die Quellrunde '{quelle.Name}' hat keine Tabelle, aus der Punkte übernommen werden könnten.";
+    }
 
     /// <summary>Für jede Runde mit mindestens einer Regel (Schlüssel = 1-basierte Reihenfolge): die Summe der
     /// Mannschaften muss genau der Sollanzahl entsprechen.</summary>

@@ -53,7 +53,7 @@ public static class TabellenRechner
 
         var eintraege = teams
             .Where(kv => eingabe.NurMannschaften?.Contains(kv.Key) ?? true)
-            .Select(kv => EintragAus(kv.Value, stats[kv.Key]))
+            .Select(kv => EintragAus(kv.Value, stats[kv.Key], regeln.VortragOderNull(kv.Key)))
             .ToList();
         TabellenSortierung.SortierenUndRangZuweisen(
             eintraege, new TabellenSortierung.Wertung(stats, abgeschlossene, eingabe.Spielplan, regeln));
@@ -144,7 +144,7 @@ public static class TabellenRechner
         return teams;
     }
 
-    private static TabellenEintrag EintragAus(Mannschaft mannschaft, RohStats stats) => new()
+    private static TabellenEintrag EintragAus(Mannschaft mannschaft, RohStats stats, Vortragswert? vortrag) => new()
     {
         Mannschaft    = mannschaft,
         Spiele        = stats.Spiele,
@@ -154,6 +154,7 @@ public static class TabellenRechner
         Tore          = stats.Tore,
         Gegentore     = stats.Gegentore,
         Punkte        = stats.Punkte,
-        Buchholz      = stats.GegnerPunkte
+        Buchholz      = stats.GegnerPunkte,
+        Vortrag       = vortrag
     };
 }

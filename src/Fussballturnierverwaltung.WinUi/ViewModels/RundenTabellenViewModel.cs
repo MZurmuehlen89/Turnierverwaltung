@@ -54,6 +54,7 @@ public partial class RundenTabellenViewModel : ObservableObject
     {
         FokusWechseln(runde);
         AnzeigeartSetzen(runde?.Rundenart);
+        ZeigtVortragSpalte = runde is { Punktevortrag: not Punktevortrag.Keine };
         if (ZeigtTabelle) await TabelleLadenAsync();
     }
 
@@ -91,6 +92,10 @@ public partial class RundenTabellenViewModel : ObservableObject
 
     [ObservableProperty]
     private bool _zeigtBuchholzSpalte;
+
+    /// <summary>Spalte „Vortrag“ bei einer Runde mit Punkteübernahme (#355).</summary>
+    [ObservableProperty]
+    private bool _zeigtVortragSpalte;
 
     // ── Tabellen ──────────────────────────────────────────────────────────────
 

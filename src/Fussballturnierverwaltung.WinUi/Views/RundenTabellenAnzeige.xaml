@@ -24,7 +24,7 @@
         <DataTemplate x:Key="TabellenEintragZeileTemplate" x:DataType="tabelle:TabellenEintrag">
             <Grid ColumnDefinitions="Auto,*">
                 <views:ZonenMarke Grid.Column="0" Farbe="{Binding ZonenFarbe}" Width="4" CornerRadius="2" Margin="3,2,0,2" />
-                <Grid Grid.Column="1" views:TabellenSpalten.Anwenden="True" Padding="0,4,4,4">
+                <Grid Grid.Column="1" views:TabellenSpalten.Anwenden="True" views:TabellenSpalten.MitVortrag="{Binding DataContext.ZeigtVortragSpalte, ElementName=Wurzel}" Padding="0,4,4,4">
                     <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="4" HorizontalAlignment="Center" VerticalAlignment="Center">
                         <views:ZonenMarke Farbe="{Binding PunktFarbe}" Width="6" Height="6" CornerRadius="3" VerticalAlignment="Center" />
                         <TextBlock Text="{Binding Rang}" FontSize="12" FontWeight="SemiBold" Opacity="0.7" VerticalAlignment="Center" />
@@ -42,8 +42,10 @@
                         <Run Text="{Binding Tore}" /><Run Text=":" /><Run Text="{Binding Gegentore}" />
                     </TextBlock>
                     <TextBlock Grid.Column="4" Text="{Binding Tordifferenz}" FontSize="12" HorizontalAlignment="Center" VerticalAlignment="Center" />
-                    <TextBlock Grid.Column="5" Text="{Binding Punkte}" FontSize="12" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center" />
-                    <TextBlock Grid.Column="6" Text="{Binding Buchholz}" FontSize="12" Opacity="0.7" HorizontalAlignment="Center" VerticalAlignment="Center"
+                    <TextBlock Grid.Column="5" Text="{Binding VortragAnzeige}" ToolTipService.ToolTip="{Binding VortragBeschreibung}" AutomationProperties.AutomationId="Tabelle.Vortrag"
+                               FontSize="12" Opacity="0.7" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    <TextBlock Grid.Column="6" Text="{Binding Punkte}" FontSize="12" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    <TextBlock Grid.Column="7" Text="{Binding Buchholz}" FontSize="12" Opacity="0.7" HorizontalAlignment="Center" VerticalAlignment="Center"
                                Visibility="{Binding DataContext.ZeigtBuchholzSpalte, ElementName=Wurzel, Converter={StaticResource BoolToVisibility}}" />
                 </Grid>
             </Grid>
@@ -66,13 +68,13 @@
                         <Run Text="{Binding Bezeichnung}" />
                     </TextBlock>
                 </Border>
-                <views:TabellenKopfZeile ZeigtBuchholz="{Binding DataContext.ZeigtBuchholzSpalte, ElementName=Wurzel}" />
+                <views:TabellenKopfZeile ZeigtBuchholz="{Binding DataContext.ZeigtBuchholzSpalte, ElementName=Wurzel}" ZeigtVortrag="{Binding DataContext.ZeigtVortragSpalte, ElementName=Wurzel}" />
                 <ItemsControl ItemsSource="{Binding Tabelle}" ItemTemplate="{StaticResource TabellenEintragZeileTemplate}" />
                 <!-- #397: noch nicht aufgelöste Plätze als eigene Zeile, damit die Gruppe vollständig wirkt -->
                 <ItemsControl ItemsSource="{Binding OffenePlaetze}">
                     <ItemsControl.ItemTemplate>
                         <DataTemplate>
-                            <Grid views:TabellenSpalten.Anwenden="True" Padding="7,4,4,4" Opacity="0.6">
+                            <Grid views:TabellenSpalten.Anwenden="True" views:TabellenSpalten.MitVortrag="{Binding DataContext.ZeigtVortragSpalte, ElementName=Wurzel}" Padding="7,4,4,4" Opacity="0.6">
                                 <TextBlock Grid.Column="0" Text="–" FontSize="12"
                                            HorizontalAlignment="Center" VerticalAlignment="Center" />
                                 <TextBlock Grid.Column="1" Text="{Binding}" FontSize="12" FontStyle="Italic"
@@ -80,9 +82,10 @@
                                 <TextBlock Grid.Column="2" Text="0" FontSize="12" HorizontalAlignment="Center" VerticalAlignment="Center" />
                                 <TextBlock Grid.Column="3" Text="0:0" FontSize="12" HorizontalAlignment="Center" VerticalAlignment="Center" />
                                 <TextBlock Grid.Column="4" Text="0" FontSize="12" HorizontalAlignment="Center" VerticalAlignment="Center" />
-                                <TextBlock Grid.Column="5" Text="0" FontSize="12" FontWeight="Bold"
+                                <TextBlock Grid.Column="5" Text="–" FontSize="12" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                <TextBlock Grid.Column="6" Text="0" FontSize="12" FontWeight="Bold"
                                            HorizontalAlignment="Center" VerticalAlignment="Center" />
-                                <TextBlock Grid.Column="6" Text="0" FontSize="12" Opacity="0.7" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                <TextBlock Grid.Column="7" Text="0" FontSize="12" Opacity="0.7" HorizontalAlignment="Center" VerticalAlignment="Center"
                                            Visibility="{Binding DataContext.ZeigtBuchholzSpalte, ElementName=Wurzel, Converter={StaticResource BoolToVisibility}}" />
                             </Grid>
                         </DataTemplate>
@@ -160,7 +163,7 @@
                                                 </TextBlock>
                                             </StackPanel>
                                         </Border>
-                                        <views:TabellenKopfZeile ZeigtBuchholz="{Binding DataContext.ZeigtBuchholzSpalte, ElementName=Wurzel}" />
+                                        <views:TabellenKopfZeile ZeigtBuchholz="{Binding DataContext.ZeigtBuchholzSpalte, ElementName=Wurzel}" ZeigtVortrag="{Binding DataContext.ZeigtVortragSpalte, ElementName=Wurzel}" />
                                         <ItemsControl ItemsSource="{Binding Rangfolge}" ItemTemplate="{StaticResource TabellenEintragZeileTemplate}" />
                                     </StackPanel>
                                 </Border>
@@ -204,7 +207,7 @@
                                 Visibility="{Binding HatLigaTabelleAnzeige, Converter={StaticResource BoolToVisibility}}">
                         <Border BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="8">
                             <StackPanel>
-                                <views:TabellenKopfZeile ZeigtBuchholz="{Binding ZeigtBuchholzSpalte}" />
+                                <views:TabellenKopfZeile ZeigtBuchholz="{Binding ZeigtBuchholzSpalte}" ZeigtVortrag="{Binding ZeigtVortragSpalte}" />
                                 <ItemsControl ItemsSource="{Binding LigaTabelleAnzeige}" ItemTemplate="{StaticResource TabellenEintragZeileTemplate}" />
                             </StackPanel>
                         </Border>

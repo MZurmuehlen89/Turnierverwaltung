@@ -92,7 +92,8 @@ public record TurnierRundeEingabe(
         TabellenBereiche = TabellenZonen.HatTabelle(Rundenart) ? TabellenBereiche : null,
         TitelverteidigerInTopf1 = StandardRanglisteId is not null && TitelverteidigerInTopf1,
         GegnerJeTopf = Rundenart == Rundenart.TopfLiga ? GegnerJeTopf : 2,
-        PaarungFestVorgegeben = PaarungFestVorgegeben && VorbelegungsZustaendigkeit.FesteVorgabeSperrGrund(Rundenart) is null
+        PaarungFestVorgegeben = PaarungFestVorgegeben && VorbelegungsZustaendigkeit.FesteVorgabeSperrGrund(Rundenart) is null,
+        Punktevortrag = TabellenZonen.HatTabelle(Rundenart) ? Punktevortrag : Punktevortrag.Keine
     };
 }
 

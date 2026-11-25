@@ -18,13 +18,14 @@
         </Style>
     </UserControl.Resources>
 
-    <Grid views:TabellenSpalten.Anwenden="True" Padding="7,6,4,4"
+    <Grid views:TabellenSpalten.Anwenden="True" views:TabellenSpalten.MitVortrag="{x:Bind ZeigtVortrag, Mode=OneWay}" Padding="7,6,4,4"
           BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="0,0,0,1">
         <TextBlock Grid.Column="2" Text="Sp." ToolTipService.ToolTip="Spiele" Style="{StaticResource KopfText}" />
         <TextBlock Grid.Column="3" Text="Tore" ToolTipService.ToolTip="Tore : Gegentore" Style="{StaticResource KopfText}" />
         <TextBlock Grid.Column="4" Text="Diff." ToolTipService.ToolTip="Tordifferenz" Style="{StaticResource KopfText}" />
-        <TextBlock Grid.Column="5" Text="Pkt." ToolTipService.ToolTip="Punkte" Style="{StaticResource KopfText}" />
-        <TextBlock Grid.Column="6" Text="BH" ToolTipService.ToolTip="Buchholz: Summe der Punkte aller bisherigen Gegner"
+        <TextBlock Grid.Column="5" Text="Vortrag" ToolTipService.ToolTip="Punkte aus der Quellrunde (Punkteübernahme)" Style="{StaticResource KopfText}" />
+        <TextBlock Grid.Column="6" Text="Pkt." ToolTipService.ToolTip="Punkte" Style="{StaticResource KopfText}" />
+        <TextBlock Grid.Column="7" Text="BH" ToolTipService.ToolTip="Buchholz: Summe der Punkte aller bisherigen Gegner"
                    Style="{StaticResource KopfText}" Visibility="{x:Bind ZeigtBuchholz, Mode=OneWay}" />
     </Grid>
 </UserControl>
