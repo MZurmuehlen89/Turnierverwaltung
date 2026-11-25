@@ -15,7 +15,8 @@ public class TabellenService(
     ISpielRepository spielRepository,
     IRegelwerkRepository regelwerkRepository,
     IRanglisteRepository ranglisteRepository,
-    IAuslosungRepository auslosungRepository)
+    IAuslosungRepository auslosungRepository,
+    IUebergangsregelRepository uebergangsregelRepository)
 {
     /// <summary>Zonen der Runde aus ihren ausgehenden Übergangsregeln (<c>ZielRunde</c> geladen) und ihren
     /// Tabellenbereichen (Issue #420).</summary>
@@ -125,9 +126,50 @@ public class TabellenService(
 
         var ranglistenPlaetze = await RanglistenPlaetzeLadenAsync(runde, rankingRegeln, ct);
         var teilnehmer = await TeilnehmerOhneSpielLadenAsync(runde, ct);
+        var vortrag = await PunktevortragLadenAsync(runde, alleSpiele, ct);
         var regeln = new TabellenRegeln(
-            punkteRegel, rankingRegeln, ranglistenPlaetze, regelwerk.RankingRegelSet?.DirektenVergleichWiederholen ?? false);
+            punkteRegel, rankingRegeln, ranglistenPlaetze, regelwerk.RankingRegelSet?.DirektenVergleichWiederholen ?? false,
+            vortrag?.Vortraege, vortrag?.Plaetze);
         return new TabellenDaten(runde, regeln, alleSpiele, teilnehmer);
+    }
+
+    /// <summary>Der Punktevortrag einer Runde (#355): je aufgelöstem Team seine Punkte aus der Abschlusstabelle der
+    /// einen Quellrunde, gerechnet nach dem Modus der Runde, dazu sein Platz dort. <c>null</c> ohne Modus, ohne genau
+    /// eine Quellrunde mit Tabelle (alle eingehenden Übergangsregeln kommen aus ihr) oder solange kein Team der
+    /// Runde aufgelöst ist – die Tabelle rechnet dann wie bisher. Öffentlich für den Tabellenbedarf der Simulation (#176).</summary>
+    public async Task<PunktevortragDaten?> PunktevortragLadenAsync(
+        TurnierRunde runde, IReadOnlyList<Spiel> rundenSpiele, CancellationToken ct = default)
+    {
+        if (runde.Punktevortrag == Punktevortrag.Keine || !TabellenZonen.HatTabelle(runde.Rundenart)) return null;
+
+        var quellRundeIds = (await uebergangsregelRepository.AlleNachZielRundeIdAsync(runde.Id, ct))
+            .Select(r => r.QuellRundeId).Distinct().ToList();
+        if (quellRundeIds.Count != 1) return null;
+
+        var quelle = await rundeRepository.FindenNachIdMitRegelwerkAsync(quellRundeIds[0], ct);
+        if (quelle is null || !TabellenZonen.HatTabelle(quelle.Rundenart)) return null;
+
+        var teams = rundenSpiele
+            .SelectMany(s => new[] { s.HeimMannschaftId, s.AuswaertsMannschaftId })
+            .OfType<int>().ToHashSet();
+        if (teams.Count == 0) return null;
+
+        var quellEintraege = await AbschlusstabelleAsync(quelle, ct);
+        var betroffene = quellEintraege.Where(e => teams.Contains(e.Mannschaft.Id)).ToList();
+        if (betroffene.Count == 0) return null;
+
+        return new PunktevortragDaten(
+            betroffene.ToDictionary(e => e.Mannschaft.Id, e => PunktevortragBerechnung.Berechnen(e.Punkte, runde.Punktevortrag)),
+            betroffene.ToDictionary(e => e.Mannschaft.Id, e => e.Rang));
+    }
+
+    /// <summary>Die Einträge der Abschlusstabelle der Quellrunde – bei einer Gruppenphase die ihrer Gruppen.</summary>
+    private async Task<IReadOnlyList<TabellenEintrag>> AbschlusstabelleAsync(TurnierRunde quelle, CancellationToken ct)
+    {
+        if (quelle.Rundenart != Rundenart.Gruppenphase)
+            return await TabelleBerechnenAsync(quelle.Id, ct: ct);
+
+        return [.. (await GruppenTabellenBerechnenAsync(quelle.Id, ct: ct)).SelectMany(g => g.Tabelle)];
     }
 
     /// <summary>Schweizer System (#608): Ein Team mit Freilos hat an diesem Spieltag keinen Spiel-Datensatz. Bis es

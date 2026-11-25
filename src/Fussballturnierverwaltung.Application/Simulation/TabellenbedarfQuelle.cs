@@ -12,7 +12,8 @@ namespace Fussballturnierverwaltung.Application.Simulation;
 /// ihre Zonen (Übergangsregeln und Tabellenbereiche) und ihr Punktesystem – und baut daraus den <see cref="TabellenbedarfVerlauf"/>.
 /// Das Schweizer System bleibt außen vor: seine späteren Spieltage sind noch nicht angesetzt, die offenen Spiele also unbekannt.</summary>
 public class TabellenbedarfQuelle(
-    ITurnierRundeRepository rundeRepository, IUebergangsregelRepository uebergangsregelRepository, IRegelwerkRepository regelwerkRepository)
+    ITurnierRundeRepository rundeRepository, IUebergangsregelRepository uebergangsregelRepository, IRegelwerkRepository regelwerkRepository,
+    TabellenService tabellenService)
 {
     private static readonly PunkteRegel DREI_EINS_NULL = new() { PunkteFuerSieg = 3, PunkteFuerUnentschieden = 1, PunkteFuerNiederlage = 0 };
 
@@ -29,8 +30,12 @@ public class TabellenbedarfQuelle(
             var zonen = TabellenZonen.Ermitteln(
                 await uebergangsregelRepository.AlleNachQuellRundeIdAsync(runde.Id, ct),
                 await rundeRepository.TabellenBereicheAsync(runde.Id, ct));
-            if (zonen.Count > 0)
-                grundlagen[runde.Id] = new TabellenbedarfGrundlage(zonen, await PunkteRegelAsync(runde, ct));
+            if (zonen.Count == 0) continue;
+
+            var vortrag = await tabellenService.PunktevortragLadenAsync(runde, [.. spiele.Where(s => s.TurnierRundeId == runde.Id)], ct);
+            grundlagen[runde.Id] = new TabellenbedarfGrundlage(
+                zonen, await PunkteRegelAsync(runde, ct),
+                vortrag?.Vortraege.ToDictionary(kv => kv.Key, kv => kv.Value.Punkte));
         }
         return new TabellenbedarfVerlauf(spiele, grundlagen);
     }

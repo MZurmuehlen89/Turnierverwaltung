@@ -28,7 +28,7 @@ public class TurnierausgangServiceTests
     {
         var rundeRepo = new TurnierRundeRepository(ctx);
         var spielRepo = new SpielRepository(ctx);
-        var tabellen = new TabellenService(rundeRepo, spielRepo, new RegelwerkRepository(ctx), new RanglisteRepository(ctx), new AuslosungRepository(ctx));
+        var tabellen = new TabellenService(rundeRepo, spielRepo, new RegelwerkRepository(ctx), new RanglisteRepository(ctx), new AuslosungRepository(ctx), new UebergangsregelRepository(ctx));
         return new TurnierausgangService(rundeRepo, spielRepo, tabellen);
     }
 

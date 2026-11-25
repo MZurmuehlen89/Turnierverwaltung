@@ -5,8 +5,14 @@ using Fussballturnierverwaltung.Domain.Enums;
 
 namespace Fussballturnierverwaltung.Application.Simulation;
 
-/// <summary>Was zu einer Runde mit Tabelle gehört, damit ihr Bedarf berechnet werden kann: ihre Zonen und das Punktesystem.</summary>
-public sealed record TabellenbedarfGrundlage(IReadOnlyList<TabellenZone> Zonen, PunkteRegel Punkte);
+/// <summary>Was zu einer Runde mit Tabelle gehört, damit ihr Bedarf berechnet werden kann: ihre Zonen, das Punktesystem und
+/// der Punktevortrag je Team (#355), mit dem ihre Tabelle startet.</summary>
+public sealed record TabellenbedarfGrundlage(
+    IReadOnlyList<TabellenZone> Zonen, PunkteRegel Punkte, IReadOnlyDictionary<int, int>? Vortraege = null)
+{
+    /// <summary>Die Punkte, mit denen das Team in die Tabelle startet; ohne Vortrag null.</summary>
+    public int VortragVon(int mannschaftId) => Vortraege is not null && Vortraege.TryGetValue(mannschaftId, out int punkte) ? punkte : 0;
+}
 
 /// <summary>
 /// Der Tabellenstand eines Turniers während eines Simulationsvorgangs (#176): hält je Gruppe, was die Spiele bisher gebracht haben,
@@ -104,8 +110,8 @@ public sealed class TabellenbedarfVerlauf
                 int heim = spiel.HeimMannschaftId!.Value, gast = spiel.AuswaertsMannschaftId!.Value;
                 offen[heim] = offen.GetValueOrDefault(heim) + 1;
                 offen[gast] = offen.GetValueOrDefault(gast) + 1;
-                punkte.TryAdd(heim, 0);
-                punkte.TryAdd(gast, 0);
+                punkte.TryAdd(heim, Grundlage.VortragVon(heim));
+                punkte.TryAdd(gast, Grundlage.VortragVon(gast));
                 if (spiel.Spieltag >= spieltag || !ergebnisse.TryGetValue(spiel.Id, out var tore)) continue;
 
                 punkte[heim] += PunkteFuer(tore.Heim, tore.Gast);

@@ -32,3 +32,8 @@ public static class PunktevortragBerechnung
         _                                 => Vortragswert.Keiner
     };
 }
+
+/// <summary>Was eine Runde mit Punktevortrag aus ihrer Quellrunde übernimmt (#355): der Vortrag und der Platz in der
+/// Abschlusstabelle der Quellrunde je Team.</summary>
+public sealed record PunktevortragDaten(
+    IReadOnlyDictionary<int, Vortragswert> Vortraege, IReadOnlyDictionary<int, int> Plaetze);

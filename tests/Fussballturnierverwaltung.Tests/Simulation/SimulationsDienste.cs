@@ -1,5 +1,6 @@
 using Fussballturnierverwaltung.Application.Simulation;
 using Fussballturnierverwaltung.Application.Spiele;
+using Fussballturnierverwaltung.Application.Tabelle;
 using Fussballturnierverwaltung.Application.Validierung;
 using Fussballturnierverwaltung.Application.Zufall;
 using Fussballturnierverwaltung.Infrastructure.Persistenz;
@@ -28,7 +29,8 @@ internal static class SimulationsDienste
             spielRepo, new SpielErgebnisValidator(), dienste.Aufloesung, dienste.Kaskade, NullLogger<SpielErgebnisService>.Instance);
         return new SimulationsService(
             spielRepo, instanzRepo, ergebnisService, new SimulationsLaufRepository(ctx),
-            new TabellenbedarfQuelle(new TurnierRundeRepository(ctx), new UebergangsregelRepository(ctx), new RegelwerkRepository(ctx)),
+            new TabellenbedarfQuelle(new TurnierRundeRepository(ctx), new UebergangsregelRepository(ctx), new RegelwerkRepository(ctx),
+                new TabellenService(new TurnierRundeRepository(ctx), spielRepo, new RegelwerkRepository(ctx), new RanglisteRepository(ctx), new AuslosungRepository(ctx), new UebergangsregelRepository(ctx))),
             zufallsquelle, NullLogger<SimulationsService>.Instance);
     }
 }

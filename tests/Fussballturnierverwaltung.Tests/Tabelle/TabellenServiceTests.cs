@@ -27,7 +27,8 @@ public class TabellenServiceTests
             new SpielRepository(ctx),
             new RegelwerkRepository(ctx),
             new RanglisteRepository(ctx),
-            new AuslosungRepository(ctx));
+            new AuslosungRepository(ctx),
+            new UebergangsregelRepository(ctx));
 
     // Legt Regelwerk + PunkteRegel + TurnierRunde an (ohne RankingRegelSet).
     private static void GrundSetupAnlegen(
