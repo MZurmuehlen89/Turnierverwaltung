@@ -345,7 +345,10 @@ public partial class RundenViewModel : ViewModelBase, IRibbonAware, IHatUngespei
         {
             _populiertGerade--;
         }
-        PruefenUndMelden();
+        // Ohne Abgleich der Punkteübernahme: die Übergangsregeln sind hier noch leer (werden danach geladen), der Abgleich
+        // würde den gespeicherten Modus jeder Runde auf „keine“ zurücksetzen (#355, Handtest Schritt 4).
+        AktualisiereRundenFehler();
+        UebergaengeGeaendertMelden();
     }
 
     // ── Runden-Befehle ────────────────────────────────────────────────────────
