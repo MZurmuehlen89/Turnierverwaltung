@@ -35,6 +35,8 @@ internal static class TurnierLogoNachruestung
         ["La Liga"]                    = "LA_LIGA",
         ["Serie A"]                    = "SERIE_A",
         ["Ligue 1"]                    = "LIGUE_1",
+        ["Österreichische Bundesliga"] = "OESTERREICH_BUNDESLIGA",
+        ["Belgische Pro League"]       = "BELGIEN_PRO_LEAGUE",
     };
 
     public static async Task AusfuehrenAsync(

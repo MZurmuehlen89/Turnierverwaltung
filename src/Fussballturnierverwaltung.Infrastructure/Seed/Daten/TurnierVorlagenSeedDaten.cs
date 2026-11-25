@@ -50,6 +50,8 @@ public static class TurnierVorlagenSeedDaten
             NationaleLiga(regelwerkLookup, verbandLookup, landLookup, "La Liga",        "20 Teams",  "ESP", 20, LIGA_DIREKTER_VERGLEICH, ZWANZIGER_LIGA_BEREICHE),
             NationaleLiga(regelwerkLookup, verbandLookup, landLookup, "Serie A",        "20 Teams",  "ITA", 20, LIGA_DIREKTER_VERGLEICH, ZWANZIGER_LIGA_BEREICHE),
             NationaleLiga(regelwerkLookup, verbandLookup, landLookup, "Ligue 1",        "18 Teams",  "FRA", 18, LIGA_TORDIFFERENZ,       LIGUE_1_BEREICHE),
+            OesterreichBundesliga(regelwerkLookup, verbandLookup, landLookup),
+            BelgienProLeague(regelwerkLookup, verbandLookup, landLookup),
             MiniTurnier8Teams(regelwerkLookup),
             MiniTurnier4Teams(regelwerkLookup),
             FreiesTurnier(),
@@ -282,6 +284,7 @@ public static class TurnierVorlagenSeedDaten
     // Regelwerk-Namen für nationale Ligen (Issue #350) — müssen mit RegelwerkeSeedDaten übereinstimmen.
     public const string LIGA_TORDIFFERENZ = "Nationale Liga (Tordifferenz vor direktem Vergleich)";
     public const string LIGA_DIREKTER_VERGLEICH = "Nationale Liga (direkter Vergleich vor Tordifferenz)";
+    public const string LIGA_PLAYOFFS_PUNKTEUEBERNAHME = "Nationale Liga (Play-offs mit Punkteübernahme)";
 
     // Regelwerk-Namen der UEFA-Clubwettbewerbe (Issue #353): CL/EL/ECL ab 2024/25 nutzen das Ligaphasen-Regelwerk,
     // die Formate mit Gruppenphase das Standard-Regelwerk.
@@ -1204,6 +1207,90 @@ public static class TurnierVorlagenSeedDaten
         var saison = Runde(1, "Saison", Rundenart.Liga, teams, 1, mitRueckspiel: true, regelwerkId: RwId(rw, regelwerkName));
         TabellenBereicheSetzen(saison, bereiche);
         v.Runden.Add(saison);
+        return v;
+    }
+
+    // ── Ligen mit Punkteübernahme (#355) ───────────────────────────────────────
+
+    // Österreich, Saison 2024/25: Grunddurchgang → Meistergruppe und Qualifikationsgruppe, Punkte halbiert und abgerundet,
+    // bei Punktgleichheit liegt vorn, wer abgerundet wurde (de.wikipedia, wörtlich). Meister- und Qualifikationsgruppe sind
+    // zwei Ligen mit je 6 Teams (keine Gruppenphase: deren Ausgang bräuchte eigene Übergangsregeln).
+    // Nicht abgebildet: die Europa-Conference-League-Play-offs der Qualifikationsgruppe.
+    private static TurnierInstanz OesterreichBundesliga(
+        IReadOnlyDictionary<string, int>? rw, IReadOnlyDictionary<string, int>? verband, IReadOnlyDictionary<string, int>? land)
+    {
+        var v = new TurnierInstanz
+        {
+            Status = TurnierStatus.Vorlage,
+            Name = "Österreichische Bundesliga",
+            Variante = "12 Teams · Meister- und Qualifikationsgruppe",
+            Beschreibung = "Grunddurchgang (12 Teams, Hin- und Rückrunde, 22 Spieltage) → Meistergruppe (Plätze 1–6) und " +
+                           "Qualifikationsgruppe (Plätze 7–12), je mit Hin- und Rückrunde; Punkte des Grunddurchgangs halbiert " +
+                           "und abgerundet übernommen, bei Punktgleichheit liegt vorn, wer abgerundet wurde",
+            ZielMannschaftsanzahl = 12,
+            Kategorie = TurnierKategorie.Liga,
+            MannschaftsartFilter = MannschaftsartFilter.Verein,
+            LandId = LId(land, "AUT"),
+            VerbandId = VId(verband, "UEFA"),
+        };
+        int? rId = RwId(rw, LIGA_DIREKTER_VERGLEICH);
+        var grunddurchgang = Runde(1, "Grunddurchgang", Rundenart.Liga, 12, 12, mitRueckspiel: true, regelwerkId: rId);
+        var meister = Runde(2, "Meistergruppe",        Rundenart.Liga, 6, 1, mitRueckspiel: true, regelwerkId: rId);
+        var quali   = Runde(3, "Qualifikationsgruppe", Rundenart.Liga, 6, 1, mitRueckspiel: true, regelwerkId: rId);
+        meister.Punktevortrag = Punktevortrag.HalbiertAbgerundet;
+        quali.Punktevortrag   = Punktevortrag.HalbiertAbgerundet;
+        Uebergang(grunddurchgang, meister, null, 1, 6);
+        Uebergang(grunddurchgang, quali,   null, 7, 12);
+        TabellenBereicheSetzen(meister, [(1, 1, TabellenBereichArt.Weiterkommen, "Meister")]);
+        foreach (var runde in new[] { grunddurchgang, meister, quali })
+            v.Runden.Add(runde);
+        return v;
+    }
+
+    // Belgien, Saison 2024/25 (en.wikipedia, Stand 25.11.2026 – kein Reglement der Liga selbst): Champions- und Europe-
+    // Play-offs mit halbierten, aufgerundeten Punkten, die Abstiegs-Play-offs mit allen Punkten; bei Punktgleichheit
+    // liegt hinten, wer aufgerundet wurde, dann zählt der Platz im Grunddurchgang. Die Tabellen dort zeigen 10 bzw.
+    // 6 Spiele je Team, also Hin- und Rückrunde (aus den Tabellen abgeleitet, der Text sagt nur „round-robin“).
+    // Nicht abgebildet: das Einzelspiel um den Europapokal-Platz und die Aufstiegs-Play-offs der Challenger Pro League.
+    // Die Kriterien des Grunddurchgangs selbst sind nicht geprüft (Tordifferenz-Regelwerk als Näherung).
+    private static TurnierInstanz BelgienProLeague(
+        IReadOnlyDictionary<string, int>? rw, IReadOnlyDictionary<string, int>? verband, IReadOnlyDictionary<string, int>? land)
+    {
+        var v = new TurnierInstanz
+        {
+            Status = TurnierStatus.Vorlage,
+            Name = "Belgische Pro League",
+            Variante = "16 Teams · Play-offs 2024/25",
+            Beschreibung = "Grunddurchgang (16 Teams, Hin- und Rückrunde, 30 Spieltage) → Champions-Play-offs (Plätze 1–6) und " +
+                           "Europe-Play-offs (Plätze 7–12) mit halbierten, aufgerundeten Punkten, Abstiegs-Play-offs (Plätze 13–16) " +
+                           "mit allen Punkten, je mit Hin- und Rückrunde; bei Punktgleichheit liegt hinten, wer aufgerundet wurde, " +
+                           "danach zählt der Platz im Grunddurchgang",
+            ZielMannschaftsanzahl = 16,
+            Kategorie = TurnierKategorie.Liga,
+            MannschaftsartFilter = MannschaftsartFilter.Verein,
+            LandId = LId(land, "BEL"),
+            VerbandId = VId(verband, "UEFA"),
+        };
+        int? grundRegelwerk = RwId(rw, LIGA_TORDIFFERENZ);
+        int? playOffRegelwerk = RwId(rw, LIGA_PLAYOFFS_PUNKTEUEBERNAHME);
+        var grunddurchgang = Runde(1, "Grunddurchgang", Rundenart.Liga, 16, 16, mitRueckspiel: true, regelwerkId: grundRegelwerk);
+        var champions = Runde(2, "Champions-Play-offs", Rundenart.Liga, 6, 1, mitRueckspiel: true, regelwerkId: playOffRegelwerk);
+        var europe    = Runde(3, "Europe-Play-offs",    Rundenart.Liga, 6, 1, mitRueckspiel: true, regelwerkId: playOffRegelwerk);
+        var abstieg   = Runde(4, "Abstiegs-Play-offs",  Rundenart.Liga, 4, 1, mitRueckspiel: true, regelwerkId: playOffRegelwerk);
+        champions.Punktevortrag = Punktevortrag.HalbiertAufgerundet;
+        europe.Punktevortrag    = Punktevortrag.HalbiertAufgerundet;
+        abstieg.Punktevortrag   = Punktevortrag.Voll;
+        Uebergang(grunddurchgang, champions, null, 1, 6);
+        Uebergang(grunddurchgang, europe,    null, 7, 12);
+        Uebergang(grunddurchgang, abstieg,   null, 13, 16);
+        TabellenBereicheSetzen(champions, [(1, 1, TabellenBereichArt.Weiterkommen, "Meister")]);
+        TabellenBereicheSetzen(abstieg,
+        [
+            (2, 2, TabellenBereichArt.Relegation, "Relegations-Play-off"),
+            (3, 4, TabellenBereichArt.Abstieg, "Abstieg"),
+        ]);
+        foreach (var runde in new[] { grunddurchgang, champions, europe, abstieg })
+            v.Runden.Add(runde);
         return v;
     }
 

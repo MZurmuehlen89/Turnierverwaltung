@@ -365,6 +365,14 @@ public static class VereinsmannschaftenSeedDaten
         new("SK Sturm Graz",           "STU", "AUT", 75, 74, 73, 77, 69),
         new("LASK",                    "LASK","AUT", 73, 72, 71, 75, 67),
         new("FK Austria Wien",         "AWI", "AUT", 68, 67, 66, 70, 62),
+        // Übrige Klubs der Bundesliga 2024/25 (#355, Vorlage „Österreichische Bundesliga“), Ratings geschätzt nach der Tabellenlage.
+        new("Wolfsberger AC",          "WOA", "AUT", 69, 68, 67, 71, 63),
+        new("TSV Hartberg",            "HTB", "AUT", 65, 64, 63, 67, 59),
+        new("WSG Tirol",               "WSG", "AUT", 64, 63, 62, 66, 58),
+        new("GAK",                     "GAK", "AUT", 64, 63, 62, 66, 58),
+        new("SK Austria Klagenfurt",   "KLA", "AUT", 63, 62, 61, 65, 57),
+        new("FC Blau-Weiß Linz",       "BWL", "AUT", 63, 62, 61, 65, 57),
+        new("SCR Altach",              "ALT", "AUT", 62, 61, 60, 64, 56),
 
         // Aserbaidschan
         new("Qarabağ Ağdam",           "QAR", "AZE", 76, 75, 74, 78, 70),
@@ -373,6 +381,15 @@ public static class VereinsmannschaftenSeedDaten
         new("Union Saint-Gilloise",    "USG", "BEL", 79, 78, 77, 81, 73),
         new("Cercle Brügge",           "CER", "BEL", 71, 70, 69, 73, 65),
         new("Sporting Charleroi",      "CHL", "BEL", 65, 64, 63, 67, 59),
+        // Übrige Klubs der Pro League 2024/25 (#355, Vorlage „Belgische Pro League“), Ratings geschätzt nach der Tabellenlage.
+        new("Standard Lüttich",        "STD", "BEL", 69, 68, 67, 72, 63),
+        new("KVC Westerlo",            "WES", "BEL", 67, 66, 65, 70, 61),
+        new("KV Mechelen",             "MEC", "BEL", 67, 66, 65, 70, 61),
+        new("K Sint-Truidense VV",     "STV", "BEL", 66, 65, 64, 69, 60),
+        new("OH Löwen",                "OHL", "BEL", 65, 64, 63, 68, 59),
+        new("KV Kortrijk",             "KOR", "BEL", 63, 62, 61, 66, 57),
+        new("Beerschot VA",            "BEE", "BEL", 62, 61, 60, 65, 56),
+        new("FCV Dender EH",           "DEN", "BEL", 62, 61, 60, 65, 56),
 
         // Bosnien-Herzegowina
         new("Zrinjski Mostar",         "ZRI", "BIH", 67, 66, 65, 69, 61),

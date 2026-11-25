@@ -40,7 +40,10 @@ public class TurnierLogoNachruestungTests
             .Distinct()
             .ToListAsync();
 
-        ohneLogo.Should().BeEquivalentTo(["Mini-Turnier", "Freies Turnier"]);
+        // #355: für die Österreichische Bundesliga und die Belgische Pro League fehlen die Logodateien noch im privaten
+        // Bildmaterial-Repo (OESTERREICH_BUNDESLIGA, BELGIEN_PRO_LEAGUE unter Turnierlogos/) – sobald sie dort liegen, hier streichen.
+        ohneLogo.Should().BeEquivalentTo(
+            ["Mini-Turnier", "Freies Turnier", "Österreichische Bundesliga", "Belgische Pro League"]);
     }
 
     [Fact]

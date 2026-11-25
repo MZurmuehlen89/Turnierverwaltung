@@ -31,12 +31,15 @@ public static class RegelwerkeSeedDaten
         new() { Name = "Auswärtssiege",                      Beschreibung = "Anzahl Auswärtssiege",                   Regelart = RankingRegelArt.AuswaertsSiege,                  Sortierrichtung = Sortierrichtung.Absteigend },
         // Issue #354: Platz in der Standard-Rangliste der Runde — der bessere (kleinere) Platz gewinnt
         new() { Name = "Koeffizient (Rangliste)",            Beschreibung = "Platz in der Standard-Rangliste",        Regelart = RankingRegelArt.Koeffizient,                     Sortierrichtung = Sortierrichtung.Aufsteigend },
+        // Issue #355: Platz in der Abschlusstabelle der Quellrunde (Punkteübernahme) — der bessere (kleinere) Platz gewinnt
+        new() { Name = "Platz in der Vorrunde",              Beschreibung = "Platz in der Tabelle der Quellrunde",    Regelart = RankingRegelArt.PlatzVorrunde,                   Sortierrichtung = Sortierrichtung.Aufsteigend },
     ];
 
     // --- RankingRegelSets ---
 
     public const string UEFA_LIGAPHASE_SET = "UEFA Ligaphase (ab 2024/25)";
     public const string NATIONALE_LIGA_SET = "Nationale Liga (direkter Vergleich)";
+    public const string PLAYOFFS_PUNKTEUEBERNAHME_SET = "Nationale Liga (Play-offs mit Punkteübernahme)";
 
     public static (List<RankingRegelSet> Sets, List<(string SetName, int Reihenfolge, RankingRegelArt Regelart)> Eintraege)
         RankingRegelSetsErstellen()
@@ -47,6 +50,7 @@ public static class RegelwerkeSeedDaten
             new() { Name = "UEFA Standard",  Beschreibung = "Standard UEFA-Gruppenranking", DirektenVergleichWiederholen = true },
             new() { Name = UEFA_LIGAPHASE_SET, Beschreibung = "Ligaphase der UEFA-Klubwettbewerbe: kein direkter Vergleich, stattdessen die Werte der Gegner" },
             new() { Name = NATIONALE_LIGA_SET, Beschreibung = "Nationale Liga mit direktem Vergleich vor der Tordifferenz (La Liga, Serie A)" },
+            new() { Name = PLAYOFFS_PUNKTEUEBERNAHME_SET, Beschreibung = "Play-off-Gruppen mit übernommenen Punkten (Belgien): Punkte, dann der Platz in der Tabelle der Quellrunde" },
         };
 
         // Eintraege als (SetName, Reihenfolge, RegelArt) – IDs werden nach SaveChanges aufgelöst
@@ -101,6 +105,12 @@ public static class RegelwerkeSeedDaten
             (NATIONALE_LIGA_SET, 5, RankingRegelArt.ErzielteTore),
             (NATIONALE_LIGA_SET, 6, RankingRegelArt.FairplayWertung),
             (NATIONALE_LIGA_SET, 7, RankingRegelArt.Losentscheid),
+
+            // Punkteübernahme (#355, Belgien): bei Punktgleichheit entscheidet zuerst, ob ein halber Punkt aufgerundet wurde
+            // (fest in der Tabellenrechnung, kein Kriterium), dann der Platz im Grunddurchgang.
+            (PLAYOFFS_PUNKTEUEBERNAHME_SET, 1, RankingRegelArt.Punkte),
+            (PLAYOFFS_PUNKTEUEBERNAHME_SET, 2, RankingRegelArt.PlatzVorrunde),
+            (PLAYOFFS_PUNKTEUEBERNAHME_SET, 3, RankingRegelArt.Losentscheid),
         };
 
         return (sets, eintraege);
@@ -234,6 +244,17 @@ public static class RegelwerkeSeedDaten
                 Name = TurnierVorlagenSeedDaten.LIGA_DIREKTER_VERGLEICH,
                 Beschreibung = "Nationale Liga: 3 Punkte für Sieg, direkter Vergleich vor Tordifferenz (z. B. La Liga, Serie A).",
                 RankingRegelSetId = rankingRegelSetLookup.GetValueOrDefault(NATIONALE_LIGA_SET)
+            },
+            Sieg: 3, Unentschieden: 1, Niederlage: 0,
+            Verfahren: []
+        ),
+        // Issue #355: Play-off-Gruppen mit übernommenen Punkten (Belgien Pro League).
+        (
+            new Regelwerk
+            {
+                Name = TurnierVorlagenSeedDaten.LIGA_PLAYOFFS_PUNKTEUEBERNAHME,
+                Beschreibung = "Nationale Liga, Play-offs mit Punkteübernahme: 3 Punkte für Sieg, bei Punktgleichheit der Platz in der Tabelle des Grunddurchgangs.",
+                RankingRegelSetId = rankingRegelSetLookup.GetValueOrDefault(PLAYOFFS_PUNKTEUEBERNAHME_SET)
             },
             Sieg: 3, Unentschieden: 1, Niederlage: 0,
             Verfahren: []
