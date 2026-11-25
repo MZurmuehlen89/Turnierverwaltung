@@ -47,11 +47,11 @@ internal static class TabellenSortierung
             .SelectMany(stufe => Ordnen(stufe, 0, wertung))];
     }
 
-    /// <summary>Absteigend: mehr Punkte vorn, bei gleichen Punkten der höhere ungerundete Vortrag.</summary>
+    /// <summary>Absteigend: mehr Punkte vorn, bei gleichen Punkten der größere Rundungsvorsprung (abgerundet vorn, aufgerundet hinten).</summary>
     private static int PunkteMitRundungVergleichen(int xId, int yId, Wertung wertung)
     {
         int cmp = wertung.Stats[yId].Punkte.CompareTo(wertung.Stats[xId].Punkte);
-        return cmp != 0 ? cmp : wertung.Regeln.VortragVon(yId).Ungerundet.CompareTo(wertung.Regeln.VortragVon(xId).Ungerundet);
+        return cmp != 0 ? cmp : wertung.Regeln.VortragVon(yId).Rundungsvorsprung.CompareTo(wertung.Regeln.VortragVon(xId).Rundungsvorsprung);
     }
 
     /// <summary>Ordnet gleichstehende Teams ab dem Kriterium Nummer <paramref name="ab"/>: das Kriterium teilt sie in
@@ -146,7 +146,7 @@ internal static class TabellenSortierung
     {
         int cmp = y.Punkte.CompareTo(x.Punkte);
         if (cmp != 0) return cmp;
-        cmp = regeln.VortragVon(y.Mannschaft.Id).Ungerundet.CompareTo(regeln.VortragVon(x.Mannschaft.Id).Ungerundet);
+        cmp = regeln.VortragVon(y.Mannschaft.Id).Rundungsvorsprung.CompareTo(regeln.VortragVon(x.Mannschaft.Id).Rundungsvorsprung);
         if (cmp != 0) return cmp;
         cmp = y.Tordifferenz.CompareTo(x.Tordifferenz);
         if (cmp != 0) return cmp;

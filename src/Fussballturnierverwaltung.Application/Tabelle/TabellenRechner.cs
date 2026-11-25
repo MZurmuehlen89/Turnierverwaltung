@@ -85,6 +85,9 @@ public static class TabellenRechner
             _                                => null
         };
 
+        // Der Vortrag gehört zum Gesamtstand: Hin-/Rückrunde sowie Heim- und Auswärtstabelle zählen nur ihre Spiele.
+        if (ansicht != TabellenAnsicht.Gesamt) regeln = regeln with { Vortraege = null };
+
         return TabelleBerechnen(
             HaelfteDerAnsicht(spiele, ansicht), regeln, nurHeimspiele, teilnehmer,
             spielplan is null ? null : HaelfteDerAnsicht(spielplan, ansicht));

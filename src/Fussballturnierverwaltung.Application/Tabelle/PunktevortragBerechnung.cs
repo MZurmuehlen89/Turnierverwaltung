@@ -21,6 +21,11 @@ public readonly record struct Vortragswert(int Punkte, decimal Ungerundet, int Q
     /// <summary>Wurde aufgerundet – dann liegt der ganze Wert über dem ungerundeten.</summary>
     public bool IstAufgerundet => Punkte > Ungerundet;
 
+    /// <summary>Um wie viel der ungerundete Wert über den ganzen Punkten liegt (+0,5 abgerundet, −0,5 aufgerundet, sonst 0) –
+    /// bei Punktgleichheit steht vorn, wer mehr Vorsprung hat. Verglichen wird die Rundung, nicht die Höhe des Vortrags: zwei
+    /// Teams mit gleichen Gesamtpunkten können verschieden hohe Vorträge haben.</summary>
+    public decimal Rundungsvorsprung => Ungerundet - Punkte;
+
     /// <summary>Der Wert für die Spalte „Vortrag“: die Punkte, bei gerundetem Wert mit Pfeil (↓ abgerundet, ↑ aufgerundet).</summary>
     public string Anzeige => $"{Punkte}{(IstAbgerundet ? "↓" : IstAufgerundet ? "↑" : "")}";
 

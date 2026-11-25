@@ -159,6 +159,68 @@ public class PunktevortragTabelleTests
     }
 
     [Fact]
+    public void Tabelle_BeideAbgerundetMitVerschiedenemVortrag_EntscheidetDasRegelset()
+    {
+        // Team 1: 31 → 15 (15,5), Team 2: 33 → 16 (16,5), beide abgerundet. Team 1 holt ein Remis und liegt mit 16 Punkten
+        // gleichauf. Die Höhe des Vortrags zählt nicht, nur die Rundung: Los (Team 1 vor Team 2), nicht Team 2 wegen 16,5.
+        var regeln = MitVortrag(_punkteTordifferenzLos, new()
+        {
+            [1] = PunktevortragBerechnung.Berechnen(31, Punktevortrag.HalbiertAbgerundet),
+            [2] = PunktevortragBerechnung.Berechnen(33, Punktevortrag.HalbiertAbgerundet)
+        });
+
+        var tabelle = TabellenRechner.TabelleBerechnen([Spiel(1, 3, 0, 0)], regeln, teilnehmer: [_teams[2]]);
+
+        tabelle.Single(e => e.Mannschaft.Id == 1).Punkte.Should().Be(16);
+        tabelle.Single(e => e.Mannschaft.Id == 2).Punkte.Should().Be(16);
+        tabelle.Single(e => e.Mannschaft.Id == 1).Rang.Should().BeLessThan(tabelle.Single(e => e.Mannschaft.Id == 2).Rang);
+    }
+
+    [Fact]
+    public void Tabelle_BeideAufgerundetMitVerschiedenemVortrag_EntscheidetDasRegelset()
+    {
+        // Team 1: 29 → 15 (14,5), Team 2: 31 → 16 (15,5), beide aufgerundet; Team 1 liegt nach einem Remis gleichauf.
+        var regeln = MitVortrag(_punkteTordifferenzLos, new()
+        {
+            [1] = PunktevortragBerechnung.Berechnen(29, Punktevortrag.HalbiertAufgerundet),
+            [2] = PunktevortragBerechnung.Berechnen(31, Punktevortrag.HalbiertAufgerundet)
+        });
+
+        var tabelle = TabellenRechner.TabelleBerechnen([Spiel(1, 3, 0, 0)], regeln, teilnehmer: [_teams[2]]);
+
+        tabelle.Single(e => e.Mannschaft.Id == 1).Punkte.Should().Be(16);
+        tabelle.Single(e => e.Mannschaft.Id == 2).Punkte.Should().Be(16);
+        tabelle.Single(e => e.Mannschaft.Id == 1).Rang.Should().BeLessThan(tabelle.Single(e => e.Mannschaft.Id == 2).Rang);
+    }
+
+    [Fact]
+    public void Tabelle_OhneRankingRegeln_BeideGerundetMitVerschiedenemVortrag_EntscheidetDieIdStattDerVortragshoehe()
+    {
+        var regeln = new TabellenRegeln(_dreiPunkte, [], Vortraege: new Dictionary<int, Vortragswert>
+        {
+            [1] = PunktevortragBerechnung.Berechnen(31, Punktevortrag.HalbiertAbgerundet),
+            [2] = PunktevortragBerechnung.Berechnen(33, Punktevortrag.HalbiertAbgerundet)
+        });
+
+        var tabelle = TabellenRechner.TabelleBerechnen([Spiel(1, 3, 0, 0)], regeln, teilnehmer: [_teams[2]]);
+
+        tabelle.Single(e => e.Mannschaft.Id == 1).Rang.Should().BeLessThan(tabelle.Single(e => e.Mannschaft.Id == 2).Rang);
+    }
+
+    [Theory]
+    [InlineData(TabellenAnsicht.Gesamt, 13)]
+    [InlineData(TabellenAnsicht.Heimtabelle, 3)]
+    [InlineData(TabellenAnsicht.Hinrunde, 3)]
+    public void Ansicht_VortragZaehltNurImGesamtstand(TabellenAnsicht ansicht, int erwartetePunkte)
+    {
+        var regeln = MitVortrag(_punkteTordifferenzLos, new() { [1] = PunktevortragBerechnung.Berechnen(10, Punktevortrag.Voll) });
+
+        var tabelle = TabellenRechner.TabelleDerAnsichtBerechnen([Spiel(1, 3, 2, 0)], ansicht, regeln);
+
+        tabelle.Single(e => e.Mannschaft.Id == 1).Punkte.Should().Be(erwartetePunkte);
+    }
+
+    [Fact]
     public void Tabelle_KeinerGerundet_EntscheidetDasRegelset()
     {
         var regeln = MitVortrag(_punkteTordifferenzLos, new()
