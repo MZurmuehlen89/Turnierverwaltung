@@ -70,6 +70,7 @@ public record TurnierRundeEingabe(
     bool NeutralerSpielort = false,
     int Ueberraschungsfaktor = 0,
     Spielbedeutung Spielbedeutung = Spielbedeutung.Normal,
+    Punktevortrag Punktevortrag = Punktevortrag.Keine,
     IReadOnlyList<AuslosungsRegelArt>? VorgegebeneAuslosungsregeln = null,
     IReadOnlyList<TabellenBereichEingabe>? TabellenBereiche = null,
     Gruppenposition VorgegebeneGruppenposition = Gruppenposition.NachTopf,

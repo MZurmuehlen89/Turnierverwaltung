@@ -35,6 +35,10 @@ public class TurnierRunde : BasisEntitaet
     // ins Spiel gehen. Vorbelegt über die Rundenart (Finale hoch, Spiel um Platz 3 gering), frei änderbar.
     public Spielbedeutung Spielbedeutung { get; set; }
 
+    // Punkte aus der Quellrunde, mit denen die Tabelle dieser Runde startet (#355): Meister-/Qualifikationsgruppe.
+    // Nur sinnvoll bei einer Runde mit Tabelle, die über Übergangsregeln aus genau einer Runde mit Tabelle gespeist wird.
+    public Punktevortrag Punktevortrag { get; set; }
+
     public string? KonfigurationJson { get; set; }
 
     // Wenn true, wird der Eingang dieser Runde nicht gegen die unmittelbar vorangehende Runde in der Liste

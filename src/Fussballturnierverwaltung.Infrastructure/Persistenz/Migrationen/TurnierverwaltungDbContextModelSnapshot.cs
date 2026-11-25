@@ -1162,6 +1162,11 @@ namespace Fussballturnierverwaltung.Infrastructure.Persistenz.Migrationen
                     b.Property<bool>("PaarungFestVorgegeben")
                         .HasColumnType("boolean");
 
+                    b.Property<int>("Punktevortrag")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(0);
+
                     b.Property<int?>("RegelwerkId")
                         .HasColumnType("integer");
 

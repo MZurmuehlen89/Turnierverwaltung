@@ -239,6 +239,7 @@ public class TurnierInstanzService(
         NeutralerSpielort            = e.NeutralerSpielort,
         Ueberraschungsfaktor         = e.Ueberraschungsfaktor,
         Spielbedeutung               = e.Spielbedeutung,
+        Punktevortrag                = e.Punktevortrag,
         KonfigurationJson            = e.KonfigurationJson,
         EingangUeberUebergangsregeln = e.EingangUeberUebergangsregeln,
         PaarungFestVorgegeben        = e.PaarungFestVorgegeben,
