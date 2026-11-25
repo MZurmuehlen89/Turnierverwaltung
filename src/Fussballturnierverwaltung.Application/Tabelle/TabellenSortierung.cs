@@ -19,9 +19,9 @@ internal static class TabellenSortierung
     internal static void SortierenUndRangZuweisen(List<TabellenEintrag> eintraege, Wertung wertung)
     {
         if (wertung.Regeln.RankingRegeln.Count == 0)
-            eintraege.Sort(OhneRegelnVergleichen);
+            eintraege.Sort((x, y) => OhneRegelnVergleichen(x, y, wertung.Regeln));
         else
-            NachReihenfolgeSortieren(eintraege, Ordnen([.. eintraege.Select(e => e.Mannschaft.Id)], 0, wertung));
+            NachReihenfolgeSortieren(eintraege, NachPunktenOrdnen([.. eintraege.Select(e => e.Mannschaft.Id)], wertung));
 
         for (int i = 0; i < eintraege.Count; i++)
             eintraege[i].Rang = i + 1;
@@ -34,6 +34,25 @@ internal static class TabellenSortierung
     }
 
     // ── Gestufte Rangfolge ────────────────────────────────────────────────
+
+    /// <summary>Mit Punktevortrag (#355) teilt zuerst der Vergleich nach Punkten und ungerundetem Vortrag die Teams in
+    /// Stufen – fest vor allen Kriterien des Regelsets (Österreich: wer abgerundet wurde, steht vorn; Belgien: wer
+    /// aufgerundet wurde, hinten). Ohne Vortrag gibt es nur eine Stufe und es geht wie zuvor weiter.</summary>
+    private static List<int> NachPunktenOrdnen(IReadOnlyList<int> teams, Wertung wertung)
+    {
+        if (wertung.Regeln.Vortraege is not { Count: > 0 })
+            return Ordnen(teams, 0, wertung);
+
+        return [.. Abstufen(teams, (x, y) => PunkteMitRundungVergleichen(x, y, wertung))
+            .SelectMany(stufe => Ordnen(stufe, 0, wertung))];
+    }
+
+    /// <summary>Absteigend: mehr Punkte vorn, bei gleichen Punkten der höhere ungerundete Vortrag.</summary>
+    private static int PunkteMitRundungVergleichen(int xId, int yId, Wertung wertung)
+    {
+        int cmp = wertung.Stats[yId].Punkte.CompareTo(wertung.Stats[xId].Punkte);
+        return cmp != 0 ? cmp : wertung.Regeln.VortragVon(yId).Ungerundet.CompareTo(wertung.Regeln.VortragVon(xId).Ungerundet);
+    }
 
     /// <summary>Ordnet gleichstehende Teams ab dem Kriterium Nummer <paramref name="ab"/>: das Kriterium teilt sie in
     /// Stufen, jede Stufe mit mehr als einem Team geht ans nächste Kriterium. Ein Kriterium vergleicht also immer nur
@@ -122,10 +141,12 @@ internal static class TabellenSortierung
     /// <summary>Absteigend: der höhere Wert steht vorn.</summary>
     private static int Gerichtet(Sortierrichtung richtung, int cmp) => richtung == Sortierrichtung.Absteigend ? -cmp : cmp;
 
-    /// <summary>Rangfolge ohne Ranking-Regeln im Regelwerk: Punkte → Tordifferenz → erzielte Tore.</summary>
-    private static int OhneRegelnVergleichen(TabellenEintrag x, TabellenEintrag y)
+    /// <summary>Rangfolge ohne Ranking-Regeln im Regelwerk: Punkte → (Rundung des Vortrags) → Tordifferenz → erzielte Tore.</summary>
+    private static int OhneRegelnVergleichen(TabellenEintrag x, TabellenEintrag y, TabellenRegeln regeln)
     {
         int cmp = y.Punkte.CompareTo(x.Punkte);
+        if (cmp != 0) return cmp;
+        cmp = regeln.VortragVon(y.Mannschaft.Id).Ungerundet.CompareTo(regeln.VortragVon(x.Mannschaft.Id).Ungerundet);
         if (cmp != 0) return cmp;
         cmp = y.Tordifferenz.CompareTo(x.Tordifferenz);
         if (cmp != 0) return cmp;
@@ -146,6 +167,9 @@ internal static class TabellenSortierung
         if (regelart == RankingRegelArt.Losentscheid) return GleichstandAufloesen(xId, yId);
 
         if (regelart == RankingRegelArt.Koeffizient) return NachRanglistenplatzVergleichen(xId, yId, wertung.Regeln.RanglistenPlaetze);
+
+        // Gleiche Mechanik wie der Koeffizient, nur mit dem Platz in der Quellrunde des Punktevortrags (#355).
+        if (regelart == RankingRegelArt.PlatzVorrunde) return NachRanglistenplatzVergleichen(xId, yId, wertung.Regeln.VorrundenPlaetze);
 
         return VergleichenNachRegelart(regelart, wertung.Stats[xId], wertung.Stats[yId]);
     }

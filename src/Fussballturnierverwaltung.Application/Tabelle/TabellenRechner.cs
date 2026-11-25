@@ -49,6 +49,7 @@ public static class TabellenRechner
             id => id,
             id => TeamStatistik.Berechnen(id, abgeschlossene, regeln.PunkteRegel, eingabe.NurHeimspiele));
         TeamStatistik.GegnerSummenErgaenzen(stats, abgeschlossene);
+        VortragAufschlagen(stats, regeln);
 
         var eintraege = teams
             .Where(kv => eingabe.NurMannschaften?.Contains(kv.Key) ?? true)
@@ -57,6 +58,16 @@ public static class TabellenRechner
         TabellenSortierung.SortierenUndRangZuweisen(
             eintraege, new TabellenSortierung.Wertung(stats, abgeschlossene, eingabe.Spielplan, regeln));
         return eintraege;
+    }
+
+    /// <summary>Schlägt den Punktevortrag (#355) auf die Punkte: Spiele, Siege/Unentschieden/Niederlagen und Tore bleiben
+    /// die der Runde. Nach den Gegner-Summen, damit die Buchholz-Zahl nur die Punkte aus den Spielen der Runde zählt.</summary>
+    private static void VortragAufschlagen(Dictionary<int, RohStats> stats, TabellenRegeln regeln)
+    {
+        if (regeln.Vortraege is not { Count: > 0 }) return;
+
+        foreach (int id in stats.Keys.ToList())
+            stats[id] = stats[id] with { Punkte = stats[id].Punkte + regeln.VortragVon(id).Punkte };
     }
 
     /// <summary>Tabelle einer <see cref="TabellenAnsicht"/>: Hin- und Rückrunde werten nur die Spiele ihrer

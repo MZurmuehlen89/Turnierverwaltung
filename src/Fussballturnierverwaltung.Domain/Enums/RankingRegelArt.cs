@@ -25,5 +25,9 @@ public enum RankingRegelArt
     AuswaertsSiege,
 
     // Issue #354: Platz in der Standard-Rangliste der Runde (UEFA-Klub-Koeffizient, FIFA-Weltrangliste)
-    Koeffizient
+    Koeffizient,
+
+    // Issue #355: Platz in der Abschlusstabelle der Quellrunde, aus der die Runde ihre Punkte vorträgt (Belgien:
+    // punktgleiche Teams der Play-offs nach ihrem Platz im Grunddurchgang). Ohne Vortragsquelle wirkungslos.
+    PlatzVorrunde
 }
