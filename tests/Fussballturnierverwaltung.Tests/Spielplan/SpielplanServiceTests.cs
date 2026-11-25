@@ -107,6 +107,34 @@ public class SpielplanServiceTests
         spiele.Select(s => s.HeimPlatzhalterName).Should().Contain(["Sieger Gruppe A", "Sieger Gruppe B"]);
     }
 
+    [Fact]
+    public async Task GenerierenAusAuslosungAsync_LigaMitPlatzhaltern_SpieltJederGegenJedenOhneGruppennummer()
+    {
+        // #355 (Handtest): eine Liga aus offenen Plätzen wurde als K.-o.-Paarungen gelesen – Spiele ohne Gegner
+        await using var ctx = NeuerContext();
+        LigaGrundSetupAnlegen(ctx, out int ligaId);
+        ctx.TurnierRunden.Single(r => r.Id == ligaId).MitRueckspiel = true;
+        await ctx.SaveChangesAsync();
+        var ergebnisse = new List<AuslosungsErgebnis>
+        {
+            new() { PaarungsNummer = 1, HeimPlatzhalterName = "1. Grunddurchgang", AuswaertsPlatzhalterName = "2. Grunddurchgang" },
+            new() { PaarungsNummer = 2, HeimPlatzhalterName = "3. Grunddurchgang", AuswaertsPlatzhalterName = "4. Grunddurchgang" },
+        };
+        var dienste = new SpielplanDienste(ctx);
+
+        await dienste.Spielplan.GenerierenAusAuslosungAsync(ligaId, ergebnisse);
+
+        var spiele = ctx.Spiele.Where(s => s.TurnierRundeId == ligaId).OrderBy(s => s.Spielnummer).ToList();
+        spiele.Should().HaveCount(12, "vier Teams, jeder gegen jeden, Hin- und Rückspiel");
+        spiele.Should().OnlyContain(s => s.HeimPlatzhalterName != null && s.AuswaertsPlatzhalterName != null
+                                         && s.HeimPlatzhalterName != s.AuswaertsPlatzhalterName);
+        spiele.Select(s => (s.HeimPlatzhalterName, s.AuswaertsPlatzhalterName)).Distinct().Should().HaveCount(12);
+        spiele.Should().OnlyContain(s => s.GruppenNummer == null, "eine Liga hat keine Gruppen");
+        spiele.Count(s => s.IstRueckspiel).Should().Be(6);
+        GruppenSpielplan.GespeichertenPlanFinden(GruppenSpielplan.LigaAusAuslosung(ergebnisse), true, spiele)
+            .Should().NotBeNull("die Kaskade erkennt den gespeicherten Plan wieder und lässt ihn in Ruhe");
+    }
+
     // ── Tests: Schweizer-Rundenfolge über mehrere Spieltage (Issue #329 Teil E) ─
 
     [Fact]
