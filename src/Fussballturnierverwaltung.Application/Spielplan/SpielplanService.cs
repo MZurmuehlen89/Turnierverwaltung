@@ -88,11 +88,28 @@ public class SpielplanService(
     // offen) werden übernommen, feste Teams paart der Generator in Paarungsreihenfolge
     private Task PaarungenGenerierenAsync(TurnierRunde runde, IReadOnlyList<AuslosungsErgebnis> ergebnisse, CancellationToken ct)
     {
+        // Eine Liga spielt jeder gegen jeden, auch mit offenen Plätzen (#355): eine Gruppe über alle Teams
+        if (runde.Rundenart == Rundenart.Liga && AuslosungsAuswertung.HatPlatzhalter(ergebnisse))
+            return LigaMitPlatzhalternGenerierenAsync(runde, ergebnisse, ct);
+
         if (!AuslosungsAuswertung.NurPlatzhalter(ergebnisse))
             return GenerierenAsync(runde, AuslosungsAuswertung.MannschaftenInPaarungsreihenfolge(ergebnisse), ct);
 
         var paarungen = AuslosungsAuswertung.PlatzhalterPaarungen(ergebnisse);
         return SpieleErzeugenAsync(runde, startNr => PlatzhalterKoSpiele.Erzeugen(runde, paarungen, startNr), ct);
+    }
+
+    // Dieselbe Berger-Planung wie die Gruppenphase mit einer Gruppe; die Spiele einer Liga tragen keine Gruppennummer
+    private Task LigaMitPlatzhalternGenerierenAsync(TurnierRunde runde, IReadOnlyList<AuslosungsErgebnis> ergebnisse, CancellationToken ct)
+    {
+        var plan = GruppenSpielplan.Planen(GruppenSpielplan.LigaAusAuslosung(ergebnisse), runde.MitRueckspiel);
+        return SpieleErzeugenAsync(runde, startNr =>
+        {
+            var spiele = GruppenSpielplan.SpieleErzeugen(runde, plan, startNr);
+            foreach (var spiel in spiele.Hinspiele.Concat(spiele.Rueckspiele.Select(r => r.Rueckspiel)))
+                spiel.GruppenNummer = null;
+            return spiele;
+        }, ct);
     }
 
     /// <summary>

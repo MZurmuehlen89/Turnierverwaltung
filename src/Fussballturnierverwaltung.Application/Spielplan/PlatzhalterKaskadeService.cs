@@ -90,7 +90,10 @@ public class PlatzhalterKaskadeService(
         // Issue #395: Gruppen-Auslosungen haben einen Eintrag pro Team, nicht pro Spiel — die
         // Eintrag-zu-Spiel-Zuordnung der Paarungen passt dort nicht.
         if (runde.Rundenart == Rundenart.Gruppenphase)
-            await GruppenphasePruefenAsync(runde, auslosung, spiele, planung, ct);
+            await GruppenphasePruefenAsync(runde, GruppenSpielplan.AusAuslosung(auslosung.Ergebnisse), spiele, planung, ct);
+        else if (runde.Rundenart == Rundenart.Liga)
+            // Liga mit Platzhaltern: Rundenspielplan über alle Teams wie eine Gruppe (#355)
+            await GruppenphasePruefenAsync(runde, GruppenSpielplan.LigaAusAuslosung(auslosung.Ergebnisse), spiele, planung, ct);
         else
             await PaarungenPruefenAsync(runde, platzhalterEintraege, spiele, planung, ct);
     }
@@ -98,11 +101,11 @@ public class PlatzhalterKaskadeService(
     /// <summary>Baut den Soll-Spielplan mit demselben Berger-Plan wie bei der Generierung nach und vergleicht
     /// Spiel für Spiel (Issue #395).</summary>
     private async Task GruppenphasePruefenAsync(
-        TurnierRunde runde, Auslosung auslosung, IReadOnlyList<Spiel> spiele, Planung planung, CancellationToken ct)
+        TurnierRunde runde, IReadOnlyList<IReadOnlyList<GruppenSlot>> gruppen, IReadOnlyList<Spiel> spiele,
+        Planung planung, CancellationToken ct)
     {
         var spieleNachNummer = spiele.OrderBy(s => s.Spielnummer).ToList();
-        var geplant = GruppenSpielplan.GespeichertenPlanFinden(
-            GruppenSpielplan.AusAuslosung(auslosung.Ergebnisse), runde.MitRueckspiel, spieleNachNummer);
+        var geplant = GruppenSpielplan.GespeichertenPlanFinden(gruppen, runde.MitRueckspiel, spieleNachNummer);
         if (geplant is null)
         {
             // Unbekannte Struktur (z.B. vor #395 ohne Platzhalter generierte gemischte Gruppe) — lieber

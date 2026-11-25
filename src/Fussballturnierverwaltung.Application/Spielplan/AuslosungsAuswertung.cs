@@ -27,6 +27,10 @@ public static class AuslosungsAuswertung
     public static bool NurPlatzhalter(IReadOnlyCollection<AuslosungsErgebnis> ergebnisse) =>
         ergebnisse.Count > 0 && ergebnisse.All(e => !e.HeimMannschaftId.HasValue && !e.AuswaertsMannschaftId.HasValue);
 
+    /// <summary>Ob mindestens ein Eintrag (ohne Freilos) einen Platzhalter trägt.</summary>
+    public static bool HatPlatzhalter(IEnumerable<AuslosungsErgebnis> ergebnisse) =>
+        ergebnisse.Any(e => !e.IstFreilos && (e.HeimPlatzhalterName is not null || e.AuswaertsPlatzhalterName is not null));
+
     /// <summary>Die Platzhalter-Paarungen in Paarungsreihenfolge, ohne Freilose; ein fehlender Name wird "?".</summary>
     public static List<(string Heim, string Auswaerts)> PlatzhalterPaarungen(IEnumerable<AuslosungsErgebnis> ergebnisse) =>
         [.. ergebnisse

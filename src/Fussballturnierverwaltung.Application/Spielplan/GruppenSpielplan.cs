@@ -28,6 +28,25 @@ public static class GruppenSpielplan
                 .OrderBy(e => e.Id)
                 .Select(e => new GruppenSlot(e.HeimMannschaftId, e.HeimPlatzhalterName))])];
 
+    /// <summary>Liga mit noch offenen Plätzen (#355): alle Teams der Auslosung – feste und Platzhalter, in
+    /// Paarungsreihenfolge, Heim vor Gast, jedes einmal – bilden eine einzige Gruppe, die jeder gegen jeden spielt. Die
+    /// Auslosung einer Liga speichert Paarungen; als K.-o.-Paarungen gelesen gäbe sie nur die Hälfte der Spiele ohne Gegner.</summary>
+    public static List<IReadOnlyList<GruppenSlot>> LigaAusAuslosung(IEnumerable<AuslosungsErgebnis> ergebnisse)
+    {
+        var slots = ergebnisse
+            .Where(e => !e.IstFreilos)
+            .OrderBy(e => e.PaarungsNummer)
+            .SelectMany(e => new[]
+            {
+                new GruppenSlot(e.HeimMannschaftId, e.HeimPlatzhalterName),
+                new GruppenSlot(e.AuswaertsMannschaftId, e.AuswaertsPlatzhalterName),
+            })
+            .Where(s => s.MannschaftId.HasValue || s.PlatzhalterName is not null)
+            .Distinct()
+            .ToList();
+        return [slots];
+    }
+
     /// <summary>Reine Funktion: Berger-Round-Robin je Gruppe, sortiert nach Spieltag und Gruppe — exakt die
     /// Reihenfolge, in der die Generierung die Spielnummern vergibt. Die Kaskade baut damit den Soll-Spielplan
     /// nach und vergleicht Spiel mit Spiel (#395).</summary>

@@ -23,6 +23,43 @@ public class GruppenSpielplanTests
             IstRueckspiel            = g.IstRueckspiel,
         })];
 
+    // ── LigaAusAuslosung (#355) ─────────────────────────────────────────────
+
+    [Fact]
+    public void LigaAusAuslosung_PlatzhalterPaarungen_ErgebenEineGruppeMitJedemTeamEinmalUndEinenRundenplan()
+    {
+        // Eine Liga aus sechs Platzhaltern: die Auslosung speichert drei Paarungen, gespielt wird aber jeder gegen jeden
+        var ergebnisse = new[]
+        {
+            new AuslosungsErgebnis { PaarungsNummer = 1, HeimPlatzhalterName = "1. Grunddurchgang", AuswaertsPlatzhalterName = "2. Grunddurchgang" },
+            new AuslosungsErgebnis { PaarungsNummer = 2, HeimPlatzhalterName = "3. Grunddurchgang", AuswaertsPlatzhalterName = "4. Grunddurchgang" },
+            new AuslosungsErgebnis { PaarungsNummer = 3, HeimPlatzhalterName = "5. Grunddurchgang", AuswaertsPlatzhalterName = "6. Grunddurchgang" },
+        };
+
+        var gruppen = GruppenSpielplan.LigaAusAuslosung(ergebnisse);
+        var plan = GruppenSpielplan.Planen(gruppen, mitRueckspiel: true);
+
+        gruppen.Should().ContainSingle().Which.Should().HaveCount(6);
+        plan.Should().HaveCount(30);
+        plan.Select(p => (p.Heim.PlatzhalterName, p.Auswaerts.PlatzhalterName)).Distinct().Should().HaveCount(30,
+            "jedes Team spielt gegen jedes zu Hause und auswärts");
+        plan.Should().OnlyContain(p => p.Heim.PlatzhalterName != p.Auswaerts.PlatzhalterName);
+    }
+
+    [Fact]
+    public void LigaAusAuslosung_FesteTeamsUndPlatzhalter_UeberspringtFreilos()
+    {
+        var ergebnisse = new[]
+        {
+            new AuslosungsErgebnis { PaarungsNummer = 1, HeimMannschaftId = 10, AuswaertsPlatzhalterName = "Sieger Playoff" },
+            new AuslosungsErgebnis { PaarungsNummer = 2, HeimMannschaftId = 20, IstFreilos = true },
+        };
+
+        var gruppe = GruppenSpielplan.LigaAusAuslosung(ergebnisse).Single();
+
+        gruppe.Should().Equal(new GruppenSlot(10, null), new GruppenSlot(null, "Sieger Playoff"));
+    }
+
     // ── AusAuslosung ────────────────────────────────────────────────────────
 
     [Fact]
