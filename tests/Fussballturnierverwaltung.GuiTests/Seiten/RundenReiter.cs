@@ -45,6 +45,53 @@ public sealed class RundenReiter(Window fenster, Hauptfenster hauptfenster)
             .ReadAllItems(e => e.TextOf("Runden.ListeName") == runde ? e.TextOf("Runden.ListeFehler") : null)
             .Single();
 
+    /// <summary>Die Marke der Runde in der Liste (#167: „Vorschlag“, „Vorschlag · Fehler“, „Regel“), sobald sie
+    /// <paramref name="erwartet"/> ist; leer = keine Marke.</summary>
+    public string MarkeAbwarten(string runde, string erwartet)
+    {
+        Wait.Within(() => Marke(runde) == erwartet, Wait.DefaultTimeout);
+        return Marke(runde);
+    }
+
+    private string Marke(string runde) =>
+        fenster.FindById("Runden.Liste")
+            .ReadAllItems(e => e.TextOf("Runden.ListeName") == runde ? e.TextOf("Runden.ListeMarke") : null)
+            .Single();
+
+    /// <summary>Beschreibung der Vorschlags-Option <paramref name="position"/> (ab 0) der gewählten Runde, sobald der
+    /// Vorschlag da ist; leer, wenn keiner da ist (der Block ist dann eingeklappt und nicht im UIA-Baum).</summary>
+    public string VorschlagTextAbwarten(int position = 0)
+    {
+        Wait.Within(() => Vorschlagstexte.Count > position, Wait.DefaultTimeout);
+        return Vorschlagstexte.ElementAtOrDefault(position) ?? string.Empty;
+    }
+
+    /// <summary>Wartet, bis die gewählte Runde keinen Vorschlag mehr zeigt.</summary>
+    public bool VorschlagVerschwindetAbwarten() => Wait.Within(() => Vorschlagstexte.Count == 0, Wait.DefaultTimeout);
+
+    private IReadOnlyList<string> Vorschlagstexte =>
+        [.. fenster.FindAllById("Runden.VorschlagText").Select(e => e.Name ?? string.Empty)];
+
+    /// <summary>Der Hinweis zum Vorschlag der gewählten Runde, leer ohne Hinweis.</summary>
+    public string VorschlagHinweis => fenster.TextOf("Runden.VorschlagHinweis");
+
+    /// <summary>Übernimmt die erste Option des Vorschlags der gewählten Runde („Übernehmen“).</summary>
+    public void VorschlagUebernehmen()
+    {
+        Aufklappen("Runden.UebergaengeBereich");
+        fenster.ActivateById("Runden.VorschlagUebernehmen");
+    }
+
+    /// <summary>Ob der Ribbon-Knopf „Vorschläge übernehmen“ freigegeben ist, sobald er <paramref name="erwartet"/> ist.</summary>
+    public bool VorschlaegeUebernehmenFreigabeAbwarten(bool erwartet)
+    {
+        Wait.Within(() => fenster.FindById("Befehlsleiste.VorschlaegeUebernehmen").IsEnabled == erwartet, Wait.DefaultTimeout);
+        return fenster.FindById("Befehlsleiste.VorschlaegeUebernehmen").IsEnabled;
+    }
+
+    /// <summary>Ribbon „Vorschläge übernehmen“: alle eindeutigen Vorschläge auf einmal.</summary>
+    public void AlleVorschlaegeUebernehmen() => fenster.ActivateById("Befehlsleiste.VorschlaegeUebernehmen");
+
     /// <summary>Wartet, bis das Formular die Runde <paramref name="runde"/> zeigt, und liefert den gezeigten Namen.</summary>
     public string GezeigteRundeAbwarten(string runde)
     {
