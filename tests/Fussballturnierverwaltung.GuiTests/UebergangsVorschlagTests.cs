@@ -23,13 +23,15 @@ public sealed class UebergangsVorschlagTests(TurnierverwaltungApp app) : IClassF
         runden.Anlegen(GRUPPENPHASE, "Gruppenphase", 24, 16, gruppen: 6);
         runden.Anlegen(ACHTELFINALE, "K.o.-Runde", 16, 8);
 
-        runden.Speichern(); // Ausgangslage ohne offene Änderung: nur die Übernahme darf Speichern wieder freigeben
-        runden.SpeichernFreigabeAbwarten(false).Should().BeFalse();
+        // Ohne Regel lässt sich der Aufbau nicht speichern (#720): Meldung an der Folgerunde, Speichern gesperrt.
+        runden.FehlerAbwarten("lassen sich nicht gleichmäßig auf 6 Gruppen verteilen")
+            .Should().ContainSingle();
+        runden.SpeichernFreigabeAbwarten(false).Should().BeFalse("der Fehler sperrt das Speichern bis zur Übernahme");
 
         runden.Auswaehlen(ACHTELFINALE);
         runden.VorschlagTextAbwarten().Should().Be("Gruppenphase: Platz 1–2 je Gruppe, 4 beste 3. Plätze");
         runden.VorschlagHinweis.Should().NotBeEmpty("24 Teams verteilen sich nicht gleichmäßig auf 6 Gruppen");
-        runden.MarkeAbwarten(ACHTELFINALE, "Vorschlag").Should().Be("Vorschlag");
+        runden.MarkeAbwarten(ACHTELFINALE, "Vorschlag · Fehler").Should().Be("Vorschlag · Fehler");
         runden.MarkeAbwarten(GRUPPENPHASE, "").Should().BeEmpty("die erste Runde hat keinen Vorschlag");
 
         runden.VorschlagUebernehmen();
