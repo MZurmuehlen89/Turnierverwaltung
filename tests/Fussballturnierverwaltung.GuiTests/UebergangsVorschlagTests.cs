@@ -53,6 +53,23 @@ public sealed class UebergangsVorschlagTests(TurnierverwaltungApp app) : IClassF
         gespeichert.VorschlagVerschwindetAbwarten().Should().BeTrue();
     }
 
+    /// <summary>Entsteht der Vorschlag, während die Runde schon gewählt ist (frisch angelegt, Eingang danach getippt),
+    /// klappt der Übergänge-Bereich von selbst auf und zeigt ihn (#726, K1) – ohne Wechsel der Auswahl.</summary>
+    [Fact]
+    public void Vorschlag_EntstehtBeiGleicherAuswahl_BereichKlapptAuf()
+    {
+        var turniere = app.Hauptfenster.TurniereOeffnen();
+        turniere.Anlegen(EindeutigerName(), "2027", TEAMS, REGELWERK);
+        var runden = turniere.Runden();
+        runden.Anlegen(GRUPPENPHASE, "Gruppenphase", TEAMS, 4, gruppen: 2);
+        runden.Anlegen(HALBFINALE, "K.o.-Runde", 4, 2); // bleibt gewählt, kein Wechsel der Auswahl
+
+        runden.VorschlagTextAbwarten().Should().NotBeEmpty("der Bereich klappt beim Entstehen des Vorschlags auf");
+
+        runden.VorschlagUebernehmen(); // Zustand sauber beenden: Regel übernehmen und speichern
+        runden.Speichern();
+    }
+
     /// <summary>Der Ribbon-Knopf „Vorschläge übernehmen“ legt die Regeln aller Runden auf einmal an und ist danach
     /// deaktiviert, nicht ausgeblendet (K8).</summary>
     [Fact]
