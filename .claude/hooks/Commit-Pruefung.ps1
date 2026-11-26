@@ -22,6 +22,21 @@ $ohneWinUi = @($code | Where-Object { $_ -notmatch '^src/Fussballturnierverwaltu
 $modell = @($dateien | Where-Object { $_ -match '^src/Fussballturnierverwaltung\.Domain/' -or
     $_ -match '^src/Fussballturnierverwaltung\.Infrastructure/Persistenz/(Konfigurationen/|Migrationen/|TurnierverwaltungDbContext\.cs)' })
 
+# ── Größenwarnung für CLAUDE.md (#711) ────────────────────────
+# Warnt nur (blockiert nie): Root > 20 KB, Unter-CLAUDE.md > 15 KB – sie werden in jeder Sitzung bzw. beim Anfassen
+# des Ordners komplett geladen. Ausweg: Feature-Wissen an den Fundort, Messreihen ins Issue, Abläufe in einen Skill.
+$zuGross = @(git ls-files '*CLAUDE.md' | Where-Object { Test-Path $_ } | ForEach-Object {
+    $grenze = if ($_ -eq 'CLAUDE.md') { 20KB } else { 15KB }
+    $groesse = (Get-Item $_).Length
+    if ($groesse -gt $grenze) { "$_ ($groesse Bytes, Grenze $grenze)" }
+})
+if ($zuGross.Count -gt 0) {
+    $warnung = "Warnung (kein Blocker, #711): CLAUDE.md zu groß – " + ($zuGross -join '; ') +
+        ". Kürzen: Feature-Wissen in die CLAUDE.md am Fundort, Messreihen ins Issue, Abläufe in einen Skill."
+    [Console]::Error.WriteLine($warnung)
+    @{ hookSpecificOutput = @{ hookEventName = 'PreToolUse'; additionalContext = $warnung } } | ConvertTo-Json -Compress -Depth 4
+}
+
 if ($code.Count -eq 0) { exit 0 }
 
 $befunde = [System.Collections.Generic.List[string]]::new()
