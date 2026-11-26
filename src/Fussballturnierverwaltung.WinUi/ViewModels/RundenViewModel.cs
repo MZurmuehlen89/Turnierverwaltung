@@ -69,6 +69,11 @@ public partial class RundenViewModel : ViewModelBase, IRibbonAware, IHatUngespei
     /// <summary>Übergangsregel-Bereich im Runden-Detail (Issue #348).</summary>
     public UebergangsregelEditorViewModel UebergangsregelEditor { get; }
 
+    /// <summary>Vorschläge für eingehende Übergangsregeln (#167).</summary>
+    public UebergangsVorschlagViewModel Vorschlag { get; }
+
+    private readonly UebergangsVorlagenQuelle _vorlagenQuelle;
+
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(HatInstanz))]
     [NotifyPropertyChangedFor(nameof(RundenBearbeitbar))]
@@ -185,7 +190,10 @@ public partial class RundenViewModel : ViewModelBase, IRibbonAware, IHatUngespei
     public ICommand? SpeichernBefehl => SpeichernCommand;
     public ICommand? AbbrechenBefehl => AbbrechenCommand;
     public ICommand? LoeschenBefehl => RundeEntfernenCommand;
-    public IReadOnlyList<RibbonGruppe> RibbonZusatzGruppen => [];
+    public IReadOnlyList<RibbonGruppe> RibbonZusatzGruppen => _ribbonGruppen;
+
+    // Deaktiviert (nicht ausgeblendet), solange kein eindeutiger Vorschlag offen ist (#167, K8).
+    private readonly IReadOnlyList<RibbonGruppe> _ribbonGruppen;
 
     public RundenViewModel(
         TurnierInstanzService service, UebergangsregelService uebergangsregelService,
@@ -199,7 +207,26 @@ public partial class RundenViewModel : ViewModelBase, IRibbonAware, IHatUngespei
         _uebergangsregelValidator = uebergangsregelValidator;
         Formular = formular;
         Formular.Geaendert += AenderungMerken;
+        _vorlagenQuelle = new UebergangsVorlagenQuelle(service, uebergangsregelService);
+        Vorschlag = new UebergangsVorschlagViewModel(this); // vor dem Editor: dessen Kopf liest den neuen Stand
         UebergangsregelEditor = new UebergangsregelEditorViewModel(this);
+        _ribbonGruppen =
+        [
+            new RibbonGruppe
+            {
+                Header = "Übergänge",
+                Aktionen =
+                [
+                    new RibbonAktion
+                    {
+                        Header = "Vorschläge übernehmen",
+                        AutomationId = "Befehlsleiste.VorschlaegeUebernehmen",
+                        Befehl = Vorschlag.UebernehmenAllerCommand,
+                        IconGlyph = "" // CheckMark (Segoe Fluent Icons)
+                    }
+                ]
+            }
+        ];
     }
 
     /// <summary>Vom Composite gesetzt, wenn sich die geteilte Instanzauswahl ändert — lädt Runden und
@@ -228,6 +255,7 @@ public partial class RundenViewModel : ViewModelBase, IRibbonAware, IHatUngespei
             Formular.StandardRegelwerk = Formular.Regelwerke.FirstOrDefault(r => r.Id == instanz.StandardRegelwerkId);
             var mitRunden = await _service.FindenNachIdMitRundenAsync(instanz.Id);
             var alleRegeln = await _uebergangsregelService.AlleNachTurnierInstanzIdAsync(instanz.Id);
+            await Vorschlag.VorlagenLadenAsync(_vorlagenQuelle, instanz.Id, _logger);
             if (_ladevorgangLaufendFuer != meineId) return;
 
             var zeileNachId = RundenUebernehmen(mitRunden?.Runden ?? []);
@@ -469,7 +497,7 @@ public partial class RundenViewModel : ViewModelBase, IRibbonAware, IHatUngespei
             : RundenMeldungen.Verteilen(Runden,
                 [.. _turnierValidator.RundenValidieren(RundenZuEingaben()).Meldungen, .. KoRegelwerkFehler()],
                 _alleUebergaenge, regelZeilen,
-                _uebergangsregelValidator.Validieren(RundenFuerValidierung(), RegelEingaben(regelZeilen)).Meldungen);
+                _uebergangsregelValidator.Validieren(RundenFuerBerechnung(), RegelEingaben(regelZeilen)).Meldungen);
         RundenFehler = _meldungen.Alle;
     }
 
@@ -482,7 +510,7 @@ public partial class RundenViewModel : ViewModelBase, IRibbonAware, IHatUngespei
     /// <summary>Nur für die Ganzgraph-Übergangsregel-Validierung nötig — bewusst rein transiente TurnierRunde-
     /// Objekte (nie persistiert), da neue, noch ungespeicherte Runden hier ebenfalls mitgeprüft werden
     /// müssen und der Validator echte TurnierRunde-Objekte (statt Eingaben) erwartet.</summary>
-    private List<TurnierRunde> RundenFuerValidierung() => [.. Runden.Select(z => new TurnierRunde
+    public List<TurnierRunde> RundenFuerBerechnung() => [.. Runden.Select(z => new TurnierRunde
     {
         Name = z.Name,
         Rundenart = z.Rundenart,

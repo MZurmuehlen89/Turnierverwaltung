@@ -137,6 +137,9 @@
                                     <Run Text="→" />
                                     <Run Text="{Binding AusgangsMannschaftsanzahl}" />
                                 </TextBlock>
+                                <TextBlock Text="{Binding Marke}" FontSize="10" Opacity="0.7" Margin="0,2,0,0"
+                                           Visibility="{Binding HatMarke, Converter={StaticResource BoolToVisibility}}"
+                                           AutomationProperties.AutomationId="Runden.ListeMarke" />
                                 <TextBlock Text="{Binding UnstimmigkeitText}" FontSize="10" Foreground="{ThemeResource SystemFillColorCautionBrush}"
                                            Margin="0,4,0,0" TextWrapping="Wrap"
                                            Visibility="{Binding HatUnstimmigkeit, Converter={StaticResource BoolToVisibility}}" />
@@ -442,6 +445,37 @@
                                         <Button Grid.Column="1" Content="+ Neu" FontSize="11" Command="{Binding NeueEingehendeRegelCommand}" />
                                     </Grid>
                                     <ItemsControl ItemsSource="{Binding EingehendeRegeln}" ItemTemplate="{StaticResource RegelZeileTemplate}" />
+
+                                    <!-- Vorschlag für die eingehenden Regeln (#167): nichts davon gilt, bevor „Übernehmen“
+                                         die Regeln im Editor anlegt – gespeichert wird erst mit „Speichern“. -->
+                                    <Border Margin="0,4,0,0" Padding="10" CornerRadius="4" BorderThickness="1"
+                                            BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                                            Visibility="{Binding Vorschlag.HatVorschlag, Converter={StaticResource BoolToVisibility}}"
+                                            AutomationProperties.AutomationId="Runden.Vorschlag">
+                                        <StackPanel Spacing="6">
+                                            <TextBlock Text="VORSCHLAG" FontWeight="SemiBold" FontSize="11" Opacity="0.6" />
+                                            <TextBlock Text="{Binding Vorschlag.Hinweis}" FontSize="12" TextWrapping="Wrap"
+                                                       Visibility="{Binding Vorschlag.HatHinweis, Converter={StaticResource BoolToVisibility}}"
+                                                       AutomationProperties.AutomationId="Runden.VorschlagHinweis" />
+                                            <ItemsControl ItemsSource="{Binding Vorschlag.Optionen}">
+                                                <ItemsControl.ItemTemplate>
+                                                    <DataTemplate>
+                                                        <StackPanel Margin="0,0,0,8" Spacing="2">
+                                                            <TextBlock Text="{Binding Beschreibung}" FontSize="12" TextWrapping="Wrap"
+                                                                       AutomationProperties.AutomationId="Runden.VorschlagText" />
+                                                            <TextBlock Text="{Binding Herkunft}" FontSize="11" Opacity="0.6" TextWrapping="Wrap" />
+                                                            <Button Content="Übernehmen" FontSize="11" Margin="0,4,0,0"
+                                                                    Command="{Binding DataContext.Vorschlag.UebernehmenCommand, ElementName=Root}"
+                                                                    CommandParameter="{Binding}"
+                                                                    AutomationProperties.AutomationId="Runden.VorschlagUebernehmen" />
+                                                        </StackPanel>
+                                                    </DataTemplate>
+                                                </ItemsControl.ItemTemplate>
+                                            </ItemsControl>
+                                            <Button Content="Selbst anlegen" FontSize="11" Command="{Binding Vorschlag.SelbstAnlegenCommand}"
+                                                    AutomationProperties.AutomationId="Runden.VorschlagSelbstAnlegen" />
+                                        </StackPanel>
+                                    </Border>
 
                                     <Grid Margin="0,16,0,8" ColumnDefinitions="*,Auto">
                                         <TextBlock Text="AUSGEHENDE REGELN" FontWeight="SemiBold" FontSize="11" Opacity="0.6" VerticalAlignment="Center" />

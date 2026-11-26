@@ -130,6 +130,14 @@ public partial class UebergangsregelBlock : ObservableObject
             if (e.PropertyName != nameof(UebergangsregelZeile.Meldungen)) Geaendert?.Invoke();
         };
 
+    /// <summary>Hängt eine fertige Zeile an (Übernahme eines Vorschlags in einen vorhandenen Block, #167).</summary>
+    public void ZeileHinzufuegen(UebergangsregelZeile zeile)
+    {
+        ZeileBeobachten(zeile);
+        Zeilen.Add(zeile);
+        Geaendert?.Invoke();
+    }
+
     /// <summary>Entfernt eine einzelne Zeile (aktuell nur für gruppenübergreifende Regeln genutzt — die
     /// per-Gruppe-Zeilen werden weiterhin automatisch aus der Quellrundenstruktur abgeleitet, nicht einzeln
     /// entfernbar).</summary>

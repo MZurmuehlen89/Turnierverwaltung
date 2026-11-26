@@ -71,6 +71,27 @@ public partial class RundeZeile : ObservableObject
     /// <summary>Alle Fehler dieser Runde, auch die ihrer ausgehenden Übergangsregeln – für das Symbol in der Rundenliste.</summary>
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(HatFehler))]
+    [NotifyPropertyChangedFor(nameof(Marke))]
+    [NotifyPropertyChangedFor(nameof(HatMarke))]
     private int _fehlerAnzahl;
     public bool HatFehler => FehlerAnzahl > 0;
+
+    // ── Übergangsvorschlag (#167), gesetzt vom UebergangsVorschlagViewModel, nie gespeichert ──
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(Marke))]
+    [NotifyPropertyChangedFor(nameof(HatMarke))]
+    private bool _vorschlagVorhanden;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(Marke))]
+    [NotifyPropertyChangedFor(nameof(HatMarke))]
+    private bool _hatEingehendeRegel;
+
+    /// <summary>Marke in der Rundenliste: „Vorschlag“ (bei Fehler „Vorschlag · Fehler“), nach der Übernahme „Regel“;
+    /// die erste Runde hat weder noch.</summary>
+    public string? Marke => VorschlagVorhanden
+        ? HatFehler ? "Vorschlag · Fehler" : "Vorschlag"
+        : HatEingehendeRegel ? "Regel" : null;
+    public bool HatMarke => Marke is not null;
 }

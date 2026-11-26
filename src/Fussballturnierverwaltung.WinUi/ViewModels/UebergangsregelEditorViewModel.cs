@@ -31,7 +31,7 @@ public partial class UebergangsregelEditorViewModel : ObservableObject
                 NeueEingehendeRegelCommand.NotifyCanExecuteChanged();
                 NeueAusgehendeRegelCommand.NotifyCanExecuteChanged();
                 AktualisiereRegelListen();
-                Offen = EingehendeRegeln.Count + AusgehendeRegeln.Count > 0;
+                Offen = EingehendeRegeln.Count + AusgehendeRegeln.Count > 0 || Vorschlag.HatVorschlag;
                 break;
             case nameof(RundenViewModel.Runden):
                 // RundenZuruecksetzen weist bei jedem Instanz-/Vorlagenwechsel eine NEUE Collection-Instanz zu —
@@ -75,8 +75,12 @@ public partial class UebergangsregelEditorViewModel : ObservableObject
     public AbschnittKopf Kopf => AbschnittKopf.Aus("ÜBERGÄNGE",
     [
         KopfTeil("von", EingehendeRegeln.Select(b => b.QuellRunde?.Name)),
-        KopfTeil("nach", AusgehendeRegeln.Select(b => b.ZielRunde?.Name))
+        KopfTeil("nach", AusgehendeRegeln.Select(b => b.ZielRunde?.Name)),
+        Vorschlag.KopfText
     ], "keine");
+
+    /// <summary>Vorschlag für die eingehenden Regeln der gewählten Runde (#167), Kind-ViewModel von <see cref="RundenViewModel"/>.</summary>
+    public UebergangsVorschlagViewModel Vorschlag => _rundenVm.Vorschlag;
 
     // Bis zu drei Runden stehen mit Namen in der Kopfzeile, darüber nur ihre Anzahl.
     private static string? KopfTeil(string richtung, IEnumerable<string?> rundenNamen)
