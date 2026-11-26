@@ -157,4 +157,75 @@ public class UebergangsVorschlaegeTests
 
         option.Regeln.Should().Equal(Regel(1, 2, null, 9, 24));
     }
+
+    // ── K4/K5: Vorlagenabgleich ─────────────────────────────────────────────
+
+    private static TurnierRunde[] LigaUndHalbfinale(int ligaAusgang = 4) =>
+    [
+        Runde("Liga", Rundenart.Liga, 8, ligaAusgang),
+        Runde("Halbfinale", Rundenart.KoRunde, 4, 2),
+    ];
+
+    private static VorlagenMuster Muster(string name, TurnierRunde[] runden, params UebergangsregelPositionsEingabe[] regeln) =>
+        new(name, runden, regeln);
+
+    [Fact]
+    public void K4_PassendeVorlage_TraegtDieVorlageAlsHerkunft()
+    {
+        var vorlage = Muster("EM", LigaUndHalbfinale(), Regel(1, 2, null, 1, 4));
+
+        var option = EinzigeOption(UebergangsVorschlaege.Berechnen(LigaUndHalbfinale(), [], [vorlage]), ziel: 2);
+
+        option.Regeln.Should().Equal(Regel(1, 2, null, 1, 4));
+        option.Herkuenfte.Should().Equal("EM");
+    }
+
+    [Fact]
+    public void K4_AbweichendeStruktur_GibtKeinenVorschlagAusDerVorlage()
+    {
+        var vorlage = Muster("WM", LigaUndHalbfinale(ligaAusgang: 6), Regel(1, 2, null, 5, 8));
+
+        var option = EinzigeOption(UebergangsVorschlaege.Berechnen(LigaUndHalbfinale(), [], [vorlage]), ziel: 2);
+
+        option.Herkuenfte.Should().Equal("Rechenregel");
+    }
+
+    [Fact]
+    public void K5_GleicheRegelsaetzeAusMehrerenVorlagen_ErgebenEinenVorschlagMitAllenHerkuenften()
+    {
+        var em = Muster("EM", LigaUndHalbfinale(), Regel(1, 2, null, 1, 4));
+        var wm = Muster("WM", LigaUndHalbfinale(), Regel(1, 2, null, 1, 4));
+
+        var option = EinzigeOption(UebergangsVorschlaege.Berechnen(LigaUndHalbfinale(), [], [em, wm]), ziel: 2);
+
+        option.Herkuenfte.Should().Equal("EM", "WM");
+    }
+
+    [Fact]
+    public void K5_VerschiedeneRegelsaetze_ErgebenMehrereOptionen_VorlageVorRechenregel()
+    {
+        var vorlage = Muster("WM", LigaUndHalbfinale(), Regel(1, 2, null, 5, 8));
+
+        var vorschlag = UebergangsVorschlaege.Berechnen(LigaUndHalbfinale(), [], [vorlage]).Single(v => v.ZielReihenfolge == 2);
+
+        vorschlag.Optionen.Select(o => o.Herkuenfte.Single()).Should().Equal("WM", "Rechenregel");
+        vorschlag.Optionen[0].Regeln.Should().Equal(Regel(1, 2, null, 5, 8));
+        vorschlag.Optionen[1].Regeln.Should().Equal(Regel(1, 2, null, 1, 4));
+    }
+
+    [Fact]
+    public void K9_VorlagenregelAufBelegteQuellplaetze_WirdNichtVorgeschlagen()
+    {
+        var runden = new[]
+        {
+            Runde("Liga", Rundenart.Liga, 24, 24),
+            Runde("Playoffs", Rundenart.KoRunde, 16, 8),
+            Runde("Achtelfinale", Rundenart.KoRunde, 8, 4),
+        };
+        var vorlage = Muster("CL", runden, Regel(1, 2, null, 1, 16));
+
+        var option = EinzigeOption(UebergangsVorschlaege.Berechnen(runden, [Regel(1, 3, null, 1, 8)], [vorlage]), ziel: 2);
+
+        option.Herkuenfte.Should().Equal("Rechenregel");
+    }
 }

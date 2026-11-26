@@ -31,38 +31,88 @@ public static class UebergangsVorschlaege
     /// <param name="runden">Runden in Reihenfolge; Position + 1 ist die Reihenfolge der Regeln.</param>
     /// <param name="vorhandeneRegeln">Bereits angelegte (auch ungespeicherte) Regeln.</param>
     public static IReadOnlyList<UebergangsVorschlag> Berechnen(
-        IReadOnlyList<TurnierRunde> runden, IReadOnlyList<UebergangsregelPositionsEingabe> vorhandeneRegeln)
+        IReadOnlyList<TurnierRunde> runden, IReadOnlyList<UebergangsregelPositionsEingabe> vorhandeneRegeln,
+        IReadOnlyList<VorlagenMuster>? vorlagen = null)
     {
         var ergebnis = new List<UebergangsVorschlag>();
         for (int i = 1; i < runden.Count; i++)
-            if (VorschlagFuer(runden, i, vorhandeneRegeln) is { } vorschlag)
+            if (VorschlagFuer(runden, i, vorhandeneRegeln, vorlagen ?? []) is { } vorschlag)
                 ergebnis.Add(vorschlag);
         return ergebnis;
     }
 
     private static UebergangsVorschlag? VorschlagFuer(
-        IReadOnlyList<TurnierRunde> runden, int zielIndex, IReadOnlyList<UebergangsregelPositionsEingabe> vorhandeneRegeln)
+        IReadOnlyList<TurnierRunde> runden, int zielIndex, IReadOnlyList<UebergangsregelPositionsEingabe> vorhandeneRegeln,
+        IReadOnlyList<VorlagenMuster> vorlagen)
     {
-        var ziel = runden[zielIndex];
         int zielReihenfolge = zielIndex + 1;
-        int luecke = ziel.EingangsMannschaftsanzahl
+        int luecke = runden[zielIndex].EingangsMannschaftsanzahl
                      - vorhandeneRegeln.Where(r => r.ZielReihenfolge == zielReihenfolge).Sum(Mannschaften);
-        int quelleIndex = VorgaengerIndex(runden, zielIndex);
-        if (luecke <= 0 || quelleIndex < 0) return null;
+        if (luecke <= 0) return null;
 
-        var quelle = runden[quelleIndex];
-        int quelleReihenfolge = quelleIndex + 1;
-        var vergeben = vorhandeneRegeln
-            .Where(r => r.QuellReihenfolge == quelleReihenfolge)
-            .SelectMany(PlaetzeDerRegel)
-            .ToHashSet();
-        var frei = Plaetze(quelle, ziel.Rundenart).Where(p => !vergeben.Contains(p)).Take(luecke).ToList();
-        if (frei.Count == 0) return null;
+        // Vorlagen zuerst, die Rechenregel als Rückfall zuletzt – gleiche Regelsätze werden zusammengefasst.
+        var kandidaten = VorlagenOptionen(runden, zielIndex, luecke, vorhandeneRegeln, vorlagen).ToList();
+        var rechenregel = RechenregelOption(runden, zielIndex, luecke, vorhandeneRegeln);
+        if (rechenregel is not null) kandidaten.Add(rechenregel);
+        if (kandidaten.Count == 0) return null;
 
-        var regeln = RegelnAus(frei, quelleReihenfolge, zielReihenfolge);
-        return new UebergangsVorschlag(zielReihenfolge, [new VorschlagsOption(regeln, [HERKUNFT_RECHENREGEL])],
-            HinweisFuer(quelle));
+        string? hinweis = rechenregel is null ? null : HinweisFuer(runden[VorgaengerIndex(runden, zielIndex)]);
+        return new UebergangsVorschlag(zielReihenfolge, Zusammenfassen(kandidaten), hinweis);
     }
+
+    private static VorschlagsOption? RechenregelOption(
+        IReadOnlyList<TurnierRunde> runden, int zielIndex, int luecke, IReadOnlyList<UebergangsregelPositionsEingabe> vorhandeneRegeln)
+    {
+        int quelleIndex = VorgaengerIndex(runden, zielIndex);
+        if (quelleIndex < 0) return null;
+
+        int quelleReihenfolge = quelleIndex + 1;
+        var vergeben = VergebenePlaetze(vorhandeneRegeln, quelleReihenfolge);
+        var frei = Plaetze(runden[quelleIndex], runden[zielIndex].Rundenart).Where(p => !vergeben.Contains(p)).Take(luecke).ToList();
+        return frei.Count == 0
+            ? null
+            : new VorschlagsOption(RegelnAus(frei, quelleReihenfolge, zielIndex + 1), [HERKUNFT_RECHENREGEL]);
+    }
+
+    // ── Vorlagenabgleich (Quelle A) ─────────────────────────────────────────
+
+    /// <summary>Je passender Vorlage (Rundenfolge bis zur Zielrunde gleich) deren Regeln für die Zielrunde, ohne was
+    /// schon angelegt ist. Nicht angeboten wird eine Option, die die Lücke überschreitet oder Plätze braucht, die eine
+    /// andere Regel der Quellrunde schon vergeben hat.</summary>
+    private static IEnumerable<VorschlagsOption> VorlagenOptionen(
+        IReadOnlyList<TurnierRunde> runden, int zielIndex, int luecke,
+        IReadOnlyList<UebergangsregelPositionsEingabe> vorhandeneRegeln, IReadOnlyList<VorlagenMuster> vorlagen)
+    {
+        foreach (var vorlage in vorlagen.Where(v => v.PasstBis(runden, zielIndex)))
+        {
+            var rest = vorlage.Regeln
+                .Where(r => r.ZielReihenfolge == zielIndex + 1 && !vorhandeneRegeln.Contains(r))
+                .ToList();
+            if (rest.Count > 0 && rest.Sum(Mannschaften) <= luecke && !BrauchtVergebenePlaetze(rest, vorhandeneRegeln))
+                yield return new VorschlagsOption(rest, [vorlage.Name]);
+        }
+    }
+
+    private static bool BrauchtVergebenePlaetze(
+        IReadOnlyList<UebergangsregelPositionsEingabe> regeln, IReadOnlyList<UebergangsregelPositionsEingabe> vorhandeneRegeln) =>
+        regeln.Any(r => PlaetzeDerRegel(r).Any(p => VergebenePlaetze(vorhandeneRegeln, r.QuellReihenfolge).Contains(p)));
+
+    private static HashSet<Platz> VergebenePlaetze(IReadOnlyList<UebergangsregelPositionsEingabe> regeln, int quelleReihenfolge) =>
+        regeln.Where(r => r.QuellReihenfolge == quelleReihenfolge).SelectMany(PlaetzeDerRegel).ToHashSet();
+
+    /// <summary>Gleiche Regelsätze (gleiche Regeln, gleich sortiert) werden eine Option mit allen Herkünften; die
+    /// Rechenregel als Herkunft entfällt, sobald eine Vorlage denselben Satz liefert.</summary>
+    private static IReadOnlyList<VorschlagsOption> Zusammenfassen(IReadOnlyList<VorschlagsOption> optionen) =>
+        optionen
+            .GroupBy(o => string.Join("|", o.Regeln.OrderBy(r => r.QuellReihenfolge).ThenBy(r => r.GruppeIndex)
+                .ThenBy(r => r.PlatzierungVon).ThenBy(r => r.PlatzierungBis).ThenBy(r => r.AnzahlBeste)))
+            .Select(g =>
+            {
+                var herkuenfte = g.SelectMany(o => o.Herkuenfte).Distinct().ToList();
+                if (herkuenfte.Count > 1) herkuenfte.Remove(HERKUNFT_RECHENREGEL);
+                return new VorschlagsOption(g.First().Regeln, herkuenfte);
+            })
+            .ToList();
 
     /// <summary>Die unmittelbar vorangehende Runde; Finale und Spiel um Platz 3 sind parallele Geschwister und
     /// speisen keine Folgerunde (wie <c>TeilnehmerPoolHilfsmittel.VorgaengerrundeErmitteln</c>).</summary>
