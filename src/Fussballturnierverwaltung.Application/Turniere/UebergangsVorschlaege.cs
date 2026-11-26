@@ -26,7 +26,7 @@ public static class UebergangsVorschlaege
 
     /// <summary>Ein Platz der Quellrunde, den eine Regel weitergeben kann. Bei Rundenart Gruppenphase ist
     /// <see cref="Beste"/> ein Platz der gruppenübergreifenden Rangfolge („die n besten Dritten“, ohne Gruppe).</summary>
-    private readonly record struct Platz(int? Gruppe, int Nummer, bool Beste = false);
+    private readonly record struct Platz(int? Gruppe, int Nummer, bool Beste = false, int Lauf = 0);
 
     /// <param name="runden">Runden in Reihenfolge; Position + 1 ist die Reihenfolge der Regeln.</param>
     /// <param name="vorhandeneRegeln">Bereits angelegte (auch ungespeicherte) Regeln.</param>
@@ -153,13 +153,13 @@ public static class UebergangsVorschlaege
             for (int gruppe = 1; gruppe <= gruppen; gruppe++)
                 yield return new Platz(gruppe, nummer);
         for (int rest = 0; rest < ausgang % gruppen; rest++)
-            yield return new Platz(null, jeGruppe + 1, Beste: true);
+            yield return new Platz(null, jeGruppe + 1, Beste: true, Lauf: rest + 1);
     }
 
     private static IEnumerable<Platz> PlaetzeDerRegel(UebergangsregelPositionsEingabe regel)
     {
         if (regel.AnzahlBeste is { } anzahl)
-            return Enumerable.Range(0, anzahl).Select(_ => new Platz(null, regel.PlatzierungVon, Beste: true));
+            return Enumerable.Range(1, anzahl).Select(lauf => new Platz(null, regel.PlatzierungVon, Beste: true, Lauf: lauf));
         return Enumerable.Range(regel.PlatzierungVon, regel.PlatzierungBis - regel.PlatzierungVon + 1)
             .Select(nummer => new Platz(regel.GruppeIndex, nummer));
     }

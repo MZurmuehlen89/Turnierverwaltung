@@ -23,6 +23,9 @@ public sealed class UebergangsVorschlagTests(TurnierverwaltungApp app) : IClassF
         runden.Anlegen(GRUPPENPHASE, "Gruppenphase", 24, 16, gruppen: 6);
         runden.Anlegen(ACHTELFINALE, "K.o.-Runde", 16, 8);
 
+        runden.Speichern(); // Ausgangslage ohne offene Änderung: nur die Übernahme darf Speichern wieder freigeben
+        runden.SpeichernFreigabeAbwarten(false).Should().BeFalse();
+
         runden.Auswaehlen(ACHTELFINALE);
         runden.VorschlagTextAbwarten().Should().Be("Gruppenphase: Platz 1–2 je Gruppe, 4 beste 3. Plätze");
         runden.VorschlagHinweis.Should().NotBeEmpty("24 Teams verteilen sich nicht gleichmäßig auf 6 Gruppen");

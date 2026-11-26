@@ -565,6 +565,7 @@ public partial class RundenViewModel : ViewModelBase, IRibbonAware, IHatUngespei
             using (_logger.Vorgang($"Runden: Runden und Übergangsregeln ersetzen (Instanz {instanz.Id})"))
                 await _service.RundenUndUebergaengeErsetzenAsync(
                     instanz.Id, RundenZuEingaben(), UebergangsregelnZuEingaben());
+            if (instanz.Status == TurnierStatus.Vorlage) Vorschlag.VorlagenVerwerfen(); // #167: Muster nicht veraltet lassen
             await InstanzSetzenAsync(instanz);
             RundenGespeichert?.Invoke(instanz);
         }

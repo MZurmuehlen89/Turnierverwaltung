@@ -129,6 +129,21 @@ public class UebergangsVorschlaegeTests
     }
 
     [Fact]
+    public void K6_TeilweiseBesteVergeben_SchlaegtNurDieRestlichenBestenVor()
+    {
+        var runden = new[]
+        {
+            Runde("Gruppenphase", Rundenart.Gruppenphase, 24, 16, gruppen: 6),
+            Runde("Achtelfinale", Rundenart.KoRunde, 16, 8),
+        };
+        var vorhanden = Enumerable.Range(1, 6).Select(g => Regel(1, 2, g, 1, 2)).Append(Regel(1, 2, null, 3, 3, beste: 2)).ToList();
+
+        var option = EinzigeOption(UebergangsVorschlaege.Berechnen(runden, vorhanden), ziel: 2);
+
+        option.Regeln.Should().Equal(Regel(1, 2, null, 3, 3, beste: 2));
+    }
+
+    [Fact]
     public void K6_LueckeGeschlossen_KeinVorschlag()
     {
         var runden = new[]

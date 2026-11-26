@@ -1,5 +1,6 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Fussballturnierverwaltung.Application.Diagnose;
 using Fussballturnierverwaltung.Application.Spielplan.Eingaben;
 using Fussballturnierverwaltung.Application.Turniere;
 using Microsoft.Extensions.Logging;
@@ -44,13 +45,20 @@ public partial class UebergangsVorschlagViewModel : ObservableObject
 
     private IReadOnlyList<VorlagenMuster>? _geladeneVorlagen;
 
+    /// <summary>Verwirft die gemerkten Vorlagen, wenn eine Vorlage gespeichert wurde – der nächste Turnierwechsel lädt sie neu.</summary>
+    public void VorlagenVerwerfen() => _geladeneVorlagen = null;
+
     /// <summary>Lädt die Vorlagen als Muster für den Abgleich (Quelle A) beim ersten Mal und merkt sie; die eigene
     /// Instanz zählt nicht als Vorlage ihrer selbst. Ein Ladefehler lässt nur die Rechenregel übrig.</summary>
     public async Task VorlagenLadenAsync(UebergangsVorlagenQuelle quelle, int eigeneInstanzId, ILogger logger)
     {
         try
         {
-            _geladeneVorlagen ??= await quelle.LadenAsync();
+            if (_geladeneVorlagen is null)
+            {
+                using var vorgang = logger.Vorgang("Vorlagen für den Übergangsvorschlag laden");
+                _geladeneVorlagen = await quelle.LadenAsync();
+            }
         }
         catch (Exception ex)
         {
