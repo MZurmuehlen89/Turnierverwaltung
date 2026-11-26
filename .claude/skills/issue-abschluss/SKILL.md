@@ -3,29 +3,26 @@ name: issue-abschluss
 description: Abschluss eines Issues: /code-review high, Definition-of-Done-Block für den Schlusskommentar, Folge-Issues, Memory, Pause. Nutzen, bevor ein Issue geschlossen oder gepusht wird.
 ---
 
-## Definition of Done (#665)
+# Issue-Abschluss
 
-Two levels: the **issue criteria** say whether the problem is solved (different for every issue), the **general
-DoD** says whether the work is properly finished (the same for every issue). An issue is closed only when both hold.
+1. **Vor dem Push:** `/code-review high` auf die noch nicht gepushten Änderungen; Funde beheben oder mit Grund überspringen. Reine Doku-Pushes sind ausgenommen.
+2. **Push erst ohne offene Arbeit** (Hook blockiert bei uncommitteten Änderungen). Auf den grünen Komplettlauf der GUI-Tests warten.
+3. **Dokumentation am Fundort nachziehen:** die `CLAUDE.md` am Ort der geänderten Kernlogik; die Root-`CLAUDE.md` nur bei einer neuen **schichtübergreifenden** Regel (dann eine Zeile + Verweis). Messreihen bleiben im Issue. Eine neue Unter-`CLAUDE.md` nur für Ordner mit ≥ ~1 KB nicht offensichtlicher Regeln, nicht auf Vorrat. Außerdem GUI-Abdeckung (#529), Meilenstein-Beschreibung, Seed.
+4. **Folge-Themen** als eigene Issues anlegen (Präfix, Labels, Phase), nicht nur als Satz im Kommentar.
+5. **Schlusskommentar** (`gh issue close <nr> --comment …`): Commit-Hashes, Abweichungen vom Issue-Text, Gründe nicht offensichtlicher Entscheidungen, verwendetes Modell (und Wechsel), dazu den DoD-Block:
 
-### General DoD
+```
+**Definition of Done**
+1. Kriterien — erfüllt/entfällt/begründet: …
+2. Build und Unit-Tests grün, keine offenen Modelländerungen (Commit-Hook)
+3. Code-Review (/code-review high) — Funde: …
+4. GUI-Tests — Komplettlauf grün; neues UI-Verhalten mit Szenario oder als Lücke genannt
+5. Manuelle Lücken — benannt und vom Nutzer bestätigt, oder keine
+6. Code-Qualität — Clean-Code-Regeln, keine neuen Analyzer-Warnungen; jede neue RibbonAktion mit verifiziertem IconGlyph
+7. Dokumentation — am Fundort des Codes nachgezogen; Root nur bei neuer schichtübergreifender Regel
+8. Folge-Issues — als eigene Issues angelegt: …
+9. Schlusskommentar — Hashes, Abweichungen, Begründungen, dieser Block
+```
 
-Checked off in the closing comment as a block `**Definition of Done**`, each point *erfüllt*, *entfällt* or skipped
-with a reason:
-
-1. **Criteria** — every issue criterion is met, each with its test (or the stated reason there is none).
-2. **Build and unit tests** green, no pending model changes (enforced by the commit hook).
-3. **Code review** — `/code-review high` on the unpushed changes, findings fixed or skipped with a reason
-   (documentation-only pushes excepted).
-4. **GUI tests** — the full run on the push/PR is green; new UI behaviour has a GUI scenario or is listed as a gap.
-5. **Manual gaps** — whatever the GUI tests cannot see (visuals, paths without scenario, real database) has been
-   named and confirmed by the user, or there is none.
-6. **Code quality** — Clean Code rules above followed in touched code, no new analyzer warnings there; every new
-   `RibbonAktion` has a verified `IconGlyph`.
-7. **Documentation** — affected `CLAUDE.md` files, GUI coverage (#529), milestone description and seed checked and
-   updated.
-8. **Follow-ups** — every known follow-up topic exists as its own issue (prefix, labels, phase), not only as a
-   sentence in the comment.
-9. **Closing comment** — commit hashes, deviations from the issue text, reasons for non-obvious decisions, this
-   DoD block.
-
+Jeder Punkt: *erfüllt*, *entfällt* oder mit Grund ausgelassen. Ist einer offen, wird nicht geschlossen.
+6. **Memory aktualisieren** (`project_aktueller_stand.md`, `MEMORY.md`, betroffene Einzeldateien), **dann** dem Nutzer kurz zusammenfassen, was erledigt wurde und was ansteht, und **auf Feedback warten** — nicht direkt das nächste Issue beginnen.

@@ -2,6 +2,11 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+**Where things go:** this root file holds only what applies in every session across all layers. Feature knowledge goes
+into the `CLAUDE.md` next to the core logic (at most one line of core rule plus a pointer here); measurement series stay
+in the issue; recurring procedures are skills in `.claude/skills/`. A sub-`CLAUDE.md` is created only for a folder with
+≥ ~1 KB of non-obvious rules, not in reserve.
+
 ## Database
 
 See `src/Fussballturnierverwaltung.Infrastructure/CLAUDE.md` (connection string, EF-Migrationsbefehle, Seed) — loaded automatically once a file in that project is touched. If you need the migration commands without having touched Infrastructure yet (e.g. right after a Domain entity change), read that file directly.
@@ -120,10 +125,11 @@ includes `suggestion` findings, `-Regel S3776,S138` lists the locations.
 **Before reading code or editing anything for an issue** — whenever the user names an issue ("#682", "mach #…",
 "weiter mit …") — the **first message** states, unasked: (1) the recommended model with a one-line reason, taken from
 the issue's `## Grobplan`; (2) the switch instruction. Then wait. Details and the full procedure: skill `issue-start`.
+**Effort:** default **Medium**; **High** only for `aufwand: hard` or a red measurement that needs interpreting.
 
 ## Definition of Done (#665)
 
-Two levels: the **issue criteria** say whether the problem is solved (different for every issue), the **general
+Procedure and closing-comment template: skill `issue-abschluss`. Two levels: the **issue criteria** say whether the problem is solved (different for every issue), the **general
 DoD** says whether the work is properly finished (the same for every issue). An issue is closed only when both hold.
 
 ### Issue criteria
@@ -156,8 +162,8 @@ with a reason:
    named and confirmed by the user, or there is none.
 6. **Code quality** — Clean Code rules above followed in touched code, no new analyzer warnings there; every new
    `RibbonAktion` has a verified `IconGlyph`.
-7. **Documentation** — affected `CLAUDE.md` files, GUI coverage (#529), milestone description and seed checked and
-   updated.
+7. **Documentation** — brought up to date where the code lives (the `CLAUDE.md` next to the core logic; the root only
+   for a new cross-layer rule); GUI coverage (#529), milestone description and seed checked and updated.
 8. **Follow-ups** — every known follow-up topic exists as its own issue (prefix, labels, phase), not only as a
    sentence in the comment.
 9. **Closing comment** — commit hashes, deviations from the issue text, reasons for non-obvious decisions, this

@@ -3,31 +3,30 @@ name: issue-start
 description: Start eines Issues ("mach #…", "weiter mit #…", "#123"): Modell- und Effort-Empfehlung ansagen und warten, Grobplan, Sperr-/Aktualitätsprüfung, Kriterien anlegen. Zuerst nutzen, bevor Code gelesen oder geändert wird.
 ---
 
-**Before reading code or editing anything for an issue** — whenever the user names an issue ("#682", "mach #…",
-"weiter mit …") — the **first message** states, unasked: (1) the recommended model (Sonnet / Opus plans + Sonnet
-implements / Opus) with a one-line reason, taken from the issue's `## Grobplan`; (2) the switch instruction
-("jetzt Opus + `/clear`, Start mit …"). The user switches the model themselves — never ask them to remind you.
-Then wait; no code, no `Edit`, no sed before the user has confirmed or switched. The same announcement is due at
-every later hand-over (plan done → Sonnet; Sonnet stuck twice or a red measurement to interpret → Opus at once;
-Opus question answered → back to Sonnet) and the model used goes into the closing comment. Details and the model
-selection table: memory `feedback_modellwahl_je_issue`. An issue without a `## Grobplan` gets one (with the
-recommendation) before the start.
+# Issue-Start
 
+Auslöser: der Nutzer nennt ein Issue. Reihenfolge einhalten.
 
+1. **Issue lesen** (`gh issue view <nr>`), noch keinen Code.
+2. **Erste Nachricht, ungefragt:** empfohlenes Modell mit Einzeiler-Begründung (aus `## Grobplan`) + Effort + Wechselanweisung ("jetzt Opus + `/clear`, Start mit …"). Dann **warten** — kein Code, kein `Edit`, kein sed vor der Bestätigung. Der Nutzer stellt das Modell selbst um.
+   - Modelle: **Sonnet** (`simple`, Doku/Chore, Dependabot-Minor, Seed-Nachträge, Muster-Kopie), **Opus plant → Sonnet setzt um** (`medium`/`hard` mit planbarem Weg; Opus schreibt einen eigenständigen `## Plan` ins Issue), **Opus** (Bug mit unklarer Ursache, `thema: code-qualitaet`, Simulations-/Rundenlogik, Turnierbaum/EF-Mehrphasen, Konzept-/Designfragen, Major-Updates).
+   - **Effort:** Standard **Medium**; **High** nur bei `aufwand: hard` oder einer roten Messung zur Deutung.
+   - Fehlt `## Grobplan`: erst ergänzen (mit Empfehlung), dann ansagen.
+3. **Jeder spätere Wechsel wird vorab angesagt** (Plan fertig → Sonnet; Sonnet hängt zweimal oder rote Messung → sofort Opus; Opus-Frage beantwortet → zurück zu Sonnet), immer mit Angabe, ob mit oder ohne `/clear`. Läuft die Arbeit im richtigen Modell weiter, keine Modellfrage. Das verwendete Modell kommt in den Schlusskommentar.
+4. **Sperr-/Aktualitätsprüfung:** `blocked-by` prüfen (Blocker auch dann melden, wenn er irrelevant scheint; hart vs. weich benennen); bei älteren Issues aktuellen Code gegen die Beschreibung prüfen, bei Abweichung mit dem Nutzer abstimmen. Prio-Label muss gesetzt sein, sonst nicht bearbeiten.
+5. **Offene Dependabot-PRs** ansehen (`gh pr list --author app/dependabot`), Ablauf: Skill `dependabot-prs`.
+6. **`## Kriterien`** in den Issue-Body schreiben, **bevor** Code entsteht (K1, K2 … mit Test je Kriterium; bei `hard` zusammen mit dem Plan-Recap). Inhalt je Typ: Tabelle unten. Bei `hard` zusätzlich **Plan-Recap** vorlegen (Konzept, Schichten/Dateien, Reihenfolge) und bei sichtbarer UI-Änderung ein klickbares Mockup; erst nach Bestätigung codieren.
+7. Beim Anlegen neuer Issues: Titel-Präfix `Bug:`/`Feature:`/`Verbesserung:`, Labels Typ + Aufwand (selbst eingeschätzt) + Prio, Phase (Meilenstein, außer `prio: parked`), `## Grobplan` mit `Modell-Empfehlung`. Issue-Nummern nie raten — erst `gh issue create`.
 
-### Issue criteria
+## Kriterien je Issue-Typ
 
-Written into the issue body as a section `## Kriterien` **before the code** (after the blocking/staleness check;
-for effort `hard` together with the plan recap). Numbered K1, K2 …; behind each one, in brackets, the test that pins
-it down (unit test class or GUI scenario) — or why there is none. Effort `simple`: one or two lines are enough.
-A criterion found during the work is added and marked as *nachgetragen*.
-
-| Issue type | Criteria |
+| Issue-Typ | Kriterien |
 |---|---|
-| Feature with UI | Given/When/Then, including the states *before/in between* (placeholders, not yet drawn, old data, empty rounds); test per criterion, unit tests shown red locally first, GUI counter-check on a throwaway `ci/<nr>-gegenprobe` branch (#591) |
-| Feature without UI / improvement | Given/When/Then, unit test per criterion |
-| Bug | reproduction (given/when → wrong result), expected behaviour, cause proven (no candidate fixes), regression test shown red before the fix |
-| Refactoring | target structure named; behaviour unchanged (existing tests green without modification); measured values before/after (complexity, lines) |
-| Performance | measured value before, target value, measured value after (in the issue) |
-| Documentation / chore | what lies where afterwards |
+| Feature mit UI | Given/When/Then inkl. Zustände *davor/dazwischen* (Platzhalter, noch nicht ausgelost, Altdaten, leere Runden); Test je Kriterium, Unit-Tests lokal rot belegen, GUI-Gegenprobe auf Wegwerf-Branch `ci/<nr>-gegenprobe` (#591) |
+| Feature ohne UI / Verbesserung | Given/When/Then, Unit-Test je Kriterium |
+| Bug | Reproduktion (given/when → falsches Ergebnis), erwartetes Verhalten, Ursache belegt (keine Kandidaten-Fixes), Regressionstest vor dem Fix rot |
+| Refactoring | Zielstruktur benannt; Verhalten unverändert (bestehende Tests grün ohne Änderung); Messwerte vorher/nachher (Komplexität, Zeilen) |
+| Performance | Messwert vorher, Zielwert, Messwert nachher (im Issue) |
+| Doku / Chore | was danach wo liegt |
 
+Bei `simple` reichen ein bis zwei Zeilen. Ein während der Arbeit gefundenes Kriterium wird nachgetragen und als *nachgetragen* markiert.
