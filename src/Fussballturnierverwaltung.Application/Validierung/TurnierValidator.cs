@@ -130,8 +130,21 @@ public class TurnierValidator
                 yield return new($"Runde {i + 1} ('{runde.Name}') erwartet {runde.EingangsMannschaftsanzahl} Mannschaften, " +
                                  $"Runde {vorrundeIndex + 1} ('{vorrunde.Name}') liefert aber {vorrunde.AusgangsMannschaftsanzahl}.",
                     Zeile: i);
+
+            if (GruppenAusgangNichtVerteilbar(vorrunde))
+                yield return new($"Runde {i + 1} ('{runde.Name}'): {vorrunde.AusgangsMannschaftsanzahl} Mannschaften lassen sich " +
+                                 $"nicht gleichmäßig auf {vorrunde.GruppenAnzahl} Gruppen verteilen – Übergangsregel für die " +
+                                 "besten Gruppendritten anlegen.",
+                    Zeile: i);
         }
     }
+
+    /// <summary>Ohne Übergangsregel bildet die Automatik nur „n-ter Platz aller Gruppen“; bleibt ein Rest, fehlen
+    /// die Plätze still (#720).</summary>
+    private static bool GruppenAusgangNichtVerteilbar(TurnierRundeEingabe vorrunde) =>
+        vorrunde.Rundenart == Rundenart.Gruppenphase
+        && vorrunde.GruppenAnzahl is > 0 and var gruppen
+        && vorrunde.AusgangsMannschaftsanzahl % gruppen != 0;
 
     private static IEnumerable<Feldfehler> FinalePruefen(IReadOnlyList<TurnierRundeEingabe> runden)
     {

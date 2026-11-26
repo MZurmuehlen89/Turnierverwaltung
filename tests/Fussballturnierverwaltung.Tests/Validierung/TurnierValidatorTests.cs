@@ -64,6 +64,63 @@ public class TurnierValidatorTests
         ergebnis.Fehler.Should().ContainMatch("*16*15*");
     }
 
+    // ── Ausgang der Gruppenphase ohne Übergangsregel (#720) ──────────────────
+
+    [Fact]
+    public void GruppenAusgang_NichtGleichmaessigVerteilbarOhneRegel_IstUngueltig()
+    {
+        var runden = new[]
+        {
+            Runde("Gruppenphase", Rundenart.Gruppenphase, eingang: 24, ausgang: 16, gruppenAnzahl: 6),
+            Runde("Achtelfinale", Rundenart.KoRunde,      eingang: 16, ausgang: 8),
+        };
+
+        var ergebnis = _validator.RundenValidieren(runden);
+
+        ergebnis.Fehler.Should().ContainSingle()
+            .Which.Should().Match("*16 Mannschaften lassen sich nicht gleichmäßig auf 6 Gruppen verteilen*Übergangsregel*");
+    }
+
+    [Fact]
+    public void GruppenAusgang_GleichmaessigVerteilbar_IstGueltig()
+    {
+        var runden = new[]
+        {
+            Runde("Gruppenphase", Rundenart.Gruppenphase, eingang: 8, ausgang: 4, gruppenAnzahl: 2),
+            Runde("Halbfinale",   Rundenart.KoRunde,      eingang: 4, ausgang: 2),
+            Runde("Finale",       Rundenart.Finale,       eingang: 2, ausgang: 1),
+        };
+
+        _validator.RundenValidieren(runden).IstGueltig.Should().BeTrue();
+    }
+
+    [Fact]
+    public void GruppenAusgang_NichtVerteilbarAberEingangUeberRegeln_IstGueltig()
+    {
+        var runden = new[]
+        {
+            Runde("Gruppenphase", Rundenart.Gruppenphase, eingang: 24, ausgang: 16, gruppenAnzahl: 6),
+            Runde("Achtelfinale", Rundenart.KoRunde,      eingang: 16, ausgang: 8, eingangUeberUebergangsregeln: true),
+            Runde("Viertelfinale", Rundenart.KoRunde,     eingang: 8,  ausgang: 4),
+            Runde("Halbfinale",   Rundenart.KoRunde,      eingang: 4,  ausgang: 2),
+            Runde("Finale",       Rundenart.Finale,       eingang: 2,  ausgang: 1),
+        };
+
+        _validator.RundenValidieren(runden).IstGueltig.Should().BeTrue();
+    }
+
+    [Fact]
+    public void KoVorrundeMitUngeraderGruppenzahl_BleibtGueltig()
+    {
+        var runden = new[]
+        {
+            Runde("Achtelfinale",  Rundenart.KoRunde, eingang: 16, ausgang: 8, gruppenAnzahl: 6),
+            Runde("Viertelfinale", Rundenart.KoRunde, eingang: 8,  ausgang: 4),
+        };
+
+        _validator.RundenValidieren(runden).Fehler.Should().BeEmpty();
+    }
+
     [Fact]
     public void AuswaertstorRegel_OhneHinRueckspiel_IstUngueltig()
     {
