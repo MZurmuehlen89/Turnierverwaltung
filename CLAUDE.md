@@ -174,7 +174,7 @@ with a reason:
 
 Hooks in `.claude/settings.json` check every `git commit` (build, migrations, unit tests) and `git push` (clean tree).
 **Don't build and test by hand before committing** — the hook does it. Commit and push in separate calls
-(a combined call is blocked). A blocked call (exit code 2) returns findings: fix them, don't work around.
+(a combined call is blocked). The hook reads the command *text*: a script or note that merely contains `git commit`/`git push` is blocked too — put it in a file. A blocked call (exit code 2) returns findings: fix them, don't work around.
 Technical details (pre-filter, run times, worktree rules): `.claude/hooks/CLAUDE.md`.
 
 ## Dependency Updates (Dependabot, #542)

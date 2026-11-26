@@ -33,7 +33,6 @@ $zuGross = @(git ls-files '*CLAUDE.md' | Where-Object { Test-Path $_ } | ForEach
 if ($zuGross.Count -gt 0) {
     $warnung = "Warnung (kein Blocker, #711): CLAUDE.md zu groß – " + ($zuGross -join '; ') +
         ". Kürzen: Feature-Wissen in die CLAUDE.md am Fundort, Messreihen ins Issue, Abläufe in einen Skill."
-    [Console]::Error.WriteLine($warnung)
     @{ hookSpecificOutput = @{ hookEventName = 'PreToolUse'; additionalContext = $warnung } } | ConvertTo-Json -Compress -Depth 4
 }
 

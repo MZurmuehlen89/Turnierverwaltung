@@ -69,7 +69,7 @@ cannot estimate (it overstated the noise by 1.7×); it is checked against its ba
 The jackknife runs only for a metric outside its band (inside it is green anyway; for all metrics it would add ~8 s).
 Bands, target texts and skip rules are unchanged; the report line shows value ± SE where one was estimated.
 Reason: the noise is small (SD over seeds ≈ 0.2 points), a test went red because its mean sat *on* the band edge — more
-games or a mean over seeds would only make that deterministic. **Measurement series** (`Realismus/RealismusMessreihe`, `Explicit`): call and interpretation are in the skill `realismus-messreihe` (`.claude/skills/`).
+games or a mean over seeds would only make that deterministic. **Measurement series** (`Realismus/RealismusMessreihe`, `Explicit`): call and interpretation are in the skill `realismus-messreihe` (`.claude/skills/`). **Design rules that stay here:** a metric the simulation misses is **not** loosened — its test carries an unconditional `Skip` naming the measured value and the fixing issue; a class built from a noisy per-pairing estimate (half A) must not use it as the prediction as well (group by A, measure in B; draw-rate classes use cross estimation, #679); never move bands or the seed by hand after a simulation change — run the series.
 
 ## GUI tests (#494, #521)
 
