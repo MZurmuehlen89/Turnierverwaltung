@@ -67,10 +67,24 @@ public partial class UebergangsregelEditorViewModel : ObservableObject
                 AusgehendeRegeln.Add(b);
         }
         OnPropertyChanged(nameof(Kopf));
+        BeiNeuemVorschlagAufklappen();
     }
 
     // ── Aufklappbarer Bereich (Issue #476) ────────────────────────────────────
     [ObservableProperty] private bool _offen;
+
+    private bool _hatteVorschlag;
+
+    /// <summary>#726: Entsteht der Vorschlag der gewählten Runde, ohne dass die Auswahl wechselt (frisch angelegte
+    /// Runde, Eingang danach geändert), klappt der Bereich auf; nur beim Übergang „kein → Vorschlag“, damit ein vom
+    /// Nutzer zugeklappter Bereich bei weiteren Änderungen zu bleibt. Beim Wechsel der Auswahl entscheidet der Fall
+    /// in <see cref="OnRundenVmPropertyChanged"/>.</summary>
+    private void BeiNeuemVorschlagAufklappen()
+    {
+        bool hatVorschlag = Vorschlag.HatVorschlag;
+        if (hatVorschlag && !_hatteVorschlag) Offen = true;
+        _hatteVorschlag = hatVorschlag;
+    }
 
     public AbschnittKopf Kopf => AbschnittKopf.Aus("ÜBERGÄNGE",
     [
