@@ -28,6 +28,9 @@ public sealed class UebergangsVorschlagTests(TurnierverwaltungApp app) : IClassF
             .Should().ContainSingle();
         runden.SpeichernFreigabeAbwarten(false).Should().BeFalse("der Fehler sperrt das Speichern bis zur Übernahme");
 
+        // Das Achtelfinale ist nach dem Anlegen schon gewählt; der Übergänge-Bereich klappt erst beim Wechsel der
+        // Auswahl auf (früher ergab das das Speichern mit Neuladen), daher über die Gruppenphase dorthin wechseln.
+        runden.Auswaehlen(GRUPPENPHASE);
         runden.Auswaehlen(ACHTELFINALE);
         runden.VorschlagTextAbwarten().Should().Be("Gruppenphase: Platz 1–2 je Gruppe, 4 beste 3. Plätze");
         runden.VorschlagHinweis.Should().NotBeEmpty("24 Teams verteilen sich nicht gleichmäßig auf 6 Gruppen");
