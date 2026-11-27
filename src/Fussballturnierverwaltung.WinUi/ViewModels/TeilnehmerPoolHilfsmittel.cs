@@ -31,7 +31,7 @@ public static class TeilnehmerPoolHilfsmittel
     public static TurnierRunde? VorgaengerrundeErmitteln(IReadOnlyList<TurnierRunde> instanzRunden, TurnierRunde aktuelleRunde) =>
         instanzRunden
             .Where(r => r.Reihenfolge < aktuelleRunde.Reihenfolge
-                     && r.Rundenart is not (Rundenart.Finale or Rundenart.SpielUmPlatzDrei))
+                     && !r.Rundenart.IstEndspiel())
             .OrderByDescending(r => r.Reihenfolge)
             .FirstOrDefault();
 

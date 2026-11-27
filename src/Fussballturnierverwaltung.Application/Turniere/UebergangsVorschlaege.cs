@@ -119,7 +119,7 @@ public static class UebergangsVorschlaege
     private static int VorgaengerIndex(IReadOnlyList<TurnierRunde> runden, int zielIndex)
     {
         for (int j = zielIndex - 1; j >= 0; j--)
-            if (runden[j].Rundenart is not (Rundenart.Finale or Rundenart.SpielUmPlatzDrei))
+            if (!runden[j].Rundenart.IstEndspiel())
                 return j;
         return -1;
     }

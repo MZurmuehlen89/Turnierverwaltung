@@ -121,7 +121,7 @@ public class TurnierValidator
             // K.o.-Geschwisterpaar (Finale + Spiel um Platz 3) speist sich beide aus derselben Vorrunde —
             // die zweite der beiden Runden wird nicht gegen die erste, sondern gegen deren gemeinsame
             // Vorrunde geprüft (Issue #178).
-            int vorrundeIndex = i >= 2 && IstKoGeschwisterPaar(runde.Rundenart, runden[i - 1].Rundenart)
+            int vorrundeIndex = i >= 2 && runde.Rundenart.IstEndspielGeschwister(runden[i - 1].Rundenart)
                 ? i - 2
                 : i - 1;
             var vorrunde = runden[vorrundeIndex];
@@ -195,13 +195,6 @@ public class TurnierValidator
                     nameof(hinten.PlatzVon), rundenIndex, position);
         }
     }
-
-    /// <summary>Finale und Spiel um Platz 3 speisen sich strukturell immer aus derselben Vorrunde
-    /// (Sieger- bzw. Verliereranzahl einer K.-o.-Runde sind immer gleich groß) — unabhängig davon,
-    /// in welcher Reihenfolge sie in der Rundenliste stehen.</summary>
-    private static bool IstKoGeschwisterPaar(Rundenart a, Rundenart b) =>
-        (a == Rundenart.Finale && b == Rundenart.SpielUmPlatzDrei) ||
-        (a == Rundenart.SpielUmPlatzDrei && b == Rundenart.Finale);
 
     /// <summary>Validiert Basisdaten einer TurnierInstanz (Issue #294 — vereinheitlicht die frühere
     /// entitätsbasierte <c>TurnierInstanzValidieren</c> mit dem primitiv-basierten

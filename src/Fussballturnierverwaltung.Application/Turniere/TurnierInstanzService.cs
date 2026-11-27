@@ -303,8 +303,8 @@ public class TurnierInstanzService(
                 continue; // Eingang wird über Uebergangsregeln definiert (separat geprüft, siehe UebergangsregelValidator)
 
             // K.o.-Geschwisterpaar (Finale + Spiel um Platz 3) speist sich beide aus derselben Vorrunde,
-            // siehe TurnierValidator.IstKoGeschwisterPaar (Issue #178).
-            int vorrundeIndex = i >= 2 && IstKoGeschwisterPaar(runde.Rundenart, runden[i - 1].Rundenart)
+            // siehe RundenartErweiterungen.IstEndspielGeschwister (Issue #178).
+            int vorrundeIndex = i >= 2 && runde.Rundenart.IstEndspielGeschwister(runden[i - 1].Rundenart)
                 ? i - 2
                 : i - 1;
             var vorrunde = runden[vorrundeIndex];
@@ -323,12 +323,4 @@ public class TurnierInstanzService(
 
         return fehler.Count == 0 ? ValidationErgebnis.Ok() : ValidationErgebnis.MitFehlern([.. fehler]);
     }
-
-    /// <summary>Finale und Spiel um Platz 3 speisen sich strukturell immer aus derselben Vorrunde
-    /// (Sieger- bzw. Verliereranzahl einer K.-o.-Runde sind immer gleich groß) — unabhängig davon,
-    /// in welcher Reihenfolge sie in der Rundenliste stehen. Dupliziert TurnierValidator.IstKoGeschwisterPaar,
-    /// da diese Methode statisch ist und ohne DI-Instanz aus dem interaktiven Console-Rundenbau aufgerufen wird.</summary>
-    private static bool IstKoGeschwisterPaar(Rundenart a, Rundenart b) =>
-        (a == Rundenart.Finale && b == Rundenart.SpielUmPlatzDrei) ||
-        (a == Rundenart.SpielUmPlatzDrei && b == Rundenart.Finale);
 }
