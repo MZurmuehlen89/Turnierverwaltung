@@ -34,18 +34,18 @@ Negativ-Prompt (falls das Werkzeug einen hat): `text, letters, numbers, logo, br
 
 | Datei | Editor / Reiter | Motiv-Prompt (vor den Stilzusatz) | Werkzeug, Datum |
 |---|---|---|---|
-| `bereich-mannschaften.jpg` | Mannschaften | Empty football dressing room, plain unbranded jerseys in red, blue, white and dark grey hanging on hooks above a wooden bench, warm orange ceiling lights | |
-| `bereich-laender.jpg` | Länder & Verbände › Länder | A classic leather football styled as a glowing globe with soft continents, floating in a dark blue stadium atmosphere, cool blue light | |
-| `bereich-verbaende.jpg` | Länder & Verbände › Verbände | Formal assembly hall with a wooden lectern in the center, a row of colorful flags without recognizable emblems in the background, warm lamp light, brown wood tones | |
-| `bereich-regelwerke.jpg` | Regelwerke | A referee whistle, a yellow card and a red card lying on fresh green grass, close-up from slightly above, daylight | |
-| `bereich-ranglisten.jpg` | Ranglisten | A plain printed ranking list on paper on a clipboard, rows of tiny illegible lines, out of focus, neutral white and light grey tones, soft daylight | |
-| `bereich-turnierkopf.jpg` | Turniere › Turnierkopf | A generic golden football trophy of original design on a black pedestal, single spotlight from above, dark background | |
-| `bereich-runden.jpg` | Turniere › Runden | A light grey magnetic wall planner with blank coloured magnetic cards in blue, red, yellow and green arranged in columns that narrow from left to right like a tournament bracket (eight, four, two, one), cards without any writing, soft office daylight, slightly angled view | |
-| `bereich-vorbelegung.jpg` | Turniere › Vorbelegung | View from inside a dark stadium players' tunnel towards the bright pitch at the exit, light at the end of the tunnel | |
-| `bereich-auslosung.jpg` | Turnierdurchführung › Auslosung | Three large glass draw bowls filled with small white balls on a stage, cool blue stage lighting, sparkling highlights | |
-| `bereich-spielplan.jpg` | Turnierdurchführung › Spielplan & Baum | Aerial top-down drone view of a football pitch with mowing stripes and crisp white lines, centre circle in the middle, daylight | |
-| `bereich-simulation.jpg` | Turnierdurchführung › Simulation | Packed football stadium at night, bright floodlights, glowing green pitch, crowd as soft blurred lights | |
-| `bereich-statistik.jpg` | Turnierdurchführung › Statistik | Inside a commentators' booth at night with glowing blue monitors, looking out through the window onto a floodlit pitch | |
-| `bereich-einzelspiel.jpg` | Einzelspiel-Simulation | A football on the centre spot of an empty pitch at dusk, violet and orange sky, low sun glow on the horizon | |
-| `bereich-importexport.jpg` | Import / Export | An unbranded team bus parked in front of a stadium at sunset, headlights on, warm evening light | |
-| `bereich-wartung.jpg` | Datenbankwartung | A groundskeeper's line-marking cart on a pitch in early morning light, fresh white line, mist, pale yellow sky | |
+| `bereich-mannschaften.jpg` | Mannschaften | Empty football dressing room, plain unbranded jerseys in red, blue, white and dark grey hanging on hooks above a wooden bench, warm orange ceiling lights | ChatGPT, 27.11.2026 |
+| `bereich-laender.jpg` | Länder & Verbände › Länder | A classic leather football styled as a glowing globe with soft continents, floating in a dark blue stadium atmosphere, cool blue light | ChatGPT, 27.11.2026 |
+| `bereich-verbaende.jpg` | Länder & Verbände › Verbände | Formal assembly hall with a wooden lectern in the center, a row of colorful flags without recognizable emblems in the background, warm lamp light, brown wood tones | ChatGPT, 27.11.2026 |
+| `bereich-regelwerke.jpg` | Regelwerke | A referee whistle, a yellow card and a red card lying on fresh green grass, close-up from slightly above, daylight | ChatGPT, 27.11.2026 |
+| `bereich-ranglisten.jpg` | Ranglisten | A plain printed ranking list on paper on a clipboard, rows of tiny illegible lines, out of focus, neutral white and light grey tones, soft daylight | ChatGPT, 27.11.2026 |
+| `bereich-turnierkopf.jpg` | Turniere › Turnierkopf | A generic golden football trophy of original design on a black pedestal, single spotlight from above, dark background | ChatGPT, 27.11.2026 |
+| `bereich-runden.jpg` | Turniere › Runden | A light grey magnetic wall planner with blank coloured magnetic cards in blue, red, yellow and green arranged in columns that narrow from left to right like a tournament bracket (eight, four, two, one), cards without any writing, soft office daylight, slightly angled view | ChatGPT, 27.11.2026 |
+| `bereich-vorbelegung.jpg` | Turniere › Vorbelegung | View from inside a dark stadium players' tunnel towards the bright pitch at the exit, light at the end of the tunnel | ChatGPT, 27.11.2026 |
+| `bereich-auslosung.jpg` | Turnierdurchführung › Auslosung | Three large glass draw bowls filled with small white balls on a stage, cool blue stage lighting, sparkling highlights | ChatGPT, 27.11.2026 |
+| `bereich-spielplan.jpg` | Turnierdurchführung › Spielplan & Baum | Aerial top-down drone view of a football pitch with mowing stripes and crisp white lines, centre circle in the middle, daylight | ChatGPT, 27.11.2026 |
+| `bereich-simulation.jpg` | Turnierdurchführung › Simulation | Packed football stadium at night, bright floodlights, glowing green pitch, crowd as soft blurred lights | ChatGPT, 27.11.2026 |
+| `bereich-statistik.jpg` | Turnierdurchführung › Statistik | Inside a commentators' booth at night with glowing blue monitors, looking out through the window onto a floodlit pitch | ChatGPT, 27.11.2026 |
+| `bereich-einzelspiel.jpg` | Einzelspiel-Simulation | A football on the centre spot of an empty pitch at dusk, violet and orange sky, low sun glow on the horizon | ChatGPT, 27.11.2026 |
+| `bereich-importexport.jpg` | Import / Export | An unbranded team bus parked in front of a stadium at sunset, headlights on, warm evening light | ChatGPT, 27.11.2026 |
+| `bereich-wartung.jpg` | Datenbankwartung | A groundskeeper's line-marking cart on a pitch in early morning light, fresh white line, mist, pale yellow sky | ChatGPT, 27.11.2026 |
