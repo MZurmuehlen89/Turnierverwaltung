@@ -58,10 +58,15 @@ internal sealed class BereichsbildAnzeige(Image hinten, Image vorn, UIElement ue
         Storyboard.SetTarget(animation, vorn);
         Storyboard.SetTargetProperty(animation, "Opacity");
 
-        _ueberblendung = new Storyboard();
-        _ueberblendung.Children.Add(animation);
-        _ueberblendung.Completed += (_, _) => UeberblendungAbschliessen();
-        _ueberblendung.Begin();
+        var storyboard = new Storyboard();
+        storyboard.Children.Add(animation);
+        // Nur die eigene Überblendung abschließen: ein verspätetes Ereignis eines alten Storyboards darf die neue nicht beenden
+        storyboard.Completed += (_, _) =>
+        {
+            if (_ueberblendung == storyboard) UeberblendungAbschliessen();
+        };
+        _ueberblendung = storyboard;
+        storyboard.Begin();
     }
 
     // Das einblendende Bild wird zum gezeigten, die vordere Ebene wird wieder leer. Auch beim Abbruch durch

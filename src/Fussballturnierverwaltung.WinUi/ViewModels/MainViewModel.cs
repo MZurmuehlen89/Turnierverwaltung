@@ -138,7 +138,8 @@ public partial class MainViewModel : ObservableObject
                                nameof(IRibbonAware.RibbonZusatzGruppen) or
                                nameof(IRibbonAware.NeuUnterpunkte) or
                                nameof(IRibbonAware.HatStandardAktionen) or
-                               nameof(IRibbonAware.HatLoeschenAktion))
+                               nameof(IRibbonAware.HatLoeschenAktion) or
+                               nameof(IHatBereichsbild.Bereichsbild))
         {
             OnPropertyChanged(nameof(AktuellesBereichsbild));
             OnPropertyChanged(nameof(HatRibbonBereich));
