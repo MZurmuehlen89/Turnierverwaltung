@@ -19,7 +19,7 @@
                     views:SpielKontextmenue.Karte="{Binding}"
                     Padding="0" Width="240" HorizontalContentAlignment="Stretch">
                 <Border BorderThickness="1" CornerRadius="6" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
-                        BorderBrush="{Binding HatErgebnis, Converter={StaticResource BoolToVisibility}}">
+                        BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}">
                     <StackPanel>
                         <Border Background="{ThemeResource CardStrokeColorDefaultBrush}" Opacity="0.5"
                                 Visibility="{Binding HatLabel, Converter={StaticResource BoolToVisibility}}">
@@ -40,7 +40,7 @@
                                        Width="18" Height="18" Stretch="Uniform" />
                                 <TextBlock Text="{Binding HeimName}" FontSize="13" TextTrimming="CharacterEllipsis" VerticalAlignment="Center"
                                            AutomationProperties.AutomationId="TurnierBaum.KarteHeim"
-                                           FontWeight="{Binding HeimIstSieger, Converter={StaticResource IstNichtNull}}" />
+                                           FontWeight="{Binding HeimSchrift}" />
                             </StackPanel>
                             <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding HeimScore}" FontSize="15" FontWeight="Bold" Margin="8,10,12,4" VerticalAlignment="Center"
                                        AutomationProperties.AutomationId="TurnierBaum.KarteHeimTore" />
@@ -53,7 +53,8 @@
                                        Visibility="{Binding AuswaertsWappen, Converter={StaticResource NullToCollapsed}}"
                                        Width="18" Height="18" Stretch="Uniform" />
                                 <TextBlock Text="{Binding AuswaertsName}" FontSize="13" TextTrimming="CharacterEllipsis" VerticalAlignment="Center"
-                                           AutomationProperties.AutomationId="TurnierBaum.KarteAuswaerts" />
+                                           AutomationProperties.AutomationId="TurnierBaum.KarteAuswaerts"
+                                           FontWeight="{Binding AuswaertsSchrift}" />
                             </StackPanel>
                             <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding AuswaertsScore}" FontSize="15" FontWeight="Bold" Margin="8,4,12,10" VerticalAlignment="Center"
                                        AutomationProperties.AutomationId="TurnierBaum.KarteAuswaertsTore" />
