@@ -33,6 +33,13 @@
                     <SolidColorBrush x:Key="VerlaufFarbe3Brush" Color="#1BAF7A" />
                     <SolidColorBrush x:Key="SiegerFarbeBrush" Color="#A8790C" />
                     <SolidColorBrush x:Key="SiegerHintergrundBrush" Color="#FBF3DF" />
+                    <!-- Bereichsbild (#269): Farbüberlagerung über dem Bild (hell weiß 40 %, dunkel schwarz 40 % – hell
+                         so hoch, weil der Sekundärtext sonst unter 4,5:1 fällt, gerechnet über alle 15 Bilder),
+                         Seitenpanel (Tönung 0,5 = Seitenhintergrund #F3F3F3 mit 50 % Deckkraft, keine Unschärfe)
+                         und flaches Menügrün. -->
+                    <SolidColorBrush x:Key="BereichsbildUeberlagerungBrush" Color="#66FFFFFF" />
+                    <SolidColorBrush x:Key="SeitenPanelBrush" Color="#80F3F3F3" />
+                    <SolidColorBrush x:Key="MenueHintergrundBrush" Color="#2E6B24" />
                 </ResourceDictionary>
                 <ResourceDictionary x:Key="Dark">
                     <SolidColorBrush x:Key="ZonenFarbeGruenBrush" Color="#4CC38A" />
@@ -46,8 +53,12 @@
                     <SolidColorBrush x:Key="VerlaufFarbe3Brush" Color="#199E70" />
                     <SolidColorBrush x:Key="SiegerFarbeBrush" Color="#E8B84A" />
                     <SolidColorBrush x:Key="SiegerHintergrundBrush" Color="#3A3121" />
+                    <SolidColorBrush x:Key="BereichsbildUeberlagerungBrush" Color="#66000000" />
+                    <SolidColorBrush x:Key="SeitenPanelBrush" Color="#80202020" />
+                    <SolidColorBrush x:Key="MenueHintergrundBrush" Color="#173A17" />
                 </ResourceDictionary>
             </ResourceDictionary.ThemeDictionaries>
+
 
             <!-- Global verfügbare Converter, analog zu Fussballturnierverwaltung.Wpf\App.xaml -->
             <conv:BoolToVisibilityConverter x:Key="BoolToVisibility" />

@@ -24,6 +24,10 @@ public sealed class Hauptfenster(Window fenster)
 
     public IReadOnlyList<Dialog> OffeneDialoge => Dialog.FindOpen(fenster);
 
+    /// <summary>Die Menüeinträge, die als Eintrag der offenen Seite markiert sind (UIA-ItemStatus „Aktiv“, #269).</summary>
+    public IReadOnlyList<Bereich> AktiveMenueeintraege =>
+        [.. Bereich.Alle.Where(b => fenster.FindById(b.AutomationId).ItemStatus() == "Aktiv")];
+
     private AutomationElement Befehlsleiste => fenster.FindById(BEFEHLSLEISTE);
 
     /// <summary>Schließt offene Rückfragen und verwirft ungespeicherte Änderungen der Seite. Für das Aufräumen nach

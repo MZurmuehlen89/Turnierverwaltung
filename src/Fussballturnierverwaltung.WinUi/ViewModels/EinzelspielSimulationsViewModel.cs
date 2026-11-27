@@ -8,6 +8,7 @@ using Fussballturnierverwaltung.Application.Zufall;
 using Fussballturnierverwaltung.Domain.Entitaeten.Regelwerke;
 using Fussballturnierverwaltung.Domain.Entitaeten.Stammdaten;
 using Fussballturnierverwaltung.Domain.Enums;
+using Fussballturnierverwaltung.WinUi.Navigation;
 using Fussballturnierverwaltung.WinUi.Ribbon;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
@@ -34,7 +35,7 @@ namespace Fussballturnierverwaltung.WinUi.ViewModels;
 /// #247: Jedes Spiel mit eigener Uhr (Spiel bzw. Hinspiel, Rückspiel, Wiederholungsspiel) ist eine
 /// <see cref="SpielBeinAnsicht"/>, die die View als eigene Karte nebeneinander zeigt.
 /// </summary>
-public partial class EinzelspielSimulationsViewModel : ViewModelBase, IRibbonAware
+public partial class EinzelspielSimulationsViewModel : ViewModelBase, IRibbonAware, IHatBereichsbild
 {
     private readonly SimulationsService _simulationsService;
     private readonly MannschaftService  _mannschaftService;
@@ -232,6 +233,7 @@ public partial class EinzelspielSimulationsViewModel : ViewModelBase, IRibbonAwa
     // feedback_composite_vm_aktivierenasync — ohne explizites Überschreiben käme ein command-loser
     // "Löschen"-Button zurück).
     public string   RibbonTabTitel  => "Einzelspiel-Simulation";
+    public string?  Bereichsbild    => "bereich-einzelspiel";
     public ICommand? NeuBefehl       => null;
     public ICommand? SpeichernBefehl => null;
     public ICommand? AbbrechenBefehl => null;

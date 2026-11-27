@@ -26,6 +26,7 @@ public sealed partial class MainWindow : Window
     private readonly ThemeService _themeService;
     private readonly IDialogService _dialogService;
     private readonly DispatcherQueueTimer _ribbonAktualisierenTimer;
+    private readonly BereichsbildAnzeige _bereichsbild;
 
     public MainViewModel ViewModel { get; }
 
@@ -67,6 +68,9 @@ public sealed partial class MainWindow : Window
             RibbonZusatzGruppenAktualisieren();
         };
 
+        _bereichsbild = new BereichsbildAnzeige(BereichsbildHinten, BereichsbildVorn, BereichsbildUeberlagerung);
+        _bereichsbild.Zeigen(ViewModel.AktuellesBereichsbild);
+
         ViewModel.PropertyChanged += OnViewModelPropertyChanged;
         NeuUnterpunkteAktualisieren();
         RibbonZusatzGruppenAktualisieren();
@@ -74,6 +78,9 @@ public sealed partial class MainWindow : Window
 
     private void OnViewModelPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
+        if (e.PropertyName == nameof(MainViewModel.AktuellesBereichsbild))
+            _bereichsbild.Zeigen(ViewModel.AktuellesBereichsbild);
+
         if (e.PropertyName is nameof(MainViewModel.RibbonZusatzGruppen) or nameof(MainViewModel.RibbonNeuUnterpunkte))
         {
             _ribbonAktualisierenTimer.Stop();

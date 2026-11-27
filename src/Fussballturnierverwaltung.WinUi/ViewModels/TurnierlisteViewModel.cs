@@ -17,7 +17,7 @@ namespace Fussballturnierverwaltung.WinUi.ViewModels;
 /// Status <c>Vorlage</c>, die je nach Status unterschiedliche Interaktionen freischaltet, statt zwei
 /// parallele View-Bäume zu pflegen.
 /// </summary>
-public class TurnierlisteViewModel : ViewModelBase, IRibbonAware, IHatUngespeicherteAenderungen, IVerlassenBestaetigen
+public class TurnierlisteViewModel : ViewModelBase, IRibbonAware, IHatUngespeicherteAenderungen, IVerlassenBestaetigen, IHatBereichsbild
 {
     private readonly ILogger<TurnierlisteViewModel> _logger;
 
@@ -164,11 +164,18 @@ public class TurnierlisteViewModel : ViewModelBase, IRibbonAware, IHatUngespeich
         OnPropertyChanged(nameof(NeuUnterpunkte));
         OnPropertyChanged(nameof(HatStandardAktionen));
         OnPropertyChanged(nameof(HatLoeschenAktion));
+        OnPropertyChanged(nameof(Bereichsbild));
         OnPropertyChanged(nameof(HatUngespeicherteAenderungen));
     }
 
     // ── IRibbonAware — Wert-Delegation an das aktive Tab-Kind (analog WPF-Original TurnierDefinitionViewModel) ──
     public string RibbonTabTitel => "Turniere";
+    public string? Bereichsbild => TabKoordinator.AktiverTabIndex switch
+    {
+        1 => "bereich-runden",
+        2 => "bereich-vorbelegung",
+        _ => "bereich-turnierkopf",
+    };
     public ICommand? NeuBefehl       => (TabKoordinator.AktivesTab as IRibbonAware)?.NeuBefehl;
     public ICommand? SpeichernBefehl => (TabKoordinator.AktivesTab as IRibbonAware)?.SpeichernBefehl;
     public ICommand? AbbrechenBefehl => (TabKoordinator.AktivesTab as IRibbonAware)?.AbbrechenBefehl;

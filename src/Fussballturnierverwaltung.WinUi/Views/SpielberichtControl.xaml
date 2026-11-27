@@ -9,7 +9,7 @@
     <!-- Issue #237/#302: vereinheitlichte Spielbericht-Karte. Der Karteninhalt liegt seit #247 in
          SpielberichtKarte; dieses Control ergänzt den Leer-Zustand. -->
 
-    <Grid Background="{ThemeResource ApplicationPageBackgroundThemeBrush}">
+    <Grid>
 
         <!-- Wrapper tragen die Visibility: am Element mit eigenem DataContext liefe die Bindung gegen die Ansicht.
              #247: das Wiederholungsspiel hat eine eigene Uhr und steht als zweite Karte neben dem Spiel; das

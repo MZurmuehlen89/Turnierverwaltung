@@ -24,7 +24,7 @@ public record LandFilterOption(string Anzeige, Land? Wert);
 public record VerbandFilterOption(string Anzeige, Verband? Wert);
 public record ArtFilterOption(string Anzeige, Mannschaftsart? Wert);
 
-public partial class MannschaftenViewModel : ViewModelBase, IRibbonAware, IHatUngespeicherteAenderungen
+public partial class MannschaftenViewModel : ViewModelBase, IRibbonAware, IHatUngespeicherteAenderungen, IHatBereichsbild
 {
     private readonly MannschaftService _mannschaftService;
     private readonly LandService _landService;
@@ -186,6 +186,7 @@ public partial class MannschaftenViewModel : ViewModelBase, IRibbonAware, IHatUn
 
     // ── IRibbonAware ──────────────────────────────────────────────────────────
     public string RibbonTabTitel => "Mannschaften";
+    public string? Bereichsbild => "bereich-mannschaften";
     public ICommand NeuBefehl => NeuCommand;
     public ICommand SpeichernBefehl => SpeichernCommand;
     public ICommand AbbrechenBefehl => AbbrechenCommand;

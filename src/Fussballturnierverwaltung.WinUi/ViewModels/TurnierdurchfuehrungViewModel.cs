@@ -25,7 +25,7 @@ namespace Fussballturnierverwaltung.WinUi.ViewModels;
 ///
 /// Vier Fach-Tabs: #300 (Auslosung), #301 (Spielplan &amp; Baum), #302 (Simulation), #327 (Statistik).
 /// </summary>
-public partial class TurnierdurchfuehrungViewModel : ViewModelBase, IRibbonAware, IHatUngespeicherteAenderungen, IVerlassenBestaetigen
+public partial class TurnierdurchfuehrungViewModel : ViewModelBase, IRibbonAware, IHatUngespeicherteAenderungen, IVerlassenBestaetigen, IHatBereichsbild
 {
     private readonly IDialogService _dialogService;
     private readonly ILogger<TurnierdurchfuehrungViewModel> _logger;
@@ -184,11 +184,19 @@ public partial class TurnierdurchfuehrungViewModel : ViewModelBase, IRibbonAware
         OnPropertyChanged(nameof(NeuUnterpunkte));
         OnPropertyChanged(nameof(HatStandardAktionen));
         OnPropertyChanged(nameof(HatLoeschenAktion));
+        OnPropertyChanged(nameof(Bereichsbild));
         OnPropertyChanged(nameof(HatUngespeicherteAenderungen));
     }
 
     // ── IRibbonAware — Wert-Delegation an das aktive Tab-Kind (analog TurnierlisteViewModel) ──
     public string RibbonTabTitel => "Turnierdurchführung";
+    public string? Bereichsbild => TabKoordinator.AktiverTabIndex switch
+    {
+        1 => "bereich-spielplan",
+        2 => "bereich-simulation",
+        3 => "bereich-statistik",
+        _ => "bereich-auslosung",
+    };
     public ICommand? NeuBefehl       => (TabKoordinator.AktivesTab as IRibbonAware)?.NeuBefehl;
     public ICommand? SpeichernBefehl => (TabKoordinator.AktivesTab as IRibbonAware)?.SpeichernBefehl;
     public ICommand? AbbrechenBefehl => (TabKoordinator.AktivesTab as IRibbonAware)?.AbbrechenBefehl;

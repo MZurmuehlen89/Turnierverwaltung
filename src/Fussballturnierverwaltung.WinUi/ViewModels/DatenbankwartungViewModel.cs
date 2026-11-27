@@ -3,6 +3,7 @@ using CommunityToolkit.Mvvm.Input;
 using Fussballturnierverwaltung.Application.Einstellungen;
 using Fussballturnierverwaltung.Infrastructure.Wartung;
 using Fussballturnierverwaltung.WinUi.Helpers;
+using Fussballturnierverwaltung.WinUi.Navigation;
 using Fussballturnierverwaltung.WinUi.Ribbon;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
@@ -15,7 +16,7 @@ namespace Fussballturnierverwaltung.WinUi.ViewModels;
 /// Protokoll auf der Seite statt Dialog/Erfolgsmeldung. Ort für das spätere Zurücksetzen (#371).
 /// Seit #49 auch die Verbindung zu PostgreSQL: Speichern prüft sie und startet das Programm neu.
 /// Seit #43 Sichern und Wiederherstellen auf Knopfdruck (Kind-ViewModel <see cref="SicherungViewModel"/>).</summary>
-public partial class DatenbankwartungViewModel : ViewModelBase, IRibbonAware
+public partial class DatenbankwartungViewModel : ViewModelBase, IRibbonAware, IHatBereichsbild
 {
     private readonly DatenbankWartungService _wartung;
     private readonly Ablaufprotokoll _ablaufprotokoll;
@@ -63,6 +64,7 @@ public partial class DatenbankwartungViewModel : ViewModelBase, IRibbonAware
     // ── IRibbonAware ──────────────────────────────────────────────────────────
 
     public string   RibbonTabTitel      => "Datenbankwartung";
+    public string?  Bereichsbild        => "bereich-wartung";
     public ICommand? NeuBefehl          => null;
     public ICommand? SpeichernBefehl    => null;
     public ICommand? AbbrechenBefehl    => null;

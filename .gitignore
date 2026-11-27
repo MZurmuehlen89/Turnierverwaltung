@@ -493,3 +493,6 @@ analyse/
 
 # Privates Seed-Bildmaterial mit fremden Rechten – eigenes privates Repo Turnierverwaltung-Bildmaterial (#633)
 src/Fussballturnierverwaltung.Infrastructure/Seed/Bildmaterial/Privat/
+
+# Rohbilder der KI-Bereichsbilder (#269), nur lokal; umwandeln.py erzeugt daraus die JPEGs
+tools/bereichsbilder/original/

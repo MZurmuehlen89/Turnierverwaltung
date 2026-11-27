@@ -7,7 +7,7 @@ using System.Windows.Input;
 namespace Fussballturnierverwaltung.WinUi.ViewModels;
 
 /// <summary>Seite mit den Reitern Länder und Verbände; jeder Reiter ist ein eigener Editor (#606).</summary>
-public partial class LaenderUndVerbaendeViewModel : ViewModelBase, IRibbonAware, IHatUngespeicherteAenderungen
+public partial class LaenderUndVerbaendeViewModel : ViewModelBase, IRibbonAware, IHatUngespeicherteAenderungen, IHatBereichsbild
 {
     private readonly RanglisteService _ranglisteService;
 
@@ -20,12 +20,14 @@ public partial class LaenderUndVerbaendeViewModel : ViewModelBase, IRibbonAware,
     [NotifyPropertyChangedFor(nameof(SpeichernBefehl))]
     [NotifyPropertyChangedFor(nameof(AbbrechenBefehl))]
     [NotifyPropertyChangedFor(nameof(LoeschenBefehl))]
+    [NotifyPropertyChangedFor(nameof(Bereichsbild))]
     private int _aktiverTabIndex;
 
     [ObservableProperty] private bool _istLadend;
 
     // ── IRibbonAware ──────────────────────────────────────────────────────────
     public string RibbonTabTitel => "Länder & Verbände";
+    public string? Bereichsbild => AktiverTabIndex == 0 ? "bereich-laender" : "bereich-verbaende";
     public ICommand? NeuBefehl => AktiverTabIndex == 0 ? LandEditor.NeuCommand : VerbandEditor.NeuCommand;
     public ICommand? SpeichernBefehl => AktiverTabIndex == 0 ? LandEditor.SpeichernCommand : VerbandEditor.SpeichernCommand;
     public ICommand? AbbrechenBefehl => AktiverTabIndex == 0 ? LandEditor.AbbrechenCommand : VerbandEditor.AbbrechenCommand;

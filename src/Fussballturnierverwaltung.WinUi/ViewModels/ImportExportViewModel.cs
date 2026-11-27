@@ -5,6 +5,7 @@ using Fussballturnierverwaltung.Application.Turniere;
 using Fussballturnierverwaltung.Domain.Entitaeten.Turniere;
 using Fussballturnierverwaltung.Domain.Enums;
 using Fussballturnierverwaltung.WinUi.Dialoge;
+using Fussballturnierverwaltung.WinUi.Navigation;
 using Fussballturnierverwaltung.WinUi.Ribbon;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
@@ -19,7 +20,7 @@ namespace Fussballturnierverwaltung.WinUi.ViewModels;
 /// DateiSpeichernUnterAsync (FileOpenPicker/FileSavePicker brauchen unter WinUI3 Desktop ein Fenster-Handle,
 /// das das ViewModel nicht kennt — Precedent: BilddateiWaehlenAsync).
 /// </summary>
-public partial class ImportExportViewModel : ViewModelBase, IRibbonAware
+public partial class ImportExportViewModel : ViewModelBase, IRibbonAware, IHatBereichsbild
 {
     private readonly ImportExportService   _service;
     private readonly TurnierInstanzService _instanzService;
@@ -51,6 +52,7 @@ public partial class ImportExportViewModel : ViewModelBase, IRibbonAware
     // Import/Mannschaften-Export/Spielplan-Export/Turnier-Export bereits eigene Buttons im Formular selbst,
     // ein Ribbon-Duplikat ist überflüssig (Nutzer-Feedback #290-Nachzug).
     public string    RibbonTabTitel  => "Import / Export";
+    public string?   Bereichsbild    => "bereich-importexport";
     public ICommand   NeuBefehl       => _neuBefehl;
     public ICommand   SpeichernBefehl => _speichernBefehl;
     public ICommand?  AbbrechenBefehl => null;

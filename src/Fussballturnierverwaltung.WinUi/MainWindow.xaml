@@ -6,6 +6,7 @@
     xmlns:vm="using:Fussballturnierverwaltung.WinUi.ViewModels"
     xmlns:views="using:Fussballturnierverwaltung.WinUi.Views"
     xmlns:nav="using:Fussballturnierverwaltung.WinUi.Navigation"
+    xmlns:conv="using:Fussballturnierverwaltung.WinUi.Converters"
     Title="Turnierverwaltung">
 
     <!-- Expliziter Background nötig: ohne ihn bleibt das Grid transparent und WinUI3s Fenster-Backdrop
@@ -129,52 +130,85 @@
 
         <Grid Grid.Row="1" ColumnDefinitions="220,1,*">
 
-            <!-- Sidebar -->
-            <Grid Grid.Column="0" Background="{ThemeResource LayerFillColorDefaultBrush}">
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto" />
-                    <RowDefinition Height="*" />
-                </Grid.RowDefinitions>
+            <!-- Sidebar (#269): flaches Menügrün. Das Grün sitzt EINE Ebene über dem Grid mit RequestedTheme="Dark":
+                 an einem Element mit erzwungenem Theme lösen alle ThemeResource-Verweise die Dark-Variante auf –
+                 so nehmen Schrift sowie Hover/Gedrückt der Knöpfe in beiden Modi die hellen Varianten, das Grün
+                 selbst folgt aber dem App-Modus. -->
+            <Grid Grid.Column="0" Background="{ThemeResource MenueHintergrundBrush}">
+                <!-- Untere Hälfte eines Spielfelds (Mittellinie oben, Tor unten), weiß mit 16 % Deckkraft -->
+                <Path Stretch="Uniform" Stroke="White" StrokeThickness="2" Opacity="0.16"
+                      VerticalAlignment="Bottom" Margin="12,0,12,12" IsHitTestVisible="False"
+                      AutomationProperties.AccessibilityView="Raw"
+                      Data="M0,0 H204 V157 H0 Z
+                            M74.55,0 A27.45,27.45 0 0 0 129.45,0
+                            M41.52,157 V107.5 H162.48 V157
+                            M74.52,157 V140.5 H129.48 V157
+                            M80.06,107.5 A27.45,27.45 0 0 1 123.94,107.5
+                            M100.5,124 A1.5,1.5 0 1 0 103.5,124 A1.5,1.5 0 1 0 100.5,124 Z" />
 
-                <StackPanel Grid.Row="0" Padding="16,20,16,16">
-                    <TextBlock Text="⚽" FontSize="22" />
-                    <TextBlock Text="Turnierverwaltung" FontWeight="Bold" Margin="0,4,0,0" />
-                </StackPanel>
+                <Grid RequestedTheme="Dark">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
 
-                <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
-                    <ItemsControl ItemsSource="{x:Bind ViewModel.NavigationsGruppen, Mode=OneWay}">
-                        <ItemsControl.ItemTemplate>
-                            <DataTemplate x:DataType="nav:NavigationsGruppe">
-                                <StackPanel>
-                                    <TextBlock Text="{x:Bind Titel}" Opacity="0.6" FontSize="11"
-                                               FontWeight="SemiBold" Margin="16,16,8,4" />
-                                    <ItemsControl ItemsSource="{x:Bind Eintraege}">
-                                        <ItemsControl.ItemTemplate>
-                                            <DataTemplate x:DataType="nav:NavigationsEintrag">
-                                                <Button Content="{x:Bind Titel}" Command="{x:Bind Befehl}"
-                                                        AutomationProperties.AutomationId="{x:Bind AutomationId}"
-                                                        Background="Transparent" BorderThickness="0"
-                                                        HorizontalAlignment="Stretch"
-                                                        HorizontalContentAlignment="Left"
-                                                        Margin="4,1" Padding="12,8" />
-                                            </DataTemplate>
-                                        </ItemsControl.ItemTemplate>
-                                    </ItemsControl>
-                                </StackPanel>
-                            </DataTemplate>
-                        </ItemsControl.ItemTemplate>
-                    </ItemsControl>
-                </ScrollViewer>
+                    <StackPanel Grid.Row="0" Padding="16,20,16,16">
+                        <TextBlock Text="⚽" FontSize="22" />
+                        <TextBlock Text="Turnierverwaltung" FontWeight="Bold" Margin="0,4,0,0" />
+                    </StackPanel>
+
+                    <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+                        <ItemsControl ItemsSource="{x:Bind ViewModel.NavigationsGruppen, Mode=OneWay}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate x:DataType="nav:NavigationsGruppe">
+                                    <StackPanel>
+                                        <TextBlock Text="{x:Bind Titel}" Opacity="0.8" FontSize="11"
+                                                   FontWeight="SemiBold" Margin="16,16,8,4" />
+                                        <ItemsControl ItemsSource="{x:Bind Eintraege}">
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate x:DataType="nav:NavigationsEintrag">
+                                                    <Button Content="{x:Bind Titel}" Command="{x:Bind Befehl}"
+                                                            AutomationProperties.AutomationId="{x:Bind AutomationId}"
+                                                            AutomationProperties.ItemStatus="{x:Bind Status, Mode=OneWay}"
+                                                            Background="{x:Bind conv:MenueHintergrund.Fuer(IstAktiv), Mode=OneWay}"
+                                                            BorderThickness="0"
+                                                            HorizontalAlignment="Stretch"
+                                                            HorizontalContentAlignment="Left"
+                                                            Margin="4,1" Padding="12,8" />
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
+                                    </StackPanel>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </ScrollViewer>
+                </Grid>
             </Grid>
 
             <Rectangle Grid.Column="1" Fill="{ThemeResource CardStrokeColorDefaultBrush}" Width="1" />
 
             <!-- Inhaltsbereich: klassisches Binding (nicht x:Bind) + ContentTemplateSelector, damit sich
                  die View nach dem Laufzeittyp von AktuellesViewModel richtet. -->
-            <ContentControl x:Name="InhaltsBereich" Grid.Column="2"
-                            Content="{Binding AktuellesViewModel}"
-                            ContentTemplateSelector="{StaticResource ViewLocator}"
-                            HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch" />
+            <!-- Bereichsbild (#269): zwei Bilder zum Überblenden (Code-Behind: BereichsbildAnzeige), darüber die
+                 Farbüberlagerung, darüber das halbdurchsichtige Seitenpanel. Die Bilder sind nur Dekoration und
+                 stehen nicht im UIA-Baum der Steuerelemente. -->
+            <Grid Grid.Column="2">
+                <Image x:Name="BereichsbildHinten" Stretch="UniformToFill" IsHitTestVisible="False"
+                       AutomationProperties.AccessibilityView="Raw" />
+                <Image x:Name="BereichsbildVorn" Stretch="UniformToFill" Opacity="0" IsHitTestVisible="False"
+                       AutomationProperties.AccessibilityView="Raw" />
+                <Rectangle x:Name="BereichsbildUeberlagerung" Visibility="Collapsed" IsHitTestVisible="False"
+                           Fill="{ThemeResource BereichsbildUeberlagerungBrush}"
+                           AutomationProperties.AccessibilityView="Raw" />
+                <Border Margin="16" CornerRadius="8" Background="{ThemeResource SeitenPanelBrush}"
+                        BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1">
+                    <ContentControl x:Name="InhaltsBereich"
+                                    Content="{Binding AktuellesViewModel}"
+                                    ContentTemplateSelector="{StaticResource ViewLocator}"
+                                    HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch" />
+                </Border>
+            </Grid>
 
             <!-- Zentrale Ladeanzeige (#323): liegt über dem Inhalt, damit beim Ein-/Ausblenden nichts springt,
                  und nimmt keine Klicks an — der Inhalt bleibt bedienbar. -->

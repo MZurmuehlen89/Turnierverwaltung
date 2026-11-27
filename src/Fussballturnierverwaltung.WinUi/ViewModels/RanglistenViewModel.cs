@@ -17,7 +17,7 @@ using System.Windows.Input;
 
 namespace Fussballturnierverwaltung.WinUi.ViewModels;
 
-public partial class RanglistenViewModel : ViewModelBase, IRibbonAware, IHatUngespeicherteAenderungen
+public partial class RanglistenViewModel : ViewModelBase, IRibbonAware, IHatUngespeicherteAenderungen, IHatBereichsbild
 {
     private readonly RanglisteService _service;
     private readonly MannschaftService _mannschaftService;
@@ -84,6 +84,7 @@ public partial class RanglistenViewModel : ViewModelBase, IRibbonAware, IHatUnge
 
     // ── IRibbonAware ──────────────────────────────────────────────────────────
     public string RibbonTabTitel => "Ranglisten";
+    public string? Bereichsbild => "bereich-ranglisten";
     public ICommand NeuBefehl => NeuCommand;
     public ICommand SpeichernBefehl => SpeichernCommand;
     public ICommand AbbrechenBefehl => AbbrechenCommand;

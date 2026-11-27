@@ -29,7 +29,11 @@ public partial class MainViewModel : ObservableObject
     [NotifyPropertyChangedFor(nameof(RibbonNeuUnterpunkte))]
     [NotifyPropertyChangedFor(nameof(HatStandardAktionen))]
     [NotifyPropertyChangedFor(nameof(HatLoeschenAktion))]
+    [NotifyPropertyChangedFor(nameof(AktuellesBereichsbild))]
     private ViewModelBase? _aktuellesViewModel;
+
+    /// <summary>Hintergrundbild des Inhaltsbereichs (#269): Dateiname ohne Endung, <c>null</c> ohne Bild.</summary>
+    public string? AktuellesBereichsbild => (AktuellesViewModel as IHatBereichsbild)?.Bereichsbild;
 
     public bool HatRibbonBereich => AktuellesViewModel is IRibbonAware ribbonAware
         && (ribbonAware.HatStandardAktionen || ribbonAware.HatLoeschenAktion || ribbonAware.RibbonZusatzGruppen.Count > 0);
@@ -65,10 +69,10 @@ public partial class MainViewModel : ObservableObject
             Titel = "Stammdaten",
             Eintraege =
             [
-                EintragErstellen("Mannschaften",           "Mannschaften",           () => _navigation.NavigiereZuAsync<MannschaftenViewModel>()),
-                EintragErstellen("Länder & Verbände",      "LaenderUndVerbaende",    () => _navigation.NavigiereZuAsync<LaenderUndVerbaendeViewModel>()),
-                EintragErstellen("Regelwerke",             "Regelwerke",             () => _navigation.NavigiereZuAsync<RegelwerkeViewModel>()),
-                EintragErstellen("Ranglisten",             "Ranglisten",             () => _navigation.NavigiereZuAsync<RanglistenViewModel>()),
+                EintragErstellen<MannschaftenViewModel>("Mannschaften",           "Mannschaften"           ),
+                EintragErstellen<LaenderUndVerbaendeViewModel>("Länder & Verbände",      "LaenderUndVerbaende"    ),
+                EintragErstellen<RegelwerkeViewModel>("Regelwerke",             "Regelwerke"             ),
+                EintragErstellen<RanglistenViewModel>("Ranglisten",             "Ranglisten"             ),
             ]
         });
 
@@ -77,8 +81,8 @@ public partial class MainViewModel : ObservableObject
             Titel = "Turniere",
             Eintraege =
             [
-                EintragErstellen("Turniere",               "Turniere",               () => _navigation.NavigiereZuAsync<TurnierlisteViewModel>()),
-                EintragErstellen("Turnierdurchführung",    "Turnierdurchfuehrung",   () => _navigation.NavigiereZuAsync<TurnierdurchfuehrungViewModel>()),
+                EintragErstellen<TurnierlisteViewModel>("Turniere",               "Turniere"               ),
+                EintragErstellen<TurnierdurchfuehrungViewModel>("Turnierdurchführung",    "Turnierdurchfuehrung"   ),
             ]
         });
 
@@ -87,7 +91,7 @@ public partial class MainViewModel : ObservableObject
             Titel = "Einzelspiel",
             Eintraege =
             [
-                EintragErstellen("Einzelspiel-Simulation", "EinzelspielSimulation", () => _navigation.NavigiereZuAsync<EinzelspielSimulationsViewModel>()),
+                EintragErstellen<EinzelspielSimulationsViewModel>("Einzelspiel-Simulation", "EinzelspielSimulation" ),
             ]
         });
 
@@ -96,7 +100,7 @@ public partial class MainViewModel : ObservableObject
             Titel = "Import / Export",
             Eintraege =
             [
-                EintragErstellen("Import / Export",        "ImportExport",           () => _navigation.NavigiereZuAsync<ImportExportViewModel>()),
+                EintragErstellen<ImportExportViewModel>("Import / Export",        "ImportExport"           ),
             ]
         });
 
@@ -105,9 +109,16 @@ public partial class MainViewModel : ObservableObject
             Titel = "Wartung",
             Eintraege =
             [
-                EintragErstellen("Datenbankwartung",       "Datenbankwartung",       () => _navigation.NavigiereZuAsync<DatenbankwartungViewModel>()),
+                EintragErstellen<DatenbankwartungViewModel>("Datenbankwartung",       "Datenbankwartung"       ),
             ]
         });
+    }
+
+    // Genau der Eintrag der offenen Seite ist markiert – auch bei Navigation aus dem Code (#269 K9)
+    partial void OnAktuellesViewModelChanged(ViewModelBase? value)
+    {
+        foreach (var eintrag in NavigationsGruppen.SelectMany(g => g.Eintraege))
+            eintrag.IstAktiv = value is not null && eintrag.ZielTyp == value.GetType();
     }
 
     [RelayCommand]
@@ -129,6 +140,7 @@ public partial class MainViewModel : ObservableObject
                                nameof(IRibbonAware.HatStandardAktionen) or
                                nameof(IRibbonAware.HatLoeschenAktion))
         {
+            OnPropertyChanged(nameof(AktuellesBereichsbild));
             OnPropertyChanged(nameof(HatRibbonBereich));
             OnPropertyChanged(nameof(RibbonTabTitel));
             OnPropertyChanged(nameof(RibbonNeuBefehl));
@@ -142,6 +154,12 @@ public partial class MainViewModel : ObservableObject
         }
     }
 
-    private NavigationsEintrag EintragErstellen(string titel, string ziel, Func<Task> aktion)
-        => new() { Titel = titel, AutomationId = $"Navigation.{ziel}", Befehl = new AsyncRelayCommand(aktion) };
+    private NavigationsEintrag EintragErstellen<TViewModel>(string titel, string ziel) where TViewModel : ViewModelBase
+        => new()
+        {
+            Titel = titel,
+            AutomationId = $"Navigation.{ziel}",
+            ZielTyp = typeof(TViewModel),
+            Befehl = new AsyncRelayCommand(() => _navigation.NavigiereZuAsync<TViewModel>()),
+        };
 }

@@ -24,7 +24,7 @@ public record RankingSetOption(string Anzeige, RankingRegelSet? Wert);
 /// <summary>Ein Kriterium des gewählten Ranking-Regelsets in der Reihenfolge, in der es die Tabelle entscheidet (#354).</summary>
 public record RangfolgeKriterium(string Nummer, string Name, string Beschreibung);
 
-public partial class RegelwerkeViewModel : ViewModelBase, IRibbonAware, IHatUngespeicherteAenderungen
+public partial class RegelwerkeViewModel : ViewModelBase, IRibbonAware, IHatUngespeicherteAenderungen, IHatBereichsbild
 {
     private readonly RegelwerkService _service;
     private readonly RegelwerkValidator _validator;
@@ -150,6 +150,7 @@ public partial class RegelwerkeViewModel : ViewModelBase, IRibbonAware, IHatUnge
 
     // ── IRibbonAware ──────────────────────────────────────────────────────────
     public string RibbonTabTitel => "Regelwerke";
+    public string? Bereichsbild => "bereich-regelwerke";
     public ICommand? NeuBefehl => NeuCommand;
     public ICommand? SpeichernBefehl => SpeichernCommand;
     public ICommand? AbbrechenBefehl => AbbrechenCommand;
