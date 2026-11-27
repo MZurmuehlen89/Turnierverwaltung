@@ -129,6 +129,8 @@ public class FinaleAutomatik(
     {
         var vorRunde = alleRunden
             .Where(r => r.Reihenfolge < ziel.Reihenfolge
+                     // Bewusst nur KoRunde, nicht IstKoRunde() (#571): gesucht ist die Vorrunde (Halbfinale) eines Endspiels,
+                     // ein Endspiel speist kein Endspiel.
                      && r.Rundenart == Rundenart.KoRunde
                      && r.AusgangsMannschaftsanzahl == 2
                      && !r.MitRueckspiel)

@@ -48,6 +48,8 @@ public static class AuslosungsartVorgabe
                 { Rundenart: Rundenart.Gruppenphase, GruppenAnzahl: > 0 and var gruppen })
                 when runde.EingangsMannschaftsanzahl >= 2 * gruppen => runde.EingangsMannschaftsanzahl / gruppen,
             (Auslosungsart.NachToepfen or Auslosungsart.NachSetzliste or Auslosungsart.GruppensiegerGegenGruppenzweite,
+                // Bewusst nur KoRunde, nicht IstKoRunde() (#571): Finale und Spiel um Platz 3 haben genau eine Paarung,
+                // zwei Töpfe ergeben nur bei mehrteiligen K.-o.-Runden Sinn.
                 { Rundenart: Rundenart.KoRunde }) => 2,
             _ => bisher
         };

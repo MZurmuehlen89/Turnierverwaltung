@@ -98,6 +98,8 @@ public static class PlatzhalterNamen
         PlatzhalterBezug.KoSpiel bezug, TurnierRunde runde, IReadOnlyList<TurnierRunde> alleRunden)
     {
         var kandidaten = alleRunden.Where(r =>
+            // Bewusst keine IstKoRunde() (#571): „Verlierer …“ verweist nur auf eine K.-o.-Runde (Halbfinale → Platz 3),
+            // „Sieger …“ zusätzlich aufs Finale; das Spiel um Platz 3 speist nie eine Folgerunde.
             (r.Rundenart == Rundenart.KoRunde || (!bezug.Verlierer && r.Rundenart == Rundenart.Finale))
             && r.Reihenfolge < runde.Reihenfolge);
 

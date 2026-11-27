@@ -64,6 +64,8 @@ public static class LostopfVorbelegung
         profigrenze.HasValue &&
         auslosung.Lostoepfe.Count == 2 &&
         auslosung.Auslosungsart == Auslosungsart.NachToepfen &&
+        // Bewusst nur KoRunde, nicht IstKoRunde() (#571): Profigrenzen-Töpfe (DFB-Pokal) gibt es nur in Pokalrunden
+        // mit vielen Paarungen, nicht im Finale oder Spiel um Platz 3.
         auslosung.TurnierRunde?.Rundenart == Rundenart.KoRunde &&
         AuslosungsRegelKompatibilitaet.Wirkt(AuslosungsRegelArt.HeimrechtFuerUnterklassige, auslosung, Rundenart.KoRunde);
 

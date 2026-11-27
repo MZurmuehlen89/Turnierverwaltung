@@ -103,6 +103,7 @@ public static class SeedVorlagenAbgleich
         regeln.SequenceEqual([AuslosungsRegelArt.HeimrechtFuerUnterklassige]);
 
     private static bool IstPokalrundeMitToepfen(TurnierRunde runde) =>
+        // Bewusst nur KoRunde, nicht IstKoRunde() (#571): Pokalrunde mit Töpfen, wie LostopfVorbelegung.
         runde.Rundenart == Rundenart.KoRunde &&
         runde.VorgegebeneAuslosungsart == Auslosungsart.NachToepfen &&
         runde.VorgegebeneAuslosungsregeln.Any(r =>
