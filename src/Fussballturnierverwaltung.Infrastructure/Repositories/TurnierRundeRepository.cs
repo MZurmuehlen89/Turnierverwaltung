@@ -25,8 +25,7 @@ public class TurnierRundeRepository(TurnierverwaltungDbContext context)
         int regelwerkId, CancellationToken ct = default)
         => await Context.TurnierRunden
             .Include(r => r.TurnierInstanz)
-            .Where(r => (r.Rundenart == Rundenart.KoRunde || r.Rundenart == Rundenart.Finale
-                         || r.Rundenart == Rundenart.SpielUmPlatzDrei)
+            .Where(r => RundenartErweiterungen.KoRundenarten.Contains(r.Rundenart)
                         && (r.RegelwerkId == regelwerkId
                             || (r.RegelwerkId == null && r.TurnierInstanz.StandardRegelwerkId == regelwerkId)))
             .OrderBy(r => r.TurnierInstanzId).ThenBy(r => r.Reihenfolge)

@@ -21,7 +21,7 @@ public class KoQuellverknuepfung(
     {
         var alleRunden = await rundeRepository.AlleNachInstanzAsync(turnierInstanzId, ct);
         var koRunden = alleRunden
-            .Where(r => r.Rundenart is Rundenart.KoRunde or Rundenart.Finale or Rundenart.SpielUmPlatzDrei)
+            .Where(r => r.Rundenart.IstKoRunde())
             .OrderBy(r => r.Reihenfolge);
 
         foreach (var zielRunde in koRunden)

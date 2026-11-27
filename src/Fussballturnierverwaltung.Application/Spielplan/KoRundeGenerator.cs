@@ -8,8 +8,7 @@ namespace Fussballturnierverwaltung.Application.Spielplan;
 /// </summary>
 public class KoRundeGenerator : ISpielplanGenerator
 {
-    public IReadOnlyList<Rundenart> UnterstützteRundenarten =>
-        [Rundenart.KoRunde, Rundenart.Finale, Rundenart.SpielUmPlatzDrei];
+    public IReadOnlyList<Rundenart> UnterstützteRundenarten => RundenartErweiterungen.KoRundenarten;
 
     public SpielplanErgebnis Generieren(SpielplanKontext kontext)
     {

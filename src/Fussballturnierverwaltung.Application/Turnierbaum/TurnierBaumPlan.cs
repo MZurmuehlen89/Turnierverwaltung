@@ -59,7 +59,7 @@ public sealed class TurnierBaumPlan
     /// <summary>Die K.-o.-Runden eines Turniers in Reihenfolge — Ebene n des Baums (<c>TurnierBaumKnoten.Runde</c>)
     /// ist die n-te davon.</summary>
     public static List<TurnierRunde> KoRunden(IEnumerable<TurnierRunde> runden) =>
-        runden.Where(r => r.Rundenart is Rundenart.KoRunde or Rundenart.Finale or Rundenart.SpielUmPlatzDrei)
+        runden.Where(r => r.Rundenart.IstKoRunde())
             .OrderBy(r => r.Reihenfolge)
             .ToList();
 

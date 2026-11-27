@@ -403,8 +403,7 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
     public bool HatUngespeicherteAenderungen => FormAktiv && Formular.IsDirty;
     public ErgebnisFormularViewModel Formular { get; } = new();
 
-    public bool IstKoRunde => AusgewaehlteRunde?.Rundenart is
-        Rundenart.KoRunde or Rundenart.Finale or Rundenart.SpielUmPlatzDrei;
+    public bool IstKoRunde => AusgewaehlteRunde?.Rundenart.IstKoRunde() == true;
 
     // ── Platzhalter-Vorschau (Issue #208, sichtbarer Toggle-Zustand #325) ────────────────────────────────
     // RibbonAktion.IstAktiv steuert das AppBarToggleButton-Rendering in MainWindow.xaml.cs

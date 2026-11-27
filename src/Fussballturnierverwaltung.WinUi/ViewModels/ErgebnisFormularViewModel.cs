@@ -131,7 +131,7 @@ public partial class ErgebnisFormularViewModel : ObservableObject
         RundeId = runde?.Id;
         _gespeichert = spiel.Ergebnis;
         _rahmen = new ErgebnisRahmen(
-            IstKoRunde: runde is not null && HinRueckspielWertung.IstKoRunde(runde),
+            IstKoRunde: runde is not null && runde.Rundenart.IstKoRunde(),
             IstKoHinspiel: runde is not null && HinRueckspielWertung.IstKoHinspiel(spiel, runde),
             hinspielTore,
             AuswaertstorRegelAktiv: runde?.AuswaertstorRegelAktiv == true,

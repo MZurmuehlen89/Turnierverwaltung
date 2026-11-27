@@ -241,7 +241,7 @@ public partial class RundenFormularViewModel : ObservableObject
 
     /// <summary>Die Auswärtstorregel ergibt nur bei Hin-/Rückspiel-Aggregaten in K.o.-Rundenarten Sinn
     /// (AD-001) — analog WPF-Original <c>RundenEditorViewModel.AuswaertstorAktivierbar</c>.</summary>
-    public bool IstKoRundenart => Rundenart is Rundenart.KoRunde or Rundenart.Finale or Rundenart.SpielUmPlatzDrei;
+    public bool IstKoRundenart => Rundenart.IstKoRunde();
     public bool AuswaertstorAktivierbar => MitRueckspiel && IstKoRundenart;
 
     public bool TitelverteidigerInTopf1Aktivierbar => StandardRangliste?.Wert is not null;

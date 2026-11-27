@@ -13,16 +13,13 @@ namespace Fussballturnierverwaltung.Application.Spiele;
 /// </summary>
 public static class HinRueckspielWertung
 {
-    public static bool IstKoRunde(TurnierRunde runde) =>
-        runde.Rundenart is Rundenart.KoRunde or Rundenart.Finale or Rundenart.SpielUmPlatzDrei;
-
     /// <summary>Hinspiel einer K.-o.-Paarung mit Rückspiel — entscheidet für sich allein nichts.</summary>
     public static bool IstKoHinspiel(Spiel spiel, TurnierRunde runde) =>
-        !spiel.IstRueckspiel && runde.MitRueckspiel && IstKoRunde(runde);
+        !spiel.IstRueckspiel && runde.MitRueckspiel && runde.Rundenart.IstKoRunde();
 
     /// <summary>Rückspiel einer K.-o.-Paarung — sein Ergebnis trägt den Gesamtsieger.</summary>
     public static bool IstKoRueckspiel(Spiel spiel, TurnierRunde runde) =>
-        spiel.IstRueckspiel && spiel.HinspielId is not null && IstKoRunde(runde);
+        spiel.IstRueckspiel && spiel.HinspielId is not null && runde.Rundenart.IstKoRunde();
 
     /// <summary>Tore einer Seite des Hinspiels. Altbestand kann noch Hinspiele mit Verlängerung
     /// enthalten (vor #346 lief dort das Entscheidungsverfahren) — die zählen mit.</summary>

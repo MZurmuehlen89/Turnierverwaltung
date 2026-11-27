@@ -95,7 +95,7 @@ public partial class UebergangsregelBlock : ObservableObject
             for (int i = 1; i <= quelle.GruppenAnzahl.Value; i++)
                 ZeileHinzufuegen(i, 1, bis);
         }
-        else if (quelle.Rundenart is Rundenart.KoRunde or Rundenart.Finale or Rundenart.SpielUmPlatzDrei)
+        else if (quelle.Rundenart.IstKoRunde())
         {
             var anzahlSpiele = Math.Max(1, quelle.EingangsMannschaftsanzahl / 2);
             for (int i = 1; i <= anzahlSpiele; i++)

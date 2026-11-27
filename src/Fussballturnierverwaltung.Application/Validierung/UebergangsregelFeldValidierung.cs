@@ -29,7 +29,7 @@ internal static class UebergangsregelFeldValidierung
                 Rundenart.Gruppenphase => GruppenphaseFehler(quelle, gruppeIndex, platzierungBis),
                 Rundenart.Liga or Rundenart.TopfLiga or Rundenart.SchweizerSystem
                     => LigaFehler(quelle, gruppeIndex, platzierungBis),
-                Rundenart.KoRunde or Rundenart.Finale or Rundenart.SpielUmPlatzDrei
+                var art when art.IstKoRunde()
                     => KoFehler(quelle, gruppeIndex, platzierungBis),
                 _ => [new($"Rundenart '{quelle.Rundenart}' wird als Quellrunde für Übergangsregeln nicht unterstützt.")]
             };

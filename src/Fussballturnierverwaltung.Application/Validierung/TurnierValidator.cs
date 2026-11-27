@@ -54,7 +54,7 @@ public class TurnierValidator
 
         // Liga-Runden können mehr Ausgangsteams als erwartet haben (alle spielen alle). K.-o.-Rundenarten
         // prüft KoAnzahlenPruefen (dort auch der Split-Sonderfall, Issue #334).
-        if (r.Rundenart != Rundenart.Liga && !KoRegelwerk.IstKoRundenart(r.Rundenart) &&
+        if (r.Rundenart != Rundenart.Liga && !r.Rundenart.IstKoRunde() &&
             r.AusgangsMannschaftsanzahl >= r.EingangsMannschaftsanzahl)
             yield return new($"Runde '{r.Name}': Ausgangsteams ({r.AusgangsMannschaftsanzahl}) " +
                              $"müssen kleiner als Eingangsteams ({r.EingangsMannschaftsanzahl}) sein.",
@@ -70,7 +70,7 @@ public class TurnierValidator
     /// Ganzgraph-Summenprüfung in UebergangsregelValidator.</summary>
     private static IEnumerable<Feldfehler> KoAnzahlenPruefen(TurnierRundeEingabe r, int index)
     {
-        if (!KoRegelwerk.IstKoRundenart(r.Rundenart))
+        if (!r.Rundenart.IstKoRunde())
             yield break;
 
         int eingang = r.EingangsMannschaftsanzahl;

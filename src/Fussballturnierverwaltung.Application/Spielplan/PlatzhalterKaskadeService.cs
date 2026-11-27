@@ -136,7 +136,7 @@ public class PlatzhalterKaskadeService(
         // dessen gespiegeltes Rückspiel — positional gezählt wird nur über die Hinspiele, sonst
         // verrutscht die Zuordnung ab der zweiten Paarung.
         bool paarweise = runde.MitRueckspiel &&
-            runde.Rundenart is Rundenart.KoRunde or Rundenart.Finale or Rundenart.SpielUmPlatzDrei;
+            runde.Rundenart.IstKoRunde();
         var rueckspielJeHinspiel = paarweise ? KoPaarungen.RueckspielJeHinspiel(spiele) : [];
         var paarungsSpiele = spiele
             .Where(s => !paarweise || !s.IstRueckspiel)

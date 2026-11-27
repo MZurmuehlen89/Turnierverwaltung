@@ -22,7 +22,7 @@ public static class UebergangsVorschlagText
             case Rundenart.Gruppenphase:
                 teile.AddRange(GruppenTeile(quelle, regeln.Where(r => r.AnzahlBeste is null)));
                 break;
-            case Rundenart.KoRunde or Rundenart.Finale or Rundenart.SpielUmPlatzDrei:
+            case var art when art.IstKoRunde():
                 teile.AddRange(KoTeile(regeln));
                 break;
             default:

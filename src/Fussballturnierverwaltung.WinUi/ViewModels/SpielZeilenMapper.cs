@@ -4,6 +4,7 @@ using Fussballturnierverwaltung.Application.Spielplan;
 using Fussballturnierverwaltung.Application.Stammdaten;
 using Fussballturnierverwaltung.Domain.Entitaeten.Spiele;
 using Fussballturnierverwaltung.Domain.Entitaeten.Turniere;
+using Fussballturnierverwaltung.Domain.Enums;
 
 namespace Fussballturnierverwaltung.WinUi.ViewModels;
 
@@ -27,7 +28,7 @@ internal static class SpielZeilenMapper
         IReadOnlyDictionary<int, (string? Heim, string? Auswaerts)> vorschau)
     {
         var paarungsNummern = KoPaarungen.PaarungsNummern(spiele);
-        bool nachPaarung = runde is not null && runde.MitRueckspiel && HinRueckspielWertung.IstKoRunde(runde);
+        bool nachPaarung = runde is not null && runde.MitRueckspiel && runde.Rundenart.IstKoRunde();
         var reihenfolge = nachPaarung
             ? spiele.OrderBy(s => paarungsNummern[s.Id]).ThenBy(s => s.IstRueckspiel).ToList()
             : spiele;
@@ -63,7 +64,7 @@ internal static class SpielZeilenMapper
 
         return spiele.Select(s =>
         {
-            bool istKo = HinRueckspielWertung.IstKoRunde(s.TurnierRunde);
+            bool istKo = s.TurnierRunde.Rundenart.IstKoRunde();
             var hinspielErgebnis = istKo && s.IstRueckspiel && s.HinspielId is int hinId
                 ? hinspielErgebnisse.GetValueOrDefault(hinId)
                 : null;
@@ -120,7 +121,7 @@ internal static class SpielZeilenMapper
     /// <summary>K.-o.-Spiel der Mannschaftsansicht: „Hinspiel“/„Rückspiel“, Einzelspiel ohne Zusatz; Runden mit
     /// Spieltagen <c>null</c> (zeigen „ST n“).</summary>
     private static string? HinRueckLabel(Spiel s, TurnierRunde? runde) =>
-        runde is null || !HinRueckspielWertung.IstKoRunde(runde) ? null
+        runde is null || !runde.Rundenart.IstKoRunde() ? null
         : !runde.MitRueckspiel ? ""
         : s.IstRueckspiel ? "Rückspiel" : "Hinspiel";
 

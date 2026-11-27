@@ -128,7 +128,7 @@ public partial class UebergangsregelEditorViewModel : ObservableObject
     private ObservableCollection<UebergangsregelZeile> _regelZeilen = [];
 
     public bool RegelIstGruppenphase => RegelQuelle?.Rundenart == Rundenart.Gruppenphase;
-    public bool RegelIstKoSonderfall => RegelQuelle?.Rundenart is Rundenart.KoRunde or Rundenart.Finale or Rundenart.SpielUmPlatzDrei;
+    public bool RegelIstKoSonderfall => RegelQuelle?.Rundenart.IstKoRunde() == true;
     public bool RegelIstLiga => RegelQuelle is not null && !RegelIstGruppenphase && !RegelIstKoSonderfall;
 
     // ── Gruppenübergreifende Rangfolge-Regeln (z.B. "2 beste Gruppendritte") ────

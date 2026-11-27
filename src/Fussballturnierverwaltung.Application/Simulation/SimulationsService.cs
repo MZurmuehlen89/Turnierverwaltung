@@ -131,8 +131,7 @@ public class SimulationsService(
         var spiel = await SpielFuerSimulationLadenAsync(spielId, ueberschreiben, ct);
 
         // Entscheidungsverfahren nur für KO-Runden: Liga/Gruppenphase erlaubt Unentschieden
-        bool istKoRunde = spiel.TurnierRunde?.Rundenart is
-            Rundenart.KoRunde or Rundenart.Finale or Rundenart.SpielUmPlatzDrei;
+        bool istKoRunde = spiel.TurnierRunde?.Rundenart.IstKoRunde() == true;
         var verfahren = istKoRunde ? EntscheidungsverfahrenDerRunde(spiel.TurnierRunde!) : [];
 
         // Issue #346: in K.-o.-Paarungen mit Hin- und Rückspiel entscheidet erst das Gesamtergebnis, ob
@@ -474,7 +473,7 @@ public class SimulationsService(
         List<Spiel> offeneRueckspiele, IReadOnlyCollection<Spiel> spieleDerRunde, CancellationToken ct)
     {
         var runde = (await spielRepository.FindenNachIdFuerSimulationAsync(offeneRueckspiele[0].Id, ct))?.TurnierRunde;
-        if (runde is null || !HinRueckspielWertung.IstKoRunde(runde))
+        if (runde is null || !runde.Rundenart.IstKoRunde())
             return offeneRueckspiele;
 
         var hinspielMitErgebnis = spieleDerRunde.Where(s => s.Ergebnis is not null).Select(s => s.Id).ToHashSet();

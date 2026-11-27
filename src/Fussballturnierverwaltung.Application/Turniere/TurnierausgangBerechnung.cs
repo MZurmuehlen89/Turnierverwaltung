@@ -52,7 +52,7 @@ public static class TurnierausgangBerechnung
                 PlatzierungsGrund.SpielUmPlatzDreiGewonnen, PlatzierungsGrund.SpielUmPlatzDreiVerloren);
 
         var halbfinale = Halbfinale(runden, finale, spiele);
-        if (halbfinale is null || !HinRueckspielWertung.IstKoRunde(halbfinale)) return [];
+        if (halbfinale is null || !halbfinale.Rundenart.IstKoRunde()) return [];
 
         var paarungen = Entscheidungsspiele(halbfinale, spiele);
         if (paarungen.Count != 2) return [];

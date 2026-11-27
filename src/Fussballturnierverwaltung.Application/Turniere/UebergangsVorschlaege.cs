@@ -134,7 +134,7 @@ public static class UebergangsVorschlaege
     {
         switch (quelle.Rundenart)
         {
-            case Rundenart.KoRunde or Rundenart.Finale or Rundenart.SpielUmPlatzDrei:
+            case var art when art.IstKoRunde():
                 int nummer = zielart == Rundenart.SpielUmPlatzDrei ? 2 : 1; // Sieger bzw. Verlierer
                 return Enumerable.Range(1, quelle.EingangsMannschaftsanzahl / 2).Select(spiel => new Platz(spiel, nummer));
             case Rundenart.Gruppenphase when quelle.GruppenAnzahl is > 0 and var gruppen:

@@ -354,7 +354,7 @@ public partial class TurnierkopfViewModel : ViewModelBase, IRibbonAware, IHatUng
     /// Verfahren noch wählbar sind. Die Auswahl bleibt dabei dieselbe, die Änderung gilt nicht als Nutzeränderung.</summary>
     private void StandardOptionenAnRundenPassen(TurnierInstanz? detail)
     {
-        bool braucht = detail?.Runden.Any(r => KoRegelwerk.IstKoRundenart(r.Rundenart) && r.RegelwerkId is null) ?? false;
+        bool braucht = detail?.Runden.Any(r => r.Rundenart.IstKoRunde() && r.RegelwerkId is null) ?? false;
         if (braucht == StandardBrauchtVerfahren) return;
 
         int? gewaehlt = StandardRegelwerk?.Wert?.Id;

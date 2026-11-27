@@ -4,6 +4,7 @@ using Fussballturnierverwaltung.Application.Turniere.Eingaben;
 using Fussballturnierverwaltung.Application.Validierung;
 using Fussballturnierverwaltung.Domain.Entitaeten.Regelwerke;
 using Fussballturnierverwaltung.Domain.Entitaeten.Turniere;
+using Fussballturnierverwaltung.Domain.Enums;
 
 namespace Fussballturnierverwaltung.Application.Turniere;
 
@@ -15,11 +16,11 @@ public class KoRegelwerkPruefung(IRegelwerkRepository regelwerke, ITurnierRundeR
     public async Task RundenPruefenAsync(
         IReadOnlyList<TurnierRundeEingabe> eingaben, int? standardRegelwerkId, CancellationToken ct = default)
     {
-        if (!eingaben.Any(e => KoRegelwerk.IstKoRundenart(e.Rundenart))) return;
+        if (!eingaben.Any(e => e.Rundenart.IstKoRunde())) return;
 
         var standard = await LadenAsync(standardRegelwerkId, ct);
         var fehler = new List<string>();
-        foreach (var e in eingaben.Where(e => KoRegelwerk.IstKoRundenart(e.Rundenart)))
+        foreach (var e in eingaben.Where(e => e.Rundenart.IstKoRunde()))
         {
             var meldung = KoRegelwerk.Fehler(e.Name, e.Rundenart, await LadenAsync(e.RegelwerkId, ct), standard);
             if (meldung is not null) fehler.Add(meldung);
@@ -31,7 +32,7 @@ public class KoRegelwerkPruefung(IRegelwerkRepository regelwerke, ITurnierRundeR
     public async Task RundePruefenAsync(
         TurnierRunde runde, int? neuesRegelwerkId, CancellationToken ct = default)
     {
-        if (!KoRegelwerk.IstKoRundenart(runde.Rundenart)) return;
+        if (!runde.Rundenart.IstKoRunde()) return;
 
         var standardId = await runden.StandardRegelwerkIdDerInstanzAsync(runde.TurnierInstanzId, ct);
         var meldung = KoRegelwerk.Fehler(runde.Name, runde.Rundenart,
@@ -43,7 +44,7 @@ public class KoRegelwerkPruefung(IRegelwerkRepository regelwerke, ITurnierRundeR
     public async Task StandardPruefenAsync(int turnierInstanzId, int? standardRegelwerkId, CancellationToken ct = default)
     {
         var koOhneEigenes = (await runden.AlleNachInstanzAsync(turnierInstanzId, ct))
-            .Where(r => KoRegelwerk.IstKoRundenart(r.Rundenart) && r.RegelwerkId is null).ToList();
+            .Where(r => r.Rundenart.IstKoRunde() && r.RegelwerkId is null).ToList();
         if (koOhneEigenes.Count == 0) return;
 
         var standard = await LadenAsync(standardRegelwerkId, ct);

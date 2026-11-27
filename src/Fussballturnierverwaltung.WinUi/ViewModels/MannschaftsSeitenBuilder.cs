@@ -2,6 +2,7 @@ using Fussballturnierverwaltung.Application.Auslosungen;
 using Fussballturnierverwaltung.Application.Spiele;
 using Fussballturnierverwaltung.Application.Statistiken;
 using Fussballturnierverwaltung.Domain.Entitaeten.Stammdaten;
+using Fussballturnierverwaltung.Domain.Enums;
 
 namespace Fussballturnierverwaltung.WinUi.ViewModels;
 
@@ -212,7 +213,7 @@ public static class MannschaftsSeitenBuilder
         if (s.GruppenNummer is int gruppe) teile.Add($"Gr.{GruppenHerkunft.Buchstabe(gruppe)}");
         if (spiel.IstWiederholungsspiel) teile.Add("Wiederholungsspiel");
 
-        if (HinRueckspielWertung.IstKoRunde(s.TurnierRunde))
+        if (s.TurnierRunde.Rundenart.IstKoRunde())
         {
             if (s.TurnierRunde.MitRueckspiel) teile.Add(s.IstRueckspiel ? "Rückspiel" : "Hinspiel");
         }

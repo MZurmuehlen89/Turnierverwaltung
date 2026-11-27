@@ -21,11 +21,11 @@ public static class AuslosungsKompatibilitaet
         Rundenart rundenart, Auslosungsart art, bool paarungFestVorgegeben = false) => (art, rundenart) switch
     {
         (Auslosungsart.GruppensiegerGegenGruppenzweite,
-            not (Rundenart.KoRunde or Rundenart.Finale or Rundenart.SpielUmPlatzDrei)) =>
+            var r) when !r.IstKoRunde() =>
             "Auslosungsart 'Gruppensieger vs. Zweite' ist nur für K.O.-Runden geeignet, " +
             "die auf eine Gruppenphase folgen.",
 
-        (Auslosungsart.TopfZuordnung, Rundenart.KoRunde or Rundenart.Finale or Rundenart.SpielUmPlatzDrei) =>
+        (Auslosungsart.TopfZuordnung, var r) when r.IstKoRunde() =>
             "Auslosungsart 'Topf-Zuordnung' weist Teams direkt Gruppenplätzen zu " +
             "und ist für K.O.-Runden nicht geeignet. " +
             "Verwenden Sie stattdessen 'Zufällig' oder 'Nach Töpfen'.",

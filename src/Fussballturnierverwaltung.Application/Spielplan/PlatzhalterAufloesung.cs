@@ -421,7 +421,7 @@ public class PlatzhalterAufloesung(
                 => GruppenRangAsync(quellRunde, gruppeIndex, platzierung, sicht, ct),
             Rundenart.Liga or Rundenart.TopfLiga or Rundenart.SchweizerSystem
                 => TabellenRangAsync(quellRunde, platzierung, sicht, ct),
-            Rundenart.KoRunde or Rundenart.Finale or Rundenart.SpielUmPlatzDrei
+            var art when art.IstKoRunde()
                 => KoSpielRangAsync(quellRunde, gruppeIndex, platzierung, sicht, ct),
             _ => Task.FromResult<int?>(null),
         };

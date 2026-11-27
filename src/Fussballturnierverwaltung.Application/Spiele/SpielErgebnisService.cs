@@ -100,7 +100,7 @@ public class SpielErgebnisService(
             IstGesamtwertung: istKoRueckspiel,
             IstKoHinspiel: istKoHinspiel,
             Wiederholung: eingabe.Wiederholung,
-            SiegerErforderlich: HinRueckspielWertung.IstKoRunde(spiel.TurnierRunde) && !istKoHinspiel)));
+            SiegerErforderlich: spiel.TurnierRunde.Rundenart.IstKoRunde() && !istKoHinspiel)));
 
         return NeuesErgebnis(eingabe, sieger, entscheidungArt);
     }

@@ -69,7 +69,7 @@ public static class TeilnehmerPoolHilfsmittel
                 .Select(platz => TeilnehmerAnzeige.AusPlatzhalter($"{platz}. Gruppe {buchstabe}"));
         }
 
-        if (quellRunde.Rundenart is Rundenart.KoRunde or Rundenart.Finale or Rundenart.SpielUmPlatzDrei)
+        if (quellRunde.Rundenart.IstKoRunde())
         {
             string prefix = regel.PlatzierungVon == 2 ? "Verlierer" : "Sieger";
             int spielNr = regel.GruppeIndex ?? 1;
@@ -98,7 +98,7 @@ public static class TeilnehmerPoolHilfsmittel
             return liste.Take(anzahl).ToList();
         }
 
-        if (vorherigeRunde.Rundenart is Rundenart.KoRunde or Rundenart.Finale or Rundenart.SpielUmPlatzDrei)
+        if (vorherigeRunde.Rundenart.IstKoRunde())
         {
             var spiele = vorherigeRunde.EingangsMannschaftsanzahl / 2;
             string prefix = aktuelleRunde.Rundenart == Rundenart.SpielUmPlatzDrei ? "Verlierer" : "Sieger";

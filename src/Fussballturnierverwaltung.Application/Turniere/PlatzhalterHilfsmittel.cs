@@ -44,7 +44,7 @@ public static class PlatzhalterHilfsmittel
                 .Select(platz => $"{platz}. Gruppe {buchstabe}");
         }
 
-        if (regel.QuellRundenart is Rundenart.KoRunde or Rundenart.Finale or Rundenart.SpielUmPlatzDrei)
+        if (regel.QuellRundenart.IstKoRunde())
         {
             string prefix = regel.PlatzierungVon == 2 ? "Verlierer" : "Sieger";
             int spielNr = regel.GruppeIndex ?? 1;

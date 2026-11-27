@@ -9,24 +9,20 @@ namespace Fussballturnierverwaltung.Application.Turniere;
 /// damit Services, Validator und Formulare dieselbe Regel nutzen.</summary>
 public static class KoRegelwerk
 {
-    /// <summary>KoRunde, Finale und Spiel um Platz 3 — die Rundenarten des KoRundeGenerators.</summary>
-    public static bool IstKoRundenart(Rundenart rundenart) =>
-        rundenart is Rundenart.KoRunde or Rundenart.Finale or Rundenart.SpielUmPlatzDrei;
-
     public static bool HatVerfahren(Regelwerk? regelwerk) =>
         regelwerk is not null && regelwerk.Entscheidungsverfahren.Count > 0;
 
     /// <summary>Ob eine Runde mit eigenem Regelwerk (oder ohne, dann gilt der Turnier-Standard) zulässig ist.</summary>
     public static bool RundeGeeignet(Rundenart rundenart, Regelwerk? eigenes, Regelwerk? standard) =>
-        !IstKoRundenart(rundenart) || HatVerfahren(eigenes ?? standard);
+        !rundenart.IstKoRunde() || HatVerfahren(eigenes ?? standard);
 
     /// <summary>Die Regelwerke, die das Rundenformular für diese Rundenart anbietet: bei K.-o. nur mit Verfahren.</summary>
     public static IReadOnlyList<Regelwerk> Auswahl(Rundenart rundenart, IEnumerable<Regelwerk> alle) =>
-        [.. IstKoRundenart(rundenart) ? alle.Where(HatVerfahren) : alle];
+        [.. rundenart.IstKoRunde() ? alle.Where(HatVerfahren) : alle];
 
     /// <summary>„Kein Regelwerk“ ist bei K.-o. nur zulässig, wenn der Turnier-Standard ein Verfahren hat.</summary>
     public static bool KeinRegelwerkErlaubt(Rundenart rundenart, Regelwerk? standard) =>
-        !IstKoRundenart(rundenart) || HatVerfahren(standard);
+        !rundenart.IstKoRunde() || HatVerfahren(standard);
 
     /// <summary>Fehlermeldung zu einer Runde, <c>null</c> wenn sie geeignet ist.</summary>
     public static string? Fehler(string rundenName, Rundenart rundenart, Regelwerk? eigenes, Regelwerk? standard)
