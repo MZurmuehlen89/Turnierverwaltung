@@ -184,6 +184,8 @@ Minor/patch groups: Claude merges when unit and GUI tests are green; **major upd
 
 ## Important Domain Concepts
 
+**K.-o.-Rundenart (#571):** ask "is this a K.-o. round?" only via `Rundenart.IstKoRunde()` / `IstEndspiel()` / `IstEndspielGeschwister()` in `Domain/Enums/RundenartErweiterungen.cs` (EF queries: the list `KoRundenarten`) – never as a new `is Rundenart.KoRunde or …` list. A deliberately narrower check (only `KoRunde`) gets a comment with the reason. `RundenartErweiterungenTests` fails when a new `Rundenart` is not classified.
+
 **`TurnierRunde.AuswaertstorRegelAktiv`** is a Boolean flag active only when `MitRueckspiel = true`. The away-goals rule is evaluated *before* `EntscheidungsVerfahren` when checking aggregate scores (AD-001).
 
 **`TurnierRunde.RegelwerkId`** stores a per-round Regelwerk. Runden override the tournament-level default Regelwerk set on `TurnierInstanz` (AD-026).
